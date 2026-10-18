@@ -130,6 +130,7 @@ def import_provider_base(
     verify_upgrade: Callable[[dict[str, Any], dict[str, Any]], None],
     *,
     validate_current: Callable[[Path, Path], dict[str, Any]] | None = None,
+    retire_core_inputs: bool = False,
 ) -> dict[str, Any]:
     """Import an already-installed Provider base without archives or network access."""
     paths = ensure_workspace(root)
@@ -145,6 +146,10 @@ def import_provider_base(
         raise PFBError("PFB_PROVIDER_BASE_INVALID", "source-layout")
     try:
         incoming = validate(source_active, source_installed)
+        if retire_core_inputs and incoming.get("source") != "production":
+            raise PFBError("PFB_PROVIDER_BASE_INVALID", "production-required")
+        if retire_core_inputs and (paths["providerDev"] / "core-inputs.json").is_symlink():
+            raise PFBError("PFB_PROVIDER_BASE_INVALID", "core-inputs-symlink")
         if paths["providerActive"].is_file():
             current = (validate_current or validate)(paths["providerActive"], paths["providerInstalled"])
             verify_upgrade(current, incoming)
@@ -176,7 +181,20 @@ def import_provider_base(
                 staged_bundle.rename(target_bundle)
         atomic_json(paths["providerActive"], incoming)
         validate(paths["providerActive"], paths["providerInstalled"])
-        return {"providerCount": len(installation_paths), "source": incoming["source"]}
+        result = {"providerCount": len(installation_paths), "source": incoming["source"]}
+        if retire_core_inputs:
+            selection = paths["providerDev"] / "core-inputs.json"
+            retired = None
+            if selection.exists():
+                content = selection.read_bytes()
+                retired = paths["providers"] / "retired-core-inputs" / (sha256_bytes(content) + ".json")
+                retired.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+                if retired.exists() and retired.read_bytes() != content:
+                    raise PFBError("PFB_PROVIDER_BASE_INVALID", "retired-core-inputs-conflict")
+                atomic_text(retired, content.decode("utf-8"))
+                selection.unlink()
+            result["retiredCoreInputs"] = str(retired) if retired else None
+        return result
     except PFBError:
         raise
     except (OSError, TypeError, ValueError) as exc:

@@ -6,6 +6,8 @@
 
 Provider基座必须显式pfb-provider-import，核验完整bytes/size/integrity/proof；来源只读，不执行另一PFB源码。候选同版本重建的例外仅限显式PFB candidate导入，正式production升级门禁保留。watcher生成scope内loose overrides和实际Target指纹，restart加载事实。日常命令不自动构建Core或Provider archive。
 
+正式发布后的复验使用 `pfb-provider-import ... RETIRE_CORE_INPUTS=true`：仅接受 production 基座，成功导入后将本 PFB 的候选核心选择归档到 `providers/retired-core-inputs/`，后续 watcher 使用正式基座的核心文件。核心构建缓存、源工作树、游戏和存档保留；普通导入默认保留候选选择。运行时 adapter 仍来自配套源码，复验须核对实际 module 和核心字节摘要与正式 Release 一致。
+
 `pfb-core-build CORE=<id>` 只构建并验证该核心，输出 `.pfb/workspace/core-builds/<id>/current`，不自动切换 Provider 的运行资源。核心修复复验前，应通过配套 runtime 的候选构建流程装配这些显式核心输入，再以 `pfb-provider-import` 导入经过验证的新基座。不要把生成目录存在或 adapter 模块变化当作新核心已生效；实际 Run 的核心资源 hash、Target 指纹与候选描述必须相符，再记录产品验收。
 
 reset使用exact ID停止本PFB，归档data与postgres到workspace/reset-backups/<timestamp>，保留Provider、依赖、构建缓存、ID与URL。完整清理只能用工作区pfb-remove的clean检查和交互边界，不能rm其他worktree/共享缓存。状态先make pfb-list，不能从目录或本地registry猜。

@@ -62,6 +62,7 @@ def parser() -> argparse.ArgumentParser:
             child.add_argument("--core", required=True)
         if command == "provider-import":
             child.add_argument("--source-root", required=True, type=Path)
+            child.add_argument("--retire-core-inputs", action="store_true")
         if command == "data-reset":
             child.add_argument("--source-root", type=Path)
         if command in {"provider-import", "migrate-storage", "data-reset", "remove", "destroy"}:
@@ -281,6 +282,7 @@ def command_provider_import(root: Path, args: argparse.Namespace) -> int:
         args.source_root,
         _validate_provider_base,
         lambda current, incoming: verify_provider_upgrade(current, incoming, [], allow_candidate_rebuild=True),
+        retire_core_inputs=args.retire_core_inputs,
     )
     _result({"id": spec["id"], "status": "IMPORTED", **result})
     return 0

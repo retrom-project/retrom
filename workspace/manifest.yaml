@@ -643,10 +643,9 @@
       "id": "siglus-rs",
       "path": "project/retrom-core/siglus_rs",
       "role": "core",
-      "gitlink": "https://github.com/xmoezzz/siglus_rs.git",
-      "defaultBranch": "main",
+      "gitlink": "git@github.com:retrom-project/siglus_rs.git",
+      "defaultBranch": "retrom/g5f358ef1360b",
       "submodules": false,
-      "shallowClone": true,
       "dependsOn": []
     }
   ]
