@@ -1,5 +1,7 @@
 # 当前项目验收
 
+2026-10-19 Retrom 固定已发布 runtime `v0.72.1` 与 Siglus r3，交付通用原生槽位／缓存及确认退出自动 End 保存修复。核心 Rust 277 项（7 项原有忽略）、JS 11 项、真实 JSPI 语音回归，以及 runtime 346 文件／2,028 项和完整 Provider 门禁通过。候选两款汉化样本的原生存档、不同 Run 恢复、继续输入与取消／确认退出范围、正式资产身份及额外开局兼容边界见 [Siglus 存档修复验证](siglus-save-validation.md)。正式输入通过标准 pin 核验，112 个 Target 仅 Siglus 核心指纹变化；未提升全作品、真机、完整通关或 T01–T47 总体验收状态。
+
 2026-10-18 Siglus 核心 `retrom-core-g5f358ef1360b-r2` 与 runtime `v0.72.0` 已正式发行，Retrom 固定同次配套工具和两个 Provider。正式资产完成审核预览／发布／原生退出、两款汉化样本读档与继续输入、《初恋 1/1》连续 24 次对白语音点击、第五槽原生保存自动同步及新 Run 恢复；旧存档保留。独立冷缓存的约 8 GB 项目进入标题仅请求约 84.5 MB，未预读 EXE 或其余 BGM；完整缓存、故障、取消和视口的实际范围见 [Siglus 集成验证](siglus-integration-validation.md)。runtime 最终 346 文件／2,028 项、核心 Rust 269 项（7 项原有忽略）、JS 11 项及真实 JSPI 语音回归通过。Retrom 后端／Web／API／契约、独立 PostgreSQL 集成测试与正式输入的完整四视口 `ACC-RF-BROWSER` 32/32（`e5421cd781dc4909`）通过。不提升全作品、真机性能、外设或 T01–T47 的完整验收状态。以下 Siglus dev 记录保留为此前候选历史。
 
 2026-10-18 Siglus 对白语音回调修复已在同一 PFB 的 `0.71.2-dev.3` 候选复验：旧候选中鼠标推进首次语音时的 SuspendError 在合成音频和真实游戏中均已复现；修复后连续点击 24 次、新原生存档、不同 Run 第三槽读档及继续输入通过。核心 Rust 269 项、JS 11 项和新增真实语音浏览器回归通过，PFB 校验 VERIFIED；只改变 Siglus 核心指纹，runtime 源码未变。此前按需验证及本次范围分别记录于 [Siglus 集成验证](siglus-integration-validation.md)，未提升全作品或完整 ACC 验收状态。已有 Run 固定旧核心，须从游戏详情新建运行取得修复。
