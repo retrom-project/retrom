@@ -1,5 +1,19 @@
 # 游戏目录
 
-目录由管理员显式创建，允许核心与默认核心来自统一runtime声明；默认须属于允许集，更新不自动迁移游戏或存档。不由迁移seed。删除普通SELECT检测待审/已发布Game并拒绝非空，不引入跨用例串行锁协议。
+游戏目录是管理员维护的游戏分类，每个目录选择一个平台、一组允许核心和一个默认核心。平台及可选核心来自配套 runtime 的[支持声明](https://github.com/retrom-project/retrom-runtime/blob/master/docs/supported-platforms-and-cores.md)，不由数据库迁移或启动 seed 自动建立。
 
-领域细节统一见[data-model.md](data-model.md)，完整验收见[project-acceptance.md](project-acceptance.md)。
+## 创建与使用
+
+1. 在“游戏目录”新建目录，填写名称、slug 和说明，选择平台及其支持的核心。
+2. 从允许核心中指定默认核心，再将[来源扫描](import-source-examples.md)读取的集合映射到该目录。
+3. 普通启动使用显式选择或目录默认核心；恢复存档使用存档冻结的原核心，不能静默回退到其他核心。
+
+“一键创建推荐目录”是管理员显式操作，按推荐模板与当前可用平台／核心的交集补齐；已有匹配目录跳过，保留名称、默认核心、启用状态及用户配置。它不要求所有支持平台都有目录，也不会因 runtime 升级自动补回目录。
+
+## 修改与删除
+
+目录编辑使用版本 CAS。更改名称、允许核心或默认核心不会迁移游戏和存档，存档恢复仍按[运行与存档规则](runtime-and-play-data.md)判断原核心是否允许及可用。
+
+存在待审或已发布游戏时拒绝删除目录；空目录可删除。检测使用普通查询，不建立跨用例的全局目录锁协议。
+
+字段与请求见 [Catalog API](../api/domains/catalog.yaml)，持久化定义见[数据模型](data-model.md)，验证要求见[项目验收](project-acceptance.md)。

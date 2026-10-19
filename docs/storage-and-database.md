@@ -2,7 +2,18 @@
 
 PostgreSQL保存事实，Redis保存TTL临时run与原子作用域限流，本地POSIX文件系统保存payload。管理员选择的来源路径只读；批准、启动、恢复只消费受管文件，源文件移走不影响已导入内容。私有ROM/BIOS和路径不提交Git。
 
-所有权目录为managed/games/<game-id>、saves/<save-id>、bios/<bios-file-id>和temporary/<uuid>。准备先写temporary独占文件，计算SHA/大小、fsync，再原子rename并fsync文件/父目录。通用存储允许0字节项目文件；ROM/save/BIOS领域在适用边界要求非空。DB事务内不进行复制、解包或Node运行准备。
+受管存储的共同根目录为 `RETROM_DATA_DIR/managed/`，数据库的 `storage_key` 相对此根记录：
+
+| 内容 | 相对受管根的路径 |
+| --- | --- |
+| 游戏内容及媒体 | `games/<game-id>/<file-uuid>` |
+| 存档 payload 及截图 | `saves/<save-id>/<file-uuid>` |
+| BIOS／运行依赖 | `bios/<bios-file-id>/<file-uuid>` |
+| 尚未发布的临时文件 | `temporary/<uuid>` |
+
+例如存档实际位于 `RETROM_DATA_DIR/managed/saves/`，不在 `RETROM_DATA_DIR/saves/`。账号链接密钥另存于 `RETROM_DATA_DIR/account-link.key`。备份应包含整个数据根和对应的 PostgreSQL 备份，步骤及停写要求见[Docker 部署指南](docker-deployment.md#数据备份与版本升级)。
+
+准备先写 `temporary/` 独占文件，计算 SHA/大小、fsync，再原子 rename 并 fsync 文件/父目录。通用存储允许0字节项目文件；ROM/save/BIOS领域在适用边界要求非空。DB事务内不进行复制、解包或Node运行准备。
 
 单个受管文件上限为8 GiB；目录项目和压缩包展开后的文件总量上限为64 GiB，每个成员仍受单文件上限约束。两种限制分别检查，避免把多个合法文件组成的大型游戏误判为单个超限文件。上传压缩包本身仍受8 GiB单文件上限约束。
 

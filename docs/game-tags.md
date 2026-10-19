@@ -1,5 +1,9 @@
 # 共享游戏标签
 
-管理员维护活动Tag，名称规范化唯一；关联≤20且无重复。软删保留关系，待审/已发布展示与筛选立即隐藏该Tag，Game版本/内容身份不变。同名重建新ID不继承旧关系。
+标签是管理员维护的共享资料，所有用户在可见游戏中使用同一组标签进行展示与筛选；它与私人[收藏夹](favorites-and-collections.md)用途不同。
 
-领域细节统一见[data-model.md](data-model.md)，完整验收见[project-acceptance.md](project-acceptance.md)。
+名称去除首尾空白后必须非空，最多 40 个字符且不含控制字符。唯一性比较将连续空白合并并忽略大小写；活动名称重复返回 `TAG_NAME_CONFLICT`，编辑版本过期返回 `VERSION_CONFLICT`。
+
+导入或编辑一款游戏时最多选择 20 个不同的活动标签。删除标签是软删除：保留原关系，立即退出待审／已发布游戏的标签展示、筛选与计数；不批量增加 Game 版本，也不改变内容身份。同名重新创建会获得新 ID，不继承旧关系。已失效的标签 ID 不能作为新增关联或有效筛选条件。
+
+标签的新建、改名和删除见 [Tags API](../api/domains/tags.yaml)；游戏关联见[导入与审核](import-and-review.md)，持久化关系见[数据模型](data-model.md)，验证要求见[项目验收](project-acceptance.md)。
