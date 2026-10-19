@@ -49,6 +49,8 @@ Retrom 是面向个人和可信朋友的自托管多平台浏览器游戏库。�
 
 支持 NES、SNES、Mega Drive、GBA、Nintendo DS、街机，以及 RPG Maker、ONScripter、Siglus 等引擎游戏。平台与核心由配套的 [retrom-runtime](https://github.com/retrom-project/retrom-runtime) 提供，具体游戏格式、输入方式和存档类型随核心而异。
 
+完整的平台／核心对应关系、Provider Target 和存档类型见 [支持平台与核心清单](https://github.com/retrom-project/retrom-runtime/blob/master/docs/supported-platforms-and-cores.md)。清单随 runtime 更新；已部署环境的支持范围以其配套 runtime 版本为准。
+
 ## 快速部署
 
 准备 Linux 服务器、Docker Engine 和 Compose，以及应用域名、游戏隔离泛域名和覆盖两者的 HTTPS 证书。发行镜像已包含应用及配套运行资源，游戏和 BIOS 由管理员自行准备。
