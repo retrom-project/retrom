@@ -1,22 +1,45 @@
 # Retrom 文档
 
-当前实现采用八个产品模块、19张业务表、统一 User 身份和运行组件事实源。数据库与 HTTP 契约直接更新；本分支没有旧数据或旧接口兼容层，Provider Module V1 的代际保持不变。
+从部署和使用、开发维护或验证标准进入。平台与核心的声明及内容规则由配套 retrom-runtime 维护；Retrom 文档说明游戏库、账号、导入审核、运行与受管数据的产品流程。
 
-| 事实源 | 内容 |
+## 部署与使用
+
+| 文档 | 内容 |
 | --- | --- |
 | [Docker 部署](docker-deployment.md) | 发行镜像、域名与 HTTPS、持久存储、启动检查及升级 |
-| [产品与模块](retrom-product-architecture.md) | 范围、职责、依赖方向与写入边界 |
-| [数据模型](data-model.md) | 19表、状态、索引与应用完整性 |
-| [HTTP](http-api-contract.md) / [OpenAPI](../api/openapi.yaml) | 权限、请求、错误和唯一字段定义 |
-| [导入审核](import-and-review.md) | 两个服务器来源、原子进度与同一 Game 审核 |
+| [PWA](pwa.md) | 安装、联网游玩、断网提示与更新 |
+| [游戏目录](platform-instance.md) | 平台、允许核心、默认核心与推荐目录 |
+| [来源文件示例](import-source-examples.md) | Pegasus／EmulationStation 最小目录、元数据和扫描步骤 |
+| [导入与审核](import-and-review.md) | 服务器来源、共享审核、内容替换及退回审核 |
+| [BIOS 与街机依赖](bios-and-arcade.md) | 依赖安装、扫描、Parent ZIP 与 CHD |
+| [收藏与收藏夹](favorites-and-collections.md) | 私人分类、未分类与删除行为 |
+| [共享标签](game-tags.md) | 标签维护、关联、筛选与软删除 |
 | [运行与存档](runtime-and-play-data.md) | runtime 工具、冻结身份、资源与恢复 |
-| [存储](storage-and-database.md) | 受管所有权、文件发布、宽限清理 |
-| [账号与部署](backend-api-and-operations.md) | 登录保护、配置、PostgreSQL/Redis/镜像 |
-| [质量](engineering-quality-and-testing.md) | 有效门禁及风险测试 |
-| [依赖输入](dependency-management.md) | 唯一配套描述、归档认证、运输与发行 |
-| [验收](project-acceptance.md) | 完整检查项、证据、性能和未完成边界 |
-| [PFB](pfb-development.md) | 隔离工作树、持久状态与不可变工具 |
-| [PWA](pwa.md) | 安装、联网游玩、断网提示与更新边界 |
-| [实施状态](implementation-plan.md) | 分阶段门禁与本次可验证状态 |
 
-API字段以当前OpenAPI及Provider V1 schema为准；运行规则、核心声明和指纹由retrom-runtime拥有。正式文档不依赖临时设计目录。验收记录和私有素材位于忽略的验收workspace，不能把历史截图或运行时声明数量当作当前产品通过证据。
+完整平台／核心对应关系、Provider Target 和存档类型见 runtime 的[支持清单](https://github.com/retrom-project/retrom-runtime/blob/master/docs/supported-platforms-and-cores.md)；核心内容格式、BIOS 和加载前提见 [Target 指南](https://github.com/retrom-project/retrom-runtime/blob/master/docs/targets/README.md)。这些链接跟随 runtime 主干，已部署环境应核对其配套版本。
+
+## 开发与维护
+
+| 文档 | 内容 |
+| --- | --- |
+| [PFB 开发](pfb-development.md) | 源码准备、初始化、Provider 导入、构建、启动及日常迭代 |
+| [产品与模块](retrom-product-architecture.md) | 八模块、职责与依赖方向 |
+| [数据模型](data-model.md) | 19 张业务表、状态、索引与应用完整性 |
+| [HTTP 契约](http-api-contract.md) / [OpenAPI](../api/openapi.yaml) | 权限、请求、错误和字段定义 |
+| [界面与产品行为](ui-specification.md) | 普通／移动／沉浸界面与共享控件规则 |
+| [存储与数据库](storage-and-database.md) | 受管目录、文件发布、清理与持久化 |
+| [账号与配置](backend-api-and-operations.md) | 登录保护、配置、代理与服务边界 |
+| [配套运行输入](dependency-management.md) | 版本 pin、归档认证、开发候选与发行 |
+| [平台与核心接入](platform-cores-integration.md) | runtime 与 Host 的接入职责及交付入口 |
+| [街机事实源](arcade-dat-baseline.md) | DAT、核心构建与公共投影的关系 |
+| [BBK RPG 接入边界](bbkrpg-integration.md) | 既有接入的 Host 边界与运行规则入口 |
+| [质量与测试](engineering-quality-and-testing.md) | 工程检查、真实数据库及浏览器回归 |
+| [实施与交付](implementation-plan.md) | 变更、评审和交付流程 |
+
+API 字段以当前 OpenAPI 及 Provider V1 schema 为准；运行规则、核心声明和指纹由 runtime 拥有。文档与实现冲突时核对事实源并修正文档。
+
+## 验证标准
+
+完整检查标准见[项目验收](project-acceptance.md)，逐核心产品验证要求见[运行产品验证边界](core-runtime-validation.md)，执行入口见[质量与测试](engineering-quality-and-testing.md)。
+
+文档维护当前行为、操作方法和检查标准。各次执行结果在对应 CI、PR、Release 或本地报告中核对；私有素材及机器证据保存在忽略的验收 workspace，不在 docs 累积阶段回执和历史通过清单。

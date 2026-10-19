@@ -153,7 +153,7 @@ docker compose --env-file .env exec -T retrom node -e \
 打开 `https://你的域名/setup` 创建首个管理员。空实例没有默认生产账号，部署使用镜像默认的 release 模式。
 
 1. 在“游戏目录”创建目录，选择平台、允许的核心和默认核心；也可使用“一键创建推荐目录”。
-2. 在“游戏入库 → 来源扫描”选择 Pegasus 或 EmulationStation 来源，浏览容器内的素材目录，检查集合与目标目录后开始扫描。
+2. 按[来源文件示例](import-source-examples.md)准备 Pegasus 或 EmulationStation 来源；在“游戏入库 → 来源扫描”浏览容器内的素材目录，选择文件组织形式，检查集合与目标目录后开始扫描。
 3. 在待审核详情补充资料、查看 BIOS 和街机父包缺项，完成试玩后发布。
 4. 在“运行依赖”上传所需 BIOS；批量 BIOS 扫描同样从“来源扫描”进入。
 

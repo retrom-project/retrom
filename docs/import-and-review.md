@@ -1,5 +1,7 @@
 # 服务器来源导入与审核
 
+首次准备来源可按[Pegasus／EmulationStation 示例](import-source-examples.md)组织文件，再在“来源扫描”中选择格式、读取集合并映射目标目录。游戏目录和允许核心的配置见[游戏目录](platform-instance.md)；核心内容前提由 runtime 的 [Target 指南](https://github.com/retrom-project/retrom-runtime/blob/master/docs/targets/README.md)维护。
+
 管理员从 `/` 浏览服务进程可访问的目录，以绝对 `path` 选择来源，inspect Pegasus metadata.pegasus.txt或EmulationStation gamelist.xml，再将collection映射到现存目录和≤20个活动共享Tag。目录列表返回名称和完整路径，允许普通目录符号链接，权限和挂载范围由实际操作系统决定；容器只能浏览已挂载的内容。来源只读，扫描打开所选目录的os.Root，元数据引用仍使用安全相对路径，递归和文件大小保留扫描算法边界。Players保留有界字符串（例如1-4），未知人数/年份返回null。
 
 扫描只处理映射collection。单候选在事务外复制受管内容与媒体，支持ZIP和7z实际解包，校验成员安全路径、总数和大小。核心声明要求保留外归档语义时由runtime统一配置决定。所有候选调用runtime normalize-content/configure/identity；Tyrano封装提取、真实RPG数据库、DOS入口和ScummVM识别仍归runtime。宿主仅复制归一化输出及消费文件事实。
