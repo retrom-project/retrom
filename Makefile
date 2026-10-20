@@ -203,6 +203,7 @@ data-check:
 	@python3 scripts/test_prepare_toolchains.py
 	@python3 scripts/test_makefile.py
 	@python3 scripts/test_workflows.py
+	@python3 scripts/test_ci_scope.py
 	@python3 scripts/test_verify_backend_image.py
 	@python3 scripts/test_acceptance_browser.py
 	@python3 scripts/test_design_assets.py

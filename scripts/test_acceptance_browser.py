@@ -25,7 +25,22 @@ class BrowserAcceptanceBoundaryTests(unittest.TestCase):
         self.assertIn("STARTUP_SECONDS = 300", source)
         self.assertIn('"TMPDIR": "/tmp"', source)
         self.assertIn('browser_environment.pop("RETROM_E2E_GREP", None)', source)
-        self.assertNotIn("--project", source)
+        self.assertIn('browser_environment.pop("RETROM_E2E_PROJECT", None)', source)
+
+    def test_project_selection_is_limited_to_one_complete_configured_viewport(self):
+        source = (ROOT / "scripts/acceptance/browser.py").read_text()
+        # Without RETROM_E2E_PROJECT every viewport runs; CI shards cover the rest.
+        self.assertIn('os.environ.get("RETROM_E2E_PROJECT") or None', source)
+        self.assertIn("project not in browser_projects()", source)
+        self.assertIn('if project:\n            command += ["--project", project]', source)
+        self.assertEqual(source.count('"--project"'), 1)
+        self.assertIn('web/playwright.config.ts', source)
+
+    def test_per_test_durations_are_kept_as_evidence(self):
+        source = (ROOT / "scripts/acceptance/browser.py").read_text()
+        self.assertIn('command += ["--reporter", "list,json"]', source)
+        self.assertIn('"PLAYWRIGHT_JSON_OUTPUT_FILE": str(evidence / "playwright-results.json")', source)
+        self.assertIn('"project":project or "all"', source)
 
     def test_tool_and_provider_inputs_have_no_old_release_default(self):
         source = (ROOT / "scripts/acceptance/browser.py").read_text()

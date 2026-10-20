@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import socket
@@ -23,6 +24,20 @@ ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / ".artifacts/acceptance"
 STARTUP_SECONDS = 300
 REDIS_IMAGE = "redis:8.2.2-bookworm@sha256:4521b581dbddea6e7d81f8fe95ede93f5648aaa66a9dacd581611bf6fe7527bd"
+
+
+def browser_projects() -> tuple[str, ...]:
+    """Viewport projects come only from the Playwright configuration."""
+    config = (ROOT / "web/playwright.config.ts").read_text(encoding="utf-8")
+    return tuple(re.findall(r'^\s*name: "([^"]+)",$', config, re.MULTILINE))
+
+
+def selected_project() -> str | None:
+    # CI shards run one complete viewport project per job; local runs cover all.
+    project = os.environ.get("RETROM_E2E_PROJECT") or None
+    if project is not None and project not in browser_projects():
+        raise ValueError("RETROM_E2E_PROJECT must name a configured browser project")
+    return project
 
 
 def port() -> int:
@@ -142,6 +157,7 @@ def stop(process: subprocess.Popen) -> None:
 
 
 def run_browser() -> int:
+    project = selected_project()
     inputs = prepare()
     marker = uuid.uuid4().hex[:16]
     evidence = ARTIFACTS / marker / "cases/acc-rf-browser"
@@ -207,8 +223,14 @@ def run_browser() -> int:
         command = [node_home + "/bin/npm", "run", "test:e2e", "--", "clean-refactor.spec.ts", "library-mobile.spec.ts", "--output", str(evidence / "test-results")]
         if os.environ.get("RETROM_E2E_GREP"):
             command += ["--grep", os.environ["RETROM_E2E_GREP"]]
-        browser_environment = {**environment, "TMPDIR": "/tmp", "PLAYWRIGHT_HTML_OUTPUT_DIR": str(evidence / "playwright-report")}
+        if project:
+            command += ["--project", project]
+        # Per-test durations stay in browser.log and the evidence JSON.
+        command += ["--reporter", "list,json"]
+        browser_environment = {**environment, "TMPDIR": "/tmp", "PLAYWRIGHT_HTML_OUTPUT_DIR": str(evidence / "playwright-report"),
+            "PLAYWRIGHT_JSON_OUTPUT_FILE": str(evidence / "playwright-results.json")}
         browser_environment.pop("RETROM_E2E_GREP", None)
+        browser_environment.pop("RETROM_E2E_PROJECT", None)
         with (evidence / "browser.log").open("wb") as log:
             result = subprocess.run(command, cwd=web, env=browser_environment, stdout=log, stderr=log, timeout=3600)
         if result.returncode:
@@ -226,7 +248,7 @@ def run_browser() -> int:
             with psycopg.connect(os.environ["RETROM_TEST_DATABASE_URL"], autocommit=True) as connection:
                 connection.execute(sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(database)))
         temporary.cleanup()
-        (evidence / "result.json").write_text(json.dumps({"case":"ACC-RF-BROWSER", "status":status,
+        (evidence / "result.json").write_text(json.dumps({"case":"ACC-RF-BROWSER", "status":status, "project":project or "all",
             "inputDigest":inputs["inputDigest"], "elapsedSeconds":round(time.monotonic()-started,3)}, indent=2) + "\n")
 
 
