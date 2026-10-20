@@ -147,8 +147,14 @@ class RuntimeInputsTests(unittest.TestCase):
     def test_corrupt_chunk_never_publishes_a_prepared_set(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            pin, archives, _, _ = paired_fixture(root, formal=False)
-            chunk = next(archives.glob("*-chunk-*.tar.gz"))
+            pin, archives, manifest, _ = paired_fixture(root, formal=False)
+            # Corrupt a chunk only the first Provider has: an identical chunk of another Provider
+            # shares its content identity and may already be verified in the cache.
+            manifests = [json.loads((archives / provider["chunkManifest"]["asset"]).read_text())
+                         for provider in manifest["providers"]]
+            shared = {chunk["chunkId"] for chunk in manifests[1]["chunks"]}
+            unique = next(chunk for chunk in manifests[0]["chunks"] if chunk["chunkId"] not in shared)
+            chunk = archives / unique["archive"]
             chunk.write_bytes(chunk.read_bytes() + b"\0")
             with self.assertRaisesRegex(ValueError, "PROVIDER_CHUNK_INVALID"):
                 prepare(pin, root / "output", root / "cache", archive_root=archives)
