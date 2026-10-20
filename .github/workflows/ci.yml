@@ -12,6 +12,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: change-scope
+    runs-on: ubuntu-latest
+    outputs:
+      product: ${{ steps.scope.outputs.product }}
+    steps:
+      - name: Check out the merge commit and its base parent
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+      - name: Classify whether product files changed
+        id: scope
+        run: python3 scripts/ci_scope.py HEAD^1 HEAD >> "$GITHUB_OUTPUT"
+
   contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -179,11 +193,19 @@ jobs:
         run: make web-check
 
   browser_ui:
-    name: browser-ui
+    name: browser-ui (${{ matrix.project }})
+    needs: changes
+    if: ${{ needs.changes.outputs.product == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # Every Playwright viewport project runs completely in its own isolated job.
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chrome-1280, chrome-1440p, chrome-4k-150, chrome-mobile]
     env:
       RETROM_TEST_DATABASE_URL: postgres://retrom:retrom-test@127.0.0.1:5432/postgres?sslmode=disable
+      RETROM_E2E_PROJECT: ${{ matrix.project }}
     services:
       postgres:
         image: postgres:18.3-bookworm@sha256:80630f83606d8db77d30b3851b16a9f78be2d0d4dda6f7b82a1fdca5ebe3acba
@@ -243,7 +265,8 @@ jobs:
           RETROM_RUNTIME_INPUT_BASE_URL: ${{ vars.RETROM_RUNTIME_INPUT_BASE_URL }}
         run: python3 scripts/prepare_image_inputs.py
       - name: Prepare the development application before acceptance timing
-        run: make build web-install
+        # prepare-e2e-browser below installs the Web dependencies exactly once.
+        run: make build
       - name: Verify UI consistency in the product browser
         run: |
           make prepare-e2e-browser
@@ -253,7 +276,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ui-consistency-evidence
+          name: ui-consistency-evidence-${{ matrix.project }}
           path: .artifacts/acceptance/*/cases/acc-rf-browser/
           include-hidden-files: true
           if-no-files-found: ignore
@@ -261,18 +284,24 @@ jobs:
 
   quality:
     runs-on: ubuntu-latest
-    needs: [contracts, backend, integration, web, browser_ui]
+    needs: [changes, contracts, backend, integration, web, browser_ui]
     if: ${{ always() }}
     steps:
       - name: Require every quality check to pass
         env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          PRODUCT_CHANGED: ${{ needs.changes.outputs.product }}
           CONTRACTS_RESULT: ${{ needs.contracts.result }}
           BACKEND_RESULT: ${{ needs.backend.result }}
           INTEGRATION_RESULT: ${{ needs.integration.result }}
           WEB_RESULT: ${{ needs.web.result }}
           BROWSER_UI_RESULT: ${{ needs.browser_ui.result }}
         run: |
-          for result in "$CONTRACTS_RESULT" "$BACKEND_RESULT" "$INTEGRATION_RESULT" "$WEB_RESULT" "$BROWSER_UI_RESULT"; do
+          # Only a documentation-only change may skip the product browser.
+          if [[ "$PRODUCT_CHANGED" == false && "$BROWSER_UI_RESULT" == skipped ]]; then
+            BROWSER_UI_RESULT=success
+          fi
+          for result in "$CHANGES_RESULT" "$CONTRACTS_RESULT" "$BACKEND_RESULT" "$INTEGRATION_RESULT" "$WEB_RESULT" "$BROWSER_UI_RESULT"; do
             if [[ "$result" != success ]]; then
               echo "Quality check did not pass: $result" >&2
               exit 1

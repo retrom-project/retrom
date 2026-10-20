@@ -1,0 +1,73 @@
+name: cache-warm
+
+# Pull requests can restore caches saved on the default branch, but never caches
+# saved by another pull request. Populate every CI cache from master so a new PR
+# does not rebuild toolchains, dependencies and Go packages from scratch.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cache-warm
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Cache the repository Node.js toolchain
+        uses: actions/cache@v5
+        with:
+          path: .cache/tools/node-v24.18.0-linux-x64
+          key: retrom-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node-version', 'scripts/prepare-node.sh') }}
+      - name: Prepare native PostgreSQL build prerequisites
+        run: sudo apt-get update && sudo apt-get install -y bison flex zlib1g-dev
+      - name: Cache native PostgreSQL tools
+        uses: actions/cache@v5
+        with:
+          path: .cache/tools/postgresql-18.3
+          key: retrom-postgresql-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/prepare-postgres.sh') }}
+      - name: Cache materialized runtime dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            data/runtime
+            data/dat/emulatorjs/*/fbneo
+            data/dat/emulatorjs/*/mame2003
+            data/dat/emulatorjs/*/mame2003_plus
+            data/dat/emulatorjs/*/fbalpha2012_cps1
+            data/dat/emulatorjs/*/fbalpha2012_cps2
+            data/auth/password-blocklists/*/payload
+          key: retrom-dependencies-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('data/dat/**', 'data/auth/**', 'scripts/dependencies.py', 'scripts/fbalpha2012_dat.py', 'scripts/fbalpha2012-dat-enumerator.cpp') }}
+      - name: Build the cached toolchains and dependencies
+        run: |
+          make prepare-node
+          scripts/prepare-postgres.sh
+          make prepare-deps
+      - name: Fill the npm and Go module and build caches
+        run: |
+          make build web-install
+          go test -run '^$' ./...
