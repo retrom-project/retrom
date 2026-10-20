@@ -118,6 +118,36 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
         self.assertIn("RETROM_E2E_PROJECT: ${{ matrix.project }}", browser)
         self.assertIn("if: ${{ needs.changes.outputs.product == 'true' }}", browser)
 
+    def test_master_warms_every_cache_pull_requests_restore(self) -> None:
+        workflows = REPOSITORY_ROOT / ".github/workflows"
+        ci = CI_WORKFLOW.read_text(encoding="utf-8")
+        warm = (workflows / "cache-warm.yml").read_text(encoding="utf-8")
+        # Pull requests restore only caches saved on the default branch.
+        self.assertIn("on:\n  push:\n    branches: [master]\n  workflow_dispatch:", warm)
+        self.assertNotIn("pull_request", warm)
+        entry = re.compile(r"uses: actions/cache(?:/restore)?@v5\n        with:\n"
+                           r"          path: (.*?)\n          key: (.*?)\n", re.DOTALL)
+        produced = {key: path for path, key in entry.findall(warm)}
+        consumed = {key: path for path, key in entry.findall(ci)}
+        self.assertTrue(consumed)
+        for key, path in consumed.items():
+            with self.subTest(key=key[:40]):
+                self.assertEqual(produced.get(key), path)
+        for setup in ("cache: true\n          cache-dependency-path: go.sum",
+                      "cache: npm\n          cache-dependency-path: web/package-lock.json"):
+            self.assertIn(setup, ci)
+            self.assertIn(setup, warm)
+        self.assertIn("scripts/prepare-postgres.sh", warm)
+        self.assertIn("make prepare-deps", warm)
+        self.assertIn("make build web-install", warm)
+        self.assertIn("go test -run '^$' ./...", warm)
+
+    def test_browser_installs_web_dependencies_once(self) -> None:
+        browser = ci_job("browser_ui")
+        self.assertNotIn("make build web-install", browser)
+        self.assertEqual(browser.count("npm ci"), 0)
+        self.assertLess(browser.index("run: make build\n"), browser.index("make prepare-e2e-browser"))
+
     def test_change_scope_compares_the_merge_commit_with_its_base(self) -> None:
         changes = ci_job("changes")
         self.assertIn("fetch-depth: 2", changes)
