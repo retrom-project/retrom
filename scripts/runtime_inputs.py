@@ -8,21 +8,22 @@ import shutil
 import subprocess
 import tempfile
 import stat
-import tarfile
 from typing import Any
 
 try:
     from .runtime_input_archive import archive_integrity, unpack_tool
-    from .runtime_input_manifest import artifact_records, build_record, digest, load_manifest, manifest_bytes
+    from .runtime_input_manifest import artifact_records, digest, load_manifest, manifest_bytes
     from .runtime_input_transport import artifact, transport_base
-    from .runtime_provider_bundle import describe_installed_provider, install_provider_bundle
+    from .runtime_provider_bundle import describe_installed_provider
     from .runtime_provider_io import _fetch_bytes, _load_json, _write_json_atomic
+    from .runtime_provider_sync import sync_providers
 except ImportError:
     from runtime_input_archive import archive_integrity, unpack_tool
-    from runtime_input_manifest import artifact_records, build_record, digest, load_manifest, manifest_bytes
+    from runtime_input_manifest import artifact_records, digest, load_manifest, manifest_bytes
     from runtime_input_transport import artifact, transport_base
-    from runtime_provider_bundle import describe_installed_provider, install_provider_bundle
+    from runtime_provider_bundle import describe_installed_provider
     from runtime_provider_io import _fetch_bytes, _load_json, _write_json_atomic
+    from runtime_provider_sync import sync_providers
 
 
 def file_digest(path: Path) -> str:
@@ -60,25 +61,11 @@ def verify_tool(tool: Path, manifest: dict[str, Any]) -> None:
             raise ValueError("RUNTIME_INPUT_TOOL_ENTRY_MISSING")
 
 
-def _archive_integrity(archive: Path) -> bytes:
-    with tarfile.open(archive, "r|gz") as source:
-        for member in source:
-            if member.name == "integrity.json":
-                if not member.isfile() or member.size > 16 * 1024 * 1024:
-                    raise ValueError("RUNTIME_INPUT_PROVIDER_INTEGRITY_INVALID")
-                stream = source.extractfile(member)
-                if stream is None:
-                    raise ValueError("RUNTIME_INPUT_PROVIDER_INTEGRITY_INVALID")
-                with stream:
-                    return stream.read()
-    raise ValueError("RUNTIME_INPUT_PROVIDER_INTEGRITY_INVALID")
-
-
-def verify_provider(root: Path, record: dict[str, Any], manifest: dict[str, Any], archive: Path) -> dict[str, Any]:
-    installed = root / "installed" / record["providerId"] / record["bundleSha256"]
-    if (installed / "integrity.json").is_symlink() or (installed / "integrity.json").read_bytes() != _archive_integrity(archive):
-        raise ValueError("RUNTIME_INPUT_PROVIDER_ARCHIVE_MISMATCH")
-    provider = describe_installed_provider(build_record(record), root / "installed")
+def verify_provider(root: Path, record: dict[str, Any], manifest: dict[str, Any]) -> dict[str, Any]:
+    if (root / "installed" / record["providerId"] / record["bundleSha256"] / "integrity.json").is_symlink():
+        raise ValueError("RUNTIME_INPUT_SYMLINK_OR_SPECIAL_FILE")
+    # bundleSha256 is the digest of integrity.json; this rehashes every installed file.
+    provider = describe_installed_provider(record, root / "installed")
     if provider["moduleSha256"] != record["moduleSha256"]:
         raise ValueError("RUNTIME_INPUT_MODULE_MISMATCH")
     installed = root / "installed" / provider["installationPath"]
@@ -114,7 +101,7 @@ def verify_roots(tool: Path, providers: Path, manifest: dict[str, Any], *, archi
     if archive_integrity(archives / manifest["tool"]["archive"]) != contents:
         raise ValueError("RUNTIME_INPUT_TOOL_ARCHIVE_MISMATCH")
     verify_tool(tool, manifest)
-    described = [verify_provider(providers, record, manifest, archives / Path(record["archive"]).name) for record in manifest["providers"]]
+    described = [verify_provider(providers, record, manifest) for record in manifest["providers"]]
     if _load_json(providers / "active.json", "RUNTIME_PROVIDER_ACTIVE_INVALID") != active_value(described, manifest):
         raise ValueError("RUNTIME_INPUT_ACTIVE_MISMATCH")
     if node:
@@ -159,12 +146,11 @@ def _prepare_locked(manifest, destination, output_root, cache_root, archive_root
         tool.mkdir()
         unpack_tool(archives / manifest["tool"]["archive"], tool)
         verify_tool(tool, manifest)
-        providers = staging / "providers"
-        for record in manifest["providers"]:
-            install_provider_bundle(archives / Path(record["archive"]).name, build_record(record), providers / "installed")
-        described = [verify_provider(providers, record, manifest, archives / Path(record["archive"]).name) for record in manifest["providers"]]
-        _write_json_atomic(providers / "active.json", active_value(described, manifest))
         _write_json_atomic(staging / "runtime-inputs.json", manifest)
+        # Providers come only from content-addressed chunks: the shared cache serves unchanged
+        # chunks of every earlier version, so a new pin downloads only what changed.
+        sync_providers(staging / "runtime-inputs.json", staging / "providers", cache=cache_root / "chunks",
+                       source=str(archive_root) if archive_root is not None else base)
         verify_prepared(staging, manifest, node=node)
         staging.chmod(0o755)
         staging.rename(destination)

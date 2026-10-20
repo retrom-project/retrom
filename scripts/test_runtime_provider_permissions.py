@@ -16,9 +16,8 @@ class RuntimeProviderPermissionsTest(unittest.TestCase):
         try:
             with tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
-                pin, _, _, downloads = paired_fixture(root)
-                fetch = Mock(side_effect=lambda url, maximum: downloads[url])
-                first = prepare(pin, root / "first", root / "cache", fetch=fetch)
+                pin, archives, _, _ = paired_fixture(root)
+                first = prepare(pin, root / "first", root / "cache", archive_root=archives)
                 self.assertEqual(first.stat().st_mode & 0o777, 0o755)
                 self.assert_public_readable(first / "providers/active.json", first / "providers/installed")
                 offline = Mock(side_effect=AssertionError("must reuse verified cache"))

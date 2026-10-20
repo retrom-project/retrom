@@ -64,7 +64,7 @@ def inputs() -> tuple[Path, Path, Path]:
 
 
 def value() -> dict[str, object]:
-    tool, providers, dependencies = inputs()
+    tool, _, dependencies = inputs()
     package = json.loads((tool / "package.json").read_text())
     if not (tool / "scripts/runtime-cli.mjs").is_file() or not (tool / "dist/runtime/index.js").is_file():
         raise ValueError("IMAGE_RUNTIME_TOOL_INCOMPLETE")
@@ -75,6 +75,7 @@ def value() -> dict[str, object]:
                     "scripts/prepare_image_inputs.py", "scripts/runtime_inputs.py", "scripts/runtime_input_manifest.py",
                     "scripts/runtime_input_transport.py", "scripts/runtime_input_archive.py",
                     "scripts/runtime_provider_bundle.py", "scripts/runtime_provider_contract.py", "scripts/runtime_provider_io.py",
+                    "scripts/runtime_provider_sync.py",
                     "web/Dockerfile", "web/.dockerignore", "web/package.json",
                     "web/package-lock.json", "web/next.config.ts", "web/next-env.d.ts", "web/tsconfig.json",
                     "web/postcss.config.mjs", "web/proxy.ts", "web/app", "web/features", "web/components",
@@ -83,8 +84,8 @@ def value() -> dict[str, object]:
     return {"schemaVersion": 1, "sourceSha256": tree_digest(ROOT, source_roots, generated_go=True),
             "webBackendOrigin": os.environ.get("NEXT_BACKEND_ORIGIN", "http://retrom:8080"),
             "runtimeInputsSha256": hashlib.sha256(manifest_bytes(load_manifest(ROOT / "data/runtime-inputs.json"))).hexdigest(),
+            # Providers are not in the image; the pinned runtime-inputs.json above fixes their chunks.
             "runtimeToolSha256": tree_digest(tool),
-            "providerSha256": tree_digest(providers, ["active.json", "installed"]),
             "dependencySha256": tree_digest(dependencies, ["auth/password-blocklists"])}
 
 

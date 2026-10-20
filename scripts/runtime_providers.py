@@ -4,30 +4,22 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from pathlib import Path, PurePosixPath
+import shutil
+from pathlib import Path
 from typing import Any
 
 if __package__:
     from scripts.runtime_provider_io import _load_json, _write_json_atomic
     from scripts.runtime_input_manifest import release_identity as _valid_release_identity
-    from scripts.runtime_provider_bundle import (
-        describe_installed_provider,
-        install_provider_bundle,
-    )
+    from scripts.runtime_provider_bundle import describe_installed_provider
+    from scripts.runtime_provider_sync import sync_providers
 else:
     from runtime_provider_io import _load_json, _write_json_atomic
     from runtime_input_manifest import release_identity as _valid_release_identity
-    from runtime_provider_bundle import (
-        describe_installed_provider,
-        install_provider_bundle,
-    )
+    from runtime_provider_bundle import describe_installed_provider
+    from runtime_provider_sync import sync_providers
 
 
-BUILD_KEYS = {"schemaVersion", "sourceTreeSha256", "providers"}
-PROVIDER_KEYS = {
-    "archive", "bundleDirectory", "bundleSha256", "bundleSizeBytes", "fileCount",
-    "manifestSha256", "providerId", "providerVersion", "unpackedSizeBytes",
-}
 PROVIDER_ID = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
 SEMVER = re.compile(
     r"^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)"
@@ -37,33 +29,36 @@ SEMVER = re.compile(
 LOWER_DIGEST = re.compile(r"^[0-9a-f]{64}$")
 
 
-def prepare_candidate_providers(
-    candidate_root: Path,
-    installed_root: Path,
-    active_path: Path | None = None,
-) -> dict[str, Any]:
-    """Verify and install local release artifacts without contacting the network."""
+def prepare_candidate_providers(candidate_root: Path, providers_root: Path) -> dict[str, Any]:
+    """Install a local runtime candidate (its release/ directory of chunks) without the network.
+
+    The candidate is assembled in a staging root seeded from the current one, checked against
+    the upgrade rules, and only then swapped in, so a refused candidate changes nothing.
+    """
     candidate_root = candidate_root.resolve(strict=True)
-    metadata = _load_build_metadata(candidate_root / "providers" / "provider-build.json")
-    active_providers: list[dict[str, Any]] = []
-    for provider in metadata["providers"]:
-        archive = _resolve_candidate_archive(candidate_root / "providers", provider["archive"])
-        install_provider_bundle(archive, provider, installed_root)
-        active_providers.append(describe_installed_provider(provider, installed_root))
-    active = {
-        "providers": sorted(active_providers, key=lambda item: item["providerId"]),
-        "release": None,
-        "schemaVersion": 1,
-        "source": "candidate",
-        "sourceTreeSha256": metadata["sourceTreeSha256"],
-    }
-    if active_path is not None:
-        if active_path.exists():
-            existing = _load_json(active_path, "RUNTIME_PROVIDER_ACTIVE_INVALID")
-            if existing.get("source") == "production":
-                raise ValueError("RUNTIME_PROVIDER_PRODUCTION_FORBIDDEN")
-            verify_provider_upgrade(existing, active, [])
-        _write_json_atomic(active_path, active)
+    providers_root = providers_root.resolve()
+    current = None
+    if (providers_root / "active.json").exists():
+        current = _load_json(providers_root / "active.json", "RUNTIME_PROVIDER_ACTIVE_INVALID")
+        if current.get("source") == "production":
+            raise ValueError("RUNTIME_PROVIDER_PRODUCTION_FORBIDDEN")
+    staging = providers_root.with_name(f".{providers_root.name}-candidate")
+    previous = providers_root.with_name(f".{providers_root.name}-previous")
+    shutil.rmtree(staging, ignore_errors=True)
+    shutil.rmtree(previous, ignore_errors=True)
+    try:
+        sync_providers(candidate_root / "runtime-inputs.json", staging, source=str(candidate_root),
+                       seeds=[providers_root] if providers_root.exists() else [])
+        active = check_active_providers(staging / "active.json", staging / "installed", "candidate")
+        if current is not None:
+            verify_provider_upgrade(current, active, [])
+        providers_root.parent.mkdir(parents=True, exist_ok=True)
+        if providers_root.exists():
+            providers_root.rename(previous)
+        staging.rename(providers_root)
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+        shutil.rmtree(previous, ignore_errors=True)
     return active
 
 
@@ -82,52 +77,10 @@ def check_active_providers(active_path: Path, installed_root: Path, expected_sou
     for provider in providers.values():
         if expected_source == "production" and provider["providerVersion"] != active["release"]["tag"][1:]:
             raise ValueError("RUNTIME_PROVIDER_ACTIVE_INVALID")
-        record = {
-            "archive": f'{provider["providerId"]}/{provider["providerId"]}-provider-{provider["providerVersion"]}.tar.gz',
-            "bundleDirectory": f'{provider["providerId"]}/{provider["providerId"]}-{provider["providerVersion"]}',
-            **{key: provider[key] for key in (
-                "bundleSha256", "bundleSizeBytes", "fileCount", "manifestSha256",
-                "providerId", "providerVersion", "unpackedSizeBytes",
-            )},
-        }
-        if describe_installed_provider(record, installed_root) != provider:
+        # An active entry carries its own bundle identity; rebuilding it from disk must match exactly.
+        if describe_installed_provider(provider, installed_root) != provider:
             raise ValueError("RUNTIME_PROVIDER_ACTIVE_INVALID")
     return active
-
-
-def _load_build_metadata(path: Path) -> dict[str, Any]:
-    value = _load_json(path, "PROVIDER_RELEASE_METADATA_INVALID")
-    if not isinstance(value, dict) or set(value) != BUILD_KEYS or value["schemaVersion"] != 1 or \
-            not isinstance(value["sourceTreeSha256"], str) or not LOWER_DIGEST.fullmatch(value["sourceTreeSha256"]):
-        raise ValueError("PROVIDER_RELEASE_METADATA_INVALID")
-    providers = value["providers"]
-    if not isinstance(providers, list) or not providers:
-        raise ValueError("PROVIDER_RELEASE_METADATA_INVALID")
-    identities: set[str] = set()
-    for provider in providers:
-        if not isinstance(provider, dict) or set(provider) != PROVIDER_KEYS:
-            raise ValueError("PROVIDER_RELEASE_METADATA_INVALID")
-        provider_id = provider["providerId"]
-        version = provider["providerVersion"]
-        archive = provider["archive"]
-        if not isinstance(provider_id, str) or not PROVIDER_ID.fullmatch(provider_id):
-            raise ValueError("PROVIDER_RELEASE_METADATA_INVALID")
-        if provider_id in identities or not isinstance(version, str) or not SEMVER.fullmatch(version):
-            raise ValueError("PROVIDER_RELEASE_METADATA_INVALID")
-        identities.add(provider_id)
-        expected_archive = f"{provider_id}/{provider_id}-provider-{version}.tar.gz"
-        expected_directory = f"{provider_id}/{provider_id}-{version}"
-        if archive != expected_archive or provider["bundleDirectory"] != expected_directory:
-            raise ValueError("PROVIDER_RELEASE_METADATA_INVALID")
-        if not _safe_relative_path(archive):
-            raise ValueError("PROVIDER_RELEASE_METADATA_INVALID")
-        for key in ("bundleSha256", "manifestSha256"):
-            if not isinstance(provider[key], str) or not LOWER_DIGEST.fullmatch(provider[key]):
-                raise ValueError("PROVIDER_RELEASE_METADATA_INVALID")
-        for key in ("bundleSizeBytes", "unpackedSizeBytes", "fileCount"):
-            if not _positive_safe_integer(provider[key]):
-                raise ValueError("PROVIDER_RELEASE_METADATA_INVALID")
-    return value
 
 
 def verify_provider_upgrade(
@@ -205,26 +158,10 @@ def _match(pattern: re.Pattern[str], value: Any) -> bool:
     return isinstance(value, str) and pattern.fullmatch(value) is not None
 
 
-def _resolve_candidate_archive(provider_root: Path, relative: str) -> Path:
-    archive = (provider_root / relative).resolve(strict=True)
-    try:
-        archive.relative_to(provider_root.resolve(strict=True))
-    except ValueError as error:
-        raise ValueError("PROVIDER_RELEASE_METADATA_INVALID") from error
-    if not archive.is_file():
-        raise ValueError("PROVIDER_RELEASE_METADATA_INVALID")
-    return archive
 
 
-def _safe_relative_path(value: Any) -> bool:
-    if not isinstance(value, str) or not value or "\\" in value or "\0" in value:
-        return False
-    path = PurePosixPath(value)
-    return not path.is_absolute() and all(part not in {"", ".", ".."} for part in path.parts)
 
 
-def _positive_safe_integer(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and 0 < value <= 9_007_199_254_740_991
 
 
 def main() -> int:
@@ -232,8 +169,7 @@ def main() -> int:
     subcommands = parser.add_subparsers(dest="command", required=True)
     prepare = subcommands.add_parser("prepare-candidate")
     prepare.add_argument("--candidate-root", type=Path, required=True)
-    prepare.add_argument("--installed-root", type=Path, required=True)
-    prepare.add_argument("--active-path", type=Path, required=True)
+    prepare.add_argument("--providers-root", type=Path, required=True)
     check = subcommands.add_parser("check")
     check.add_argument("--active-path", type=Path, required=True)
     check.add_argument("--installed-root", type=Path, required=True)
@@ -244,11 +180,7 @@ def main() -> int:
     upgrade.add_argument("--checkpoint-references", type=Path, required=True)
     arguments = parser.parse_args()
     if arguments.command == "prepare-candidate":
-        result = prepare_candidate_providers(
-            arguments.candidate_root,
-            arguments.installed_root,
-            arguments.active_path,
-        )
+        result = prepare_candidate_providers(arguments.candidate_root, arguments.providers_root)
     elif arguments.command == "check":
         result = check_active_providers(arguments.active_path, arguments.installed_root, arguments.source)
     elif arguments.command == "verify-upgrade":

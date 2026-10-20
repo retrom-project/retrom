@@ -23,7 +23,17 @@ type Client struct {
 	BiosRequirements []BiosRequirement
 	Locate           func(string) (string, error)
 	pool             *workerPool
+	// hashFiles rehashes every Provider file at startup; a just-verified install skips it.
+	hashFiles bool
 }
+
+// Option adjusts how Open trusts the installed Providers.
+type Option func(*Client)
+
+// VerifiedInstall skips per-file hashing for Providers that a chunk sync verified
+// before this start; structure and file sizes are still checked.
+func VerifiedInstall() Option { return func(c *Client) { c.hashFiles = false } }
+
 type (
 	Binding struct {
 		CoreID            string           `json:"coreId"`
@@ -167,7 +177,7 @@ func (c *Client) Validate(ctx context.Context, platform string, config json.RawM
 }
 func (c *Client) GetCatalog(_ context.Context) (model.Catalog, error) { return c.Catalog, nil }
 
-func Open(ctx context.Context, root, node, providerRoot string) (*Client, error) {
+func Open(ctx context.Context, root, node, providerRoot string, options ...Option) (*Client, error) {
 	for _, name := range []string{"scripts/runtime-cli.mjs", "dist/runtime/index.js"} {
 		if _, err := os.Stat(filepath.Join(root, name)); err != nil {
 			return nil, fmt.Errorf("runtime tool root: %w", err)
@@ -181,6 +191,10 @@ func Open(ctx context.Context, root, node, providerRoot string) (*Client, error)
 		Assets:       make(map[string]map[string]bool),
 		Overrides:    make(map[string]map[string]DevelopmentAsset),
 		pool:         newWorkerPool(ctx, root, node),
+		hashFiles:    true,
+	}
+	for _, option := range options {
+		option(c)
 	}
 	ready := false
 	defer func() {

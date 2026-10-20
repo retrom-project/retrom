@@ -109,7 +109,7 @@ func verifyDevelopmentAsset(root *os.Root, path, hash string, size int64) error 
 	if !info.Mode().IsRegular() || info.Size() != size {
 		return model.ErrInvalid
 	}
-	return verifyFile(root, hash, hash, size)
+	return verifyFile(root, hash, hash, size, true)
 }
 
 func readDevelopmentDescriptor(path string) ([]byte, error) {

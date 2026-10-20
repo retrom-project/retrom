@@ -1,6 +1,7 @@
 import hashlib
 import io
 import json
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -8,14 +9,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from runtime_provider_contract import canonical_json_bytes
 from runtime_provider_bundle import (
     MEDIA_TYPES,
     _media_type,
     _installed_media_type_matches,
     check_installed_provider,
-    install_provider_bundle,
-    validate_provider_lock,
+    describe_installed_provider,
+    install_record,
 )
 from runtime_providers import (
     check_active_providers,
@@ -44,126 +44,75 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_installs_a_closed_verified_bundle_by_content_digest(self):
+    def test_identifies_an_installed_bundle_by_its_integrity_digest(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            archive, lock = fixture_bundle(root)
-            installed = install_provider_bundle(archive, lock, root / "installed")
-            self.assertEqual(
-                installed,
-                root / "installed" / "fixture" / lock["bundleSha256"],
-            )
-            self.assertEqual((installed / "client.mjs").read_bytes(), b"export const providerId='fixture';\n")
-            proof = json.loads((installed / ".installation.json").read_text(encoding="utf-8"))
-            self.assertEqual(proof["bundleSha256"], lock["bundleSha256"])
-            self.assertEqual(proof["manifestSha256"], lock["manifestSha256"])
+            files, record = fixture_bundle()
+            installed = install_fixture(root / "installed", files, record)
+            self.assertEqual(record["bundleSha256"], digest(files["integrity.json"]))
+            self.assertEqual(check_installed_provider(record, root / "installed"), installed)
+            entry = describe_installed_provider(record, root / "installed")
+            self.assertNotIn("bundleSizeBytes", entry)
+            self.assertEqual(entry["installationPath"], f'fixture/{record["bundleSha256"]}')
 
-    def test_rejects_unknown_lock_fields_and_archive_traversal(self):
+    def test_rejects_invalid_records_and_a_bundle_that_is_not_the_pinned_one(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            archive, lock = fixture_bundle(root)
-            with self.assertRaisesRegex(ValueError, "PROVIDER_LOCK_INVALID"):
-                validate_provider_lock({**lock, "adapterId": "leaked"})
-
-            traversal = root / "traversal.tar.gz"
-            with tarfile.open(traversal, "w:gz") as output:
-                info = tarfile.TarInfo("../outside")
-                info.size = 1
-                output.addfile(info, io.BytesIO(b"x"))
-            changed = dict(lock)
-            changed["bundleSha256"] = digest(traversal.read_bytes())
-            changed["bundleSizeBytes"] = traversal.stat().st_size
-            with self.assertRaisesRegex(ValueError, "PROVIDER_BUNDLE_UNSAFE"):
-                install_provider_bundle(traversal, changed, root / "installed")
-
-            malicious = {
-                "directory": [tar_member("nested", b"", tarfile.DIRTYPE)],
-                "hardlink": [tar_member("linked", b"", tarfile.LNKTYPE, "client.mjs")],
-                "symlink": [tar_member("linked", b"", tarfile.SYMTYPE, "client.mjs")],
-                "duplicate": [tar_member("same", b"x"), tar_member("same", b"y")],
-            }
-            for name, members in malicious.items():
-                with self.subTest(name=name):
-                    candidate = root / f"{name}.tar.gz"
-                    with tarfile.open(candidate, "w:gz") as output:
-                        for info, payload in members:
-                            output.addfile(info, io.BytesIO(payload) if info.isfile() else None)
-                    candidate_lock = dict(lock)
-                    candidate_lock["bundleSha256"] = digest(candidate.read_bytes())
-                    candidate_lock["bundleSizeBytes"] = candidate.stat().st_size
-                    with self.assertRaisesRegex(ValueError, "PROVIDER_BUNDLE_UNSAFE"):
-                        install_provider_bundle(candidate, candidate_lock, root / "installed-malicious")
-
-    def test_rejects_provider_version_independent_from_release_tag(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            _, lock = fixture_bundle(Path(temporary))
-            lock["tag"] = "v0.12.0"
-            with self.assertRaisesRegex(ValueError, "PROVIDER_LOCK_INVALID"):
-                validate_provider_lock(lock)
+            files, record = fixture_bundle()
+            for field, value in (("bundleSha256", "bad"), ("fileCount", 1), ("providerVersion", "v1")):
+                with self.subTest(field=field), self.assertRaisesRegex(ValueError, "PROVIDER_RECORD_INVALID"):
+                    install_record({**record, field: value})
+            other, _ = fixture_bundle(provider_id="fixture", core=b"\x00asm\x01\x00\x00\x01")
+            install_fixture(root / "installed", other, record)
+            with self.assertRaisesRegex(ValueError, "PROVIDER_BUNDLE_DIGEST_INVALID"):
+                check_installed_provider(record, root / "installed")
 
     def test_rejects_a_manifest_whose_asset_closure_differs_from_the_bundle(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            archive, lock = fixture_bundle(root, manifest_asset="assets/missing.wasm")
+            files, record = fixture_bundle(manifest_asset="assets/missing.wasm")
+            install_fixture(root / "installed", files, record)
             with self.assertRaisesRegex(ValueError, "PROVIDER_MANIFEST_ASSET_CLOSURE_INVALID"):
-                install_provider_bundle(archive, lock, root / "installed")
+                check_installed_provider(record, root / "installed")
 
-    def test_installer_rejects_an_unsupported_provider_api(self):
+    def test_rejects_an_unsupported_provider_api(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            archive, lock = fixture_bundle(root, provider_api=3)
+            files, record = fixture_bundle(provider_api=3)
+            install_fixture(root / "installed", files, record)
             with self.assertRaisesRegex(ValueError, "RUNTIME_PROVIDER_API_UNSUPPORTED"):
-                install_provider_bundle(archive, lock, root / "installed")
+                check_installed_provider(record, root / "installed")
 
-    def test_revalidates_every_installed_byte_instead_of_trusting_the_proof(self):
+    def test_revalidates_every_installed_byte(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            archive, lock = fixture_bundle(root)
-            installed = install_provider_bundle(archive, lock, root / "installed")
-            (installed / "client.mjs").write_text("tampered\n", encoding="utf-8")
+            files, record = fixture_bundle()
+            installed = install_fixture(root / "installed", files, record)
+            original = (installed / "client.mjs").read_bytes()
+            (installed / "client.mjs").write_bytes(original.upper())
             with self.assertRaisesRegex(ValueError, "PROVIDER_INTEGRITY_INVALID"):
-                check_installed_provider(lock, root / "installed")
-            with self.assertRaisesRegex(ValueError, "PROVIDER_INTEGRITY_INVALID"):
-                install_provider_bundle(archive, lock, root / "installed")
+                check_installed_provider(record, root / "installed")
 
-    def test_prepares_candidate_release_metadata_without_network_access(self):
+    def test_installs_a_local_chunked_candidate_and_keeps_the_current_one_on_refusal(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            archive, lock = fixture_bundle(root)
-            candidate = root / "candidate"
-            provider_root = candidate / "providers/fixture"
-            provider_root.mkdir(parents=True)
-            archive_target = provider_root / archive.name
-            archive_target.write_bytes(archive.read_bytes())
-            metadata = {
-                "schemaVersion": 1,
-                "sourceTreeSha256": "e" * 64,
-                "providers": [{
-                    "archive": f"fixture/{archive.name}",
-                    "bundleDirectory": "fixture/fixture-1.0.0",
-                    "bundleSha256": lock["bundleSha256"],
-                    "bundleSizeBytes": lock["bundleSizeBytes"],
-                    "fileCount": lock["fileCount"],
-                    "manifestSha256": lock["manifestSha256"],
-                    "providerId": "fixture",
-                    "providerVersion": "1.0.0",
-                    "unpackedSizeBytes": lock["unpackedSizeBytes"],
-                }],
-            }
-            (candidate / "providers/provider-build.json").write_text(json.dumps(metadata), encoding="utf-8")
-
-            active = prepare_candidate_providers(
-                candidate,
-                root / "installed",
-            )
-
-            self.assertEqual(active["providers"][0]["providerId"], "fixture")
-            self.assertEqual(active["providers"][0]["bundleSha256"], lock["bundleSha256"])
-            self.assertEqual(active["source"], "candidate")
-            self.assertIsNone(active["release"])
-            self.assertNotIn("commit", json.dumps(active))
-            self.assertNotIn("tag", json.dumps(active))
-            self.assertTrue((root / "installed/fixture" / lock["bundleSha256"] / "provider.json").is_file())
+            providers = root / "state/runtime-providers"
+            newer = root / "newer"
+            write_candidate(newer, "2.0.0")
+            active = prepare_candidate_providers(newer, providers)
+            self.assertEqual((active["source"], active["release"]), ("candidate", None))
+            self.assertEqual(active["providers"][0]["providerVersion"], "2.0.0")
+            self.assertNotIn("bundleSizeBytes", json.dumps(active))
+            self.assertTrue((providers / "installed/fixture" / active["providers"][0]["bundleSha256"] / "provider.json").is_file())
+            again = prepare_candidate_providers(newer, providers)
+            self.assertEqual(again, active)
+            older = root / "older"
+            write_candidate(older, "1.0.0")
+            before = (providers / "active.json").read_bytes()
+            with self.assertRaisesRegex(ValueError, "RUNTIME_PROVIDER_DOWNGRADE_FORBIDDEN"):
+                prepare_candidate_providers(older, providers)
+            self.assertEqual((providers / "active.json").read_bytes(), before)
+            self.assertEqual(sorted(path.name for path in providers.parent.iterdir()), ["runtime-providers"])
 
     def test_rejects_downgrade_same_version_rebuild_and_unreadable_checkpoint(self):
         current = active_fixture(version="2.0.0", bundle="a", read_formats=["state-v1"])
@@ -183,25 +132,27 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
             [{"format": "state-v1", "providerId": "fixture", "targetId": "fixture"}],
         )
 
-    def test_retired_manifest_is_rejected_even_when_preparing_an_upgrade(self):
+    def test_active_entries_must_match_the_installed_bundle_exactly(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            active_path, installed_root, legacy = legacy_active_fixture(root)
-
+            files, record = fixture_bundle()
+            install_fixture(root / "installed", files, record)
+            entry = describe_installed_provider(record, root / "installed")
+            active = {"providers": [entry], "release": None, "schemaVersion": 1, "source": "candidate",
+                      "sourceTreeSha256": "f" * 64}
+            active_path = root / "active.json"
+            active_path.write_text(json.dumps(active), encoding="utf-8")
+            self.assertEqual(check_active_providers(active_path, root / "installed", "candidate"), active)
+            active["providers"][0]["targets"][0]["gameCompatibilityLine"] = "retired"
+            active_path.write_text(json.dumps(active), encoding="utf-8")
             with self.assertRaises(ValueError):
-                check_active_providers(active_path, installed_root, "candidate")
+                check_active_providers(active_path, root / "installed", "candidate")
 
-            installed = installed_root / legacy["providers"][0]["installationPath"]
-            (installed / "client.mjs").write_text("tampered\n", encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "PROVIDER_INTEGRITY_INVALID"):
-                check_active_providers(active_path, installed_root, "candidate")
 
-def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1, *, legacy=False, provider_id="fixture", runtime_source=None):
+def fixture_bundle(manifest_asset="assets/core.wasm", provider_api=1, *, provider_id="fixture", runtime_source=None,
+                   version="1.0.0", core=b"\x00asm\x01\x00\x00\x00"):
+    """A contract-valid Provider bundle as files, plus its install record."""
     target = {
-        **({
-            "gameCompatibilityLine": "fixture-v1",
-            "netplayCompatibilityLine": None,
-        } if legacy else {}),
         "assetPaths": [manifest_asset],
         "capabilities": {
             "checkpoint": False, "frameCounter": False, "frameMode": "NONE",
@@ -222,12 +173,12 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1
         "clientModulePath": "client.mjs",
         "providerApiVersion": provider_api,
         "providerId": provider_id,
-        "providerVersion": "1.0.0",
+        "providerVersion": version,
         "schemaVersion": 1,
         "targets": [target],
     })
     files = {
-        "assets/core.wasm": b"\x00asm\x01\x00\x00\x00",
+        "assets/core.wasm": core,
         "client.mjs": f"export const providerId='{provider_id}';\n".encode(),
         "provider.json": manifest,
         "provenance.json": json_bytes({"schemaVersion": 1, **({"runtimeSourceTreeSha256": runtime_source} if runtime_source else {})}),
@@ -236,102 +187,76 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1
     if runtime_source:
         files["runtime-fingerprints.json"] = json_bytes({"schemaVersion": 1, "providerId": provider_id,
                                                        "targets": {"fixture": {"fingerprint": "f" * 64, "inputs": []}}})
-    integrity = json_bytes({
+    files["integrity.json"] = json_bytes({
         "files": [{
             "mediaType": media_type(path), "path": path, "sha256": digest(contents),
             "sizeBytes": len(contents),
         } for path, contents in sorted(files.items())],
         "schemaVersion": 1,
     })
-    files["integrity.json"] = integrity
-    archive = root / f"{provider_id}-provider-1.0.0.tar.gz"
-    with tarfile.open(archive, "w:gz", format=tarfile.USTAR_FORMAT) as output:
-        for path, contents in sorted(files.items()):
-            info = tarfile.TarInfo(path)
-            info.mode = 0o644
-            info.size = len(contents)
-            output.addfile(info, io.BytesIO(contents))
-    lock = {
-        "bundleSha256": digest(archive.read_bytes()),
-        "bundleSizeBytes": archive.stat().st_size,
-        "bundleUrl": f"https://example.invalid/{provider_id}-provider-1.0.0.tar.gz",
-        "commit": "a" * 40,
+    record = {
+        "bundleSha256": digest(files["integrity.json"]),
         "fileCount": len(files),
         "manifestSha256": digest(manifest),
         "providerId": provider_id,
-        "providerVersion": "1.0.0",
-        "repository": "https://example.invalid/fixture",
-        "schemaVersion": 1,
-        "tag": "v1.0.0",
+        "providerVersion": version,
         "unpackedSizeBytes": sum(len(value) for value in files.values()),
     }
-    return archive, lock
+    return files, record
 
 
-def legacy_active_fixture(root: Path):
-    archive, lock = fixture_bundle(root, legacy=True)
-    installed_root = root / "installed"
-    installed = installed_root / "fixture" / lock["bundleSha256"]
-    installed.mkdir(parents=True)
-    with tarfile.open(archive, "r:gz") as source:
-        for member in source:
-            payload = source.extractfile(member)
-            assert payload is not None
-            target = installed / member.name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(payload.read())
-    proof = {
-        "bundleSha256": lock["bundleSha256"],
-        "fileCount": lock["fileCount"],
-        "manifestSha256": lock["manifestSha256"],
-        "providerId": lock["providerId"],
-        "providerVersion": lock["providerVersion"],
-        "schemaVersion": 1,
-        "unpackedSizeBytes": lock["unpackedSizeBytes"],
-    }
-    (installed / ".installation.json").write_text(json.dumps(proof), encoding="utf-8")
-    manifest = json.loads((installed / "provider.json").read_text(encoding="utf-8"))
-    integrity = json.loads((installed / "integrity.json").read_text(encoding="utf-8"))
-    entries = {entry["path"]: entry for entry in integrity["files"]}
-    target = manifest["targets"][0]
-    contract = {
-        "assets": [{
-            "path": path,
-            "sha256": entries[path]["sha256"],
-            "sizeBytes": entries[path]["sizeBytes"],
-        } for path in target["assetPaths"]],
-        "schemaVersion": 1,
-        "target": target,
-    }
-    active = {
-        "providers": [{
-            "bundleSha256": lock["bundleSha256"],
-            "bundleSizeBytes": lock["bundleSizeBytes"],
-            "clientModulePath": "client.mjs",
-            "fileCount": lock["fileCount"],
-            "installationPath": f'fixture/{lock["bundleSha256"]}',
-            "manifestSha256": lock["manifestSha256"],
-            "moduleSha256": entries["client.mjs"]["sha256"],
-            "providerApiVersion": 1,
-            "providerId": "fixture",
-            "providerVersion": "1.0.0",
-            "targets": [{
-                "checkpoint": None,
-                "gameCompatibilityLine": "fixture-v1",
-                "id": "fixture",
-                "netplayCompatibilityLine": None,
-                "targetContractSha256": digest(canonical_json_bytes(contract)),
-            }],
-            "unpackedSizeBytes": lock["unpackedSizeBytes"],
-        }],
-        "release": None,
-        "schemaVersion": 1,
-        "source": "candidate",
-        "sourceTreeSha256": "f" * 64,
-    }
-    active_path = root / "active.json"
-    active_path.write_text(json.dumps(active), encoding="utf-8")
-    return active_path, installed_root, active
+def install_fixture(installed_root: Path, files, record) -> Path:
+    destination = installed_root / record["providerId"] / record["bundleSha256"]
+    for path, contents in files.items():
+        (destination / path).parent.mkdir(parents=True, exist_ok=True)
+        (destination / path).write_bytes(contents)
+    return destination
+
+
+def chunk_release(release: Path, bundles) -> list:
+    """Publish (files, record) bundles as chunk archives and manifests, exactly like the runtime."""
+    release.mkdir(parents=True, exist_ok=True)
+    records = []
+    for files, record in bundles:
+        provider_id, version = record["providerId"], record["providerVersion"]
+        groups: dict[str, list[str]] = {}
+        for path in files:
+            groups.setdefault("/".join(path.split("/")[:2]) if path.startswith("assets/") else "", []).append(path)
+        chunks = []
+        for members in groups.values():
+            members.sort(key=lambda path: path.encode())
+            identity = [[path, len(files[path]), digest(files[path])] for path in members]
+            chunk_id = digest(json.dumps(identity, separators=(",", ":"), ensure_ascii=False).encode())
+            stream = io.BytesIO()
+            with tarfile.open(fileobj=stream, mode="w:gz", format=tarfile.USTAR_FORMAT) as output:
+                for path in members:
+                    info = tarfile.TarInfo(path)
+                    info.size, info.mode = len(files[path]), 0o644
+                    output.addfile(info, io.BytesIO(files[path]))
+            archive = stream.getvalue()
+            name = f"{provider_id}-chunk-{chunk_id}.tar.gz"
+            (release / name).write_bytes(archive)
+            chunks.append({"archive": name, "archiveSha256": digest(archive), "archiveSizeBytes": len(archive),
+                           "chunkId": chunk_id, "unpackedSizeBytes": sum(len(files[path]) for path in members),
+                           "files": [{"path": path, "sha256": digest(files[path]), "sizeBytes": len(files[path])}
+                                     for path in members]})
+        chunks.sort(key=lambda chunk: chunk["chunkId"])
+        manifest = json.dumps({"schemaVersion": 1, "providerId": provider_id, "providerVersion": version,
+                               "bundleSha256": record["bundleSha256"], "chunks": chunks}).encode()
+        manifest_name = f"{provider_id}-chunks-{version}.json"
+        (release / manifest_name).write_bytes(manifest)
+        records.append({**record, "chunkManifest": {"asset": manifest_name, "sha256": digest(manifest),
+                                                    "sizeBytes": len(manifest)},
+                        "moduleSha256": digest(files["client.mjs"])})
+    return records
+
+
+def write_candidate(release: Path, version: str) -> None:
+    """A local runtime candidate release/ directory with one fixture Provider."""
+    records = chunk_release(release, [fixture_bundle(version=version)])
+    (release / "runtime-inputs.json").write_text(json.dumps({
+        "schemaVersion": 1, "repository": "https://github.com/retrom-project/retrom-runtime",
+        "sourceTreeSha256": "e" * 64, "release": None, "tool": {}, "providers": records}), encoding="utf-8")
 
 
 def active_fixture(*, version, bundle, read_formats):
@@ -363,12 +288,6 @@ def active_fixture(*, version, bundle, read_formats):
     }
 
 
-def tar_member(name, payload, kind=tarfile.REGTYPE, linkname=""):
-    info = tarfile.TarInfo(name)
-    info.type = kind
-    info.linkname = linkname
-    info.size = len(payload) if kind == tarfile.REGTYPE else 0
-    return info, payload
 def json_bytes(value):
     return (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode()
 

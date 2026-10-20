@@ -154,7 +154,7 @@ def import_provider_base(
     staging = root / ".pfb/.providers-importing"
     shutil.rmtree(staging, ignore_errors=True)
     try:
-        shutil.copytree(source_installed, staging / "installed", symlinks=True)
+        shutil.copytree(source_installed, staging / "installed", symlinks=True, copy_function=_link_or_copy)
         shutil.copy2(source_active, staging / "active.json", follow_symlinks=False)
         staged = validate(staging / "active.json", staging / "installed")
         if canonical_bytes(staged) != canonical_bytes(incoming):
@@ -183,6 +183,16 @@ def import_provider_base(
         raise PFBError("PFB_PROVIDER_BASE_INVALID", str(exc)[:160]) from exc
     finally:
         shutil.rmtree(staging, ignore_errors=True)
+
+
+def _link_or_copy(source: str, target: str) -> str:
+    """Share immutable verified Provider bytes (normally hard links into the shared chunk
+    cache); a base on another filesystem is copied instead."""
+    try:
+        os.link(source, target)
+    except OSError:
+        shutil.copy2(source, target)
+    return target
 
 
 def _provider_installation_paths(active: dict[str, Any]) -> list[Path]:

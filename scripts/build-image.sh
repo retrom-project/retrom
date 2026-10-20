@@ -11,7 +11,6 @@ case "$kind" in
   backend)
     "$docker_bin" build \
       --build-context "runtime-tool=${RETROM_RUNTIME_TOOL_INPUT:?explicit tool input required}" \
-      --build-context "providers=${RETROM_PROVIDER_INPUT:?explicit Provider input required}" \
       --build-context "runtime-dependencies=${RETROM_DEPENDENCY_ROOT:-$PWD/data}" \
       --build-arg IMAGE_INPUT_DIGEST="$before" -t "$image" .
     ;;
