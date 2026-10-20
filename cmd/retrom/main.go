@@ -6,13 +6,15 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"retrom/internal/providersync"
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	start := run
 	if len(os.Args) > 1 && os.Args[1] == "providers" {
-		start = func(ctx context.Context) error { return runProviders(ctx, os.Args[2:]) }
+		start = func(ctx context.Context) error { return providersync.RunCLI(ctx, os.Args[2:]) }
 	}
 	if err := start(ctx); err != nil {
 		slog.Error("Retrom stopped", "error", err)

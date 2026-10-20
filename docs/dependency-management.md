@@ -26,13 +26,13 @@ make prepare-deps runtime-provider-prepare
 - 新版本生效后删除不再引用的 bundle 与分块；未变化的核心原样保留。
 - 启动与安装不读取、不检查存档；存档能否恢复仍只在列表和恢复时按现有规则判断。
 
-`providers/` 可再生，可不纳入备份。默认从 GitHub Release 下载；`RETROM_RUNTIME_INPUT_BASE_URL` 可指向镜像源或本地目录。无网络环境可先用 `retrom providers sync --inputs <pin> --root <数据卷>/providers --seed <已验证的分块缓存或 Provider 根>` 在主机准备数据卷，启动时检测到一致的标记即不再下载。
+`providers/` 可再生，可不纳入备份。默认从 GitHub Release 下载；`RETROM_RUNTIME_INPUT_BASE_URL` 可指向镜像源或本地目录。无网络环境可先用 `go run ./cmd/retrom-providers sync --inputs <pin> --root <数据卷>/providers --mode production --seed <已验证的分块缓存或 Provider 根>`（或镜像内的 `retrom providers sync`）在主机准备数据卷，启动时检测到一致的标记即不再下载。
 
 ## 身份与校验
 
 源码摘要复用 runtime 的 `scripts/provider-release.mjs:sourceTreeSha256`：Git 列出 tracked 与非 ignored untracked 文件，跳过实际已删除项，按 UTF8 路径排序；每项记录 path、Git mode 和实际内容 SHA256（symlink 记录链接目标字节），再对 canonical JSON 计算 SHA256。ignored 构建产物、node_modules 和验收缓存不进入该边界。构建描述、tool 的 host-tool.json、两个 Provider provenance 都必须与同次捕获相等。
 
-分块的下载、校验、组装、标记与清理只有一套实现：Go 命令 `retrom providers sync|verify|gc`。后端启动直接调用它；准备脚本、PFB 候选安装、缓存导入和镜像验证通过同一命令完成，Python 不重复实现。分块清单按 pin 中的摘要校验，可来自镜像源、本地目录或已验证的本地副本；本地种子只有在逐文件 SHA256 与清单一致时才会被链接。
+分块的下载、校验、组装、标记与清理只有一套实现：`internal/providersync`，命令行为 `cmd/retrom-providers sync|verify|gc`（镜像内为 `retrom providers …`，同一代码）。后端启动直接调用它；准备脚本、PFB 候选安装、缓存导入和镜像验证通过同一命令完成，Python 不重复实现。分块清单按 pin 中的摘要校验，可来自镜像源、本地目录或已验证的本地副本；本地种子只有在逐文件 SHA256 与清单一致时才会被链接。
 
 准备先校验 host-tool 归档的大小和 SHA256，再解包无链接的自足工具，并由上述命令安装 Provider。工具实际路径、内容、大小及可执行位逐项匹配认证归档；Provider 的 `integrity.json` 摘要必须等于 pin 中的 `bundleSha256`，再校验全部文件、manifest、闭包、module、来源和 Target 指纹。完整集合原子发布，重复准备仍重新校验。损坏或来源错配不会发布集合。
 

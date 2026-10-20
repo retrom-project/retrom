@@ -78,7 +78,7 @@ print("{}")
         self.assertIn(web[web.index("--name") + 1], calls[-2])
         # The internal network cannot download: the data volume is seeded from the prepared inputs
         # for the exact pin the image carries, then mounted where the backend installs Providers.
-        self.assertEqual(self.sync[:2], ["providers", "sync"])
+        self.assertEqual(self.sync[0], "sync")
         self.assertEqual(self.sync[self.sync.index("--inputs") + 1], str(ROOT / "data/runtime-inputs.json"))
         self.assertEqual(self.sync[self.sync.index("--mode") + 1], "production")
         self.assertTrue(self.sync[self.sync.index("--seed") + 1].endswith("prepared/providers"))
