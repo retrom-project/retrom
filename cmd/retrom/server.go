@@ -72,14 +72,18 @@ func run(ctx context.Context) error {
 			slog.Error("close managed storage", "error", closeErr)
 		}
 	}()
+	providerRoot := environment("RETROM_PROVIDER_ROOT", ".pfb/workspace/providers")
+	openOptions, err := synchronizeProviders(ctx, providerRoot)
+	if err != nil {
+		return err
+	}
 	runtime,
 		err := runtimeclient.Open(ctx,
 		environment("RETROM_RUNTIME_ROOT",
 			"../retrom-runtime"),
 		environment("RETROM_NODE",
 			"node"),
-		environment("RETROM_PROVIDER_ROOT",
-			".pfb/workspace/providers"))
+		providerRoot, openOptions...)
 	if err != nil {
 		return fmt.Errorf("initialize runtime facts: %w", err)
 	}

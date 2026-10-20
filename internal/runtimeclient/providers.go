@@ -45,7 +45,7 @@ func (c *Client) loadProvider(directory string, provider Provider) error {
 		return model.ErrInvalid
 	}
 	provider.Root = filepath.Join(directory, "installed", provider.InstallationPath)
-	if err := verifyProvider(provider.Root); err != nil {
+	if err := verifyProvider(provider.Root, c.hashFiles); err != nil {
 		return err
 	}
 	rawIntegrity, readErr := os.ReadFile(filepath.Join(provider.Root, "integrity.json"))
@@ -91,7 +91,7 @@ func (c *Client) loadProvider(directory string, provider Provider) error {
 	return nil
 }
 
-func verifyProvider(directory string) error {
+func verifyProvider(directory string, hashFiles bool) error {
 	raw, err := os.ReadFile(filepath.Join(directory, "integrity.json"))
 	if err != nil {
 		return fmt.Errorf("read Provider integrity: %w", err)
@@ -118,19 +118,29 @@ func verifyProvider(directory string) error {
 		if !storage.SafeRelative(entry.Path) || !model.Hash(entry.SHA256) {
 			return model.ErrInvalid
 		}
-		if err = verifyFile(root, entry.Path, entry.SHA256, entry.SizeBytes); err != nil {
+		if err = verifyFile(root, entry.Path, entry.SHA256, entry.SizeBytes, hashFiles); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func verifyFile(root *os.Root, name, digest string, size int64) error {
+func verifyFile(root *os.Root, name, digest string, size int64, hashFiles bool) error {
 	file, err := root.Open(name)
 	if err != nil {
 		return fmt.Errorf("open Provider asset: %w", err)
 	}
 	defer closeFile(file)
+	if !hashFiles {
+		info, statErr := file.Stat()
+		if statErr != nil {
+			return fmt.Errorf("stat Provider asset: %w", statErr)
+		}
+		if !info.Mode().IsRegular() || info.Size() != size {
+			return fmt.Errorf("Provider asset size: %w", model.ErrInvalid)
+		}
+		return nil
+	}
 	hash := sha256.New()
 	copied, err := io.Copy(hash, file)
 	if err != nil {
