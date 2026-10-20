@@ -18,7 +18,13 @@ func lock(directory string) (func(), error) {
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		return nil, fmt.Errorf("create %s: %w", directory, err)
 	}
-	file, err := os.OpenFile(filepath.Join(directory, ".lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	path := filepath.Join(directory, ".lock")
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o644)
+	if errors.Is(err, os.ErrPermission) {
+		// A volume prepared by another user (for example on the host) keeps its lock file;
+		// flock works on a read-only descriptor, so the container can still serialize on it.
+		file, err = os.Open(path)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("open lock: %w", err)
 	}

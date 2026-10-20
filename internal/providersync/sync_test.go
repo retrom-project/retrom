@@ -474,3 +474,22 @@ func TestWarmSharedCachePreparesAnotherRootWithoutTheNetwork(t *testing.T) {
 		t.Fatalf("a warm shared cache must not need the network: %+v %v", result, err)
 	}
 }
+
+func TestAVolumePreparedByAnotherUserStartsWithAReadOnlyLock(t *testing.T) {
+	release := writeRelease(t, "1.0.0", map[string]string{"alpha": "alpha-bytes"})
+	root := t.TempDir()
+	if _, err := sync(t, release, root, serve(t, release.dir), ModeProduction, false); err != nil {
+		t.Fatal(err)
+	}
+	// The preparing user's lock file is not writable for the container user.
+	if err := os.Chmod(filepath.Join(root, ".lock"), 0o444); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Sync(context.Background(), Options{
+		Inputs: release.inputs, Root: root, Mode: ModeProduction,
+		Source: "http://127.0.0.1:1",
+	})
+	if err != nil || !result.Reused {
+		t.Fatalf("a read-only lock must not block a matching start: %+v %v", result, err)
+	}
+}
