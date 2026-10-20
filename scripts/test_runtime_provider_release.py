@@ -8,20 +8,23 @@ from unittest.mock import Mock
 
 from runtime_input_manifest import MAX_METADATA, REPOSITORY
 from runtime_provider_release import pin_release
-from test_runtime_inputs import paired_fixture
+from test_runtime_inputs import paired_fixture, serve_release
 
 
 class RuntimeReleaseTests(unittest.TestCase):
-    def test_explicit_release_pin_fetches_all_three_artifacts(self):
+    def test_explicit_release_pin_verifies_metadata_tool_and_every_chunk(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            _, _, manifest, downloads = paired_fixture(root)
-            downloads[f"{REPOSITORY}/releases/download/v1.0.0/runtime-inputs.json"] = json.dumps(manifest).encode()
-            fetch = Mock(side_effect=lambda url, maximum: downloads[url])
+            _, archives, manifest, downloads = paired_fixture(root)
+            downloads["runtime-inputs.json"] = json.dumps(manifest).encode()
             pin = root / "selected.json"
-            self.assertEqual(pin_release("v1.0.0", pin, root / "cache", fetch=fetch), manifest)
-            self.assertEqual(fetch.call_count, 4)
+            with serve_release(archives) as (base, counts):
+                fetch = Mock(side_effect=lambda url, maximum: downloads[url.removeprefix(base + "/")])
+                self.assertEqual(pin_release("v1.0.0", pin, root / "cache", fetch=fetch, base_url=base), manifest)
+                self.assertEqual(fetch.call_count, 2)
+                self.assertGreater(counts["chunks"], 0)
             self.assertEqual(json.loads(pin.read_text()), manifest)
+            self.assertTrue(any((root / "cache/chunks").iterdir()))
 
     def test_bad_metadata_or_artifact_preserves_existing_pin(self):
         with tempfile.TemporaryDirectory() as directory:

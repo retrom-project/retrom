@@ -2,11 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
-import shutil
-import tarfile
-import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -16,14 +12,8 @@ else:
     from runtime_provider_contract import validate_provider_manifest
 
 
-LOCK_KEYS = {
-    "schemaVersion", "providerId", "providerVersion", "repository", "tag", "commit",
-    "bundleUrl", "bundleSha256", "bundleSizeBytes", "unpackedSizeBytes", "fileCount",
-    "manifestSha256",
-}
-BUILD_RECORD_KEYS = {
-    "archive", "bundleDirectory", "bundleSha256", "bundleSizeBytes", "fileCount",
-    "manifestSha256", "providerId", "providerVersion", "unpackedSizeBytes",
+INSTALL_RECORD_KEYS = {
+    "bundleSha256", "fileCount", "manifestSha256", "providerId", "providerVersion", "unpackedSizeBytes",
 }
 INTEGRITY_KEYS = {"schemaVersion", "files"}
 INTEGRITY_FILE_KEYS = {"path", "sizeBytes", "sha256", "mediaType"}
@@ -38,98 +28,35 @@ MEDIA_TYPES = {
 }
 SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$")
 LOWER_DIGEST = re.compile(r"^[0-9a-f]{64}$")
-LOWER_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 PROVIDER_ID = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
-RELEASE_TAG = re.compile(r"^v[0-9]+\.[0-9]+\.[0-9]+$")
 MAX_SAFE_INTEGER = 9_007_199_254_740_991
 SUPPORTED_PROVIDER_API_VERSION = 1
 
 
-def validate_provider_lock(value: Any) -> dict[str, Any]:
-    if not isinstance(value, dict) or set(value) != LOCK_KEYS:
-        _lock_invalid()
-    if value["schemaVersion"] != 1 or not _match(PROVIDER_ID, value["providerId"]):
-        _lock_invalid()
-    if not _match(SEMVER, value["providerVersion"]) or not _match(RELEASE_TAG, value["tag"]):
-        _lock_invalid()
-    if value["providerVersion"] != value["tag"][1:]:
-        _lock_invalid()
-    if not _match(LOWER_COMMIT, value["commit"]) or not _match(LOWER_DIGEST, value["bundleSha256"]):
-        _lock_invalid()
-    if not _match(LOWER_DIGEST, value["manifestSha256"]):
-        _lock_invalid()
-    if not _bounded_integer(value["bundleSizeBytes"], minimum=1, maximum=MAX_SAFE_INTEGER):
-        _lock_invalid()
-    if not _bounded_integer(value["unpackedSizeBytes"], minimum=1, maximum=MAX_SAFE_INTEGER):
-        _lock_invalid()
-    if not _bounded_integer(value["fileCount"], minimum=3, maximum=100_000):
-        _lock_invalid()
-    if not _https_url(value["repository"]) or not _https_url(value["bundleUrl"]):
-        _lock_invalid()
-    if not value["bundleUrl"].endswith(f"/{value['providerId']}-provider-{value['providerVersion']}.tar.gz"):
-        _lock_invalid()
-    return value
+def install_record(value: Any) -> dict[str, Any]:
+    """The bundle identity shared by runtime-inputs.json records and active.json entries."""
+    if not isinstance(value, dict) or not INSTALL_RECORD_KEYS <= set(value):
+        _record_invalid()
+    record = {key: value[key] for key in INSTALL_RECORD_KEYS}
+    if not _match(PROVIDER_ID, record["providerId"]) or not _match(SEMVER, record["providerVersion"]) or \
+            not _match(LOWER_DIGEST, record["bundleSha256"]) or not _match(LOWER_DIGEST, record["manifestSha256"]) or \
+            not _bounded_integer(record["unpackedSizeBytes"], minimum=1, maximum=MAX_SAFE_INTEGER) or \
+            not _bounded_integer(record["fileCount"], minimum=3, maximum=100_000):
+        _record_invalid()
+    return record
 
 
-def validate_provider_build_record(value: Any) -> dict[str, Any]:
-    if not isinstance(value, dict) or set(value) != BUILD_RECORD_KEYS:
-        _lock_invalid()
-    if not _match(PROVIDER_ID, value["providerId"]) or not _match(SEMVER, value["providerVersion"]):
-        _lock_invalid()
-    expected_name = f'{value["providerId"]}-provider-{value["providerVersion"]}.tar.gz'
-    if value["archive"] != f'{value["providerId"]}/{expected_name}' or \
-            value["bundleDirectory"] != f'{value["providerId"]}/{value["providerId"]}-{value["providerVersion"]}':
-        _lock_invalid()
-    if not _match(LOWER_DIGEST, value["bundleSha256"]) or not _match(LOWER_DIGEST, value["manifestSha256"]):
-        _lock_invalid()
-    if not _bounded_integer(value["bundleSizeBytes"], minimum=1, maximum=MAX_SAFE_INTEGER) or \
-            not _bounded_integer(value["unpackedSizeBytes"], minimum=1, maximum=MAX_SAFE_INTEGER) or \
-            not _bounded_integer(value["fileCount"], minimum=3, maximum=100_000):
-        _lock_invalid()
-    return value
-
-
-def install_provider_bundle(archive: Path, lock_value: Any, installed_root: Path) -> Path:
-    lock = _validate_install_record(lock_value)
-    archive = archive.resolve(strict=True)
-    installed_root = installed_root.resolve()
-    archive_bytes = archive.read_bytes()
-    if len(archive_bytes) != lock["bundleSizeBytes"] or _digest(archive_bytes) != lock["bundleSha256"]:
-        raise ValueError("PROVIDER_BUNDLE_DIGEST_INVALID")
-    destination = installed_root / lock["providerId"] / lock["bundleSha256"]
-    if destination.exists():
-        _verify_existing(destination, lock)
-        _verify_extracted(destination, lock, allow_proof=True)
-        destination.chmod(0o755)
-        return destination
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=f".{lock['providerId']}-", dir=destination.parent))
-    try:
-        _extract_closed_archive(archive, staging, lock)
-        _verify_extracted(staging, lock)
-        _write_json(staging / ".installation.json", _installation_proof(lock))
-        # mkdtemp starts private; the verified published bundle is runtime input.
-        staging.chmod(0o755)
-        try:
-            os.replace(staging, destination)
-        except FileExistsError:
-            _verify_existing(destination, lock)
-        return destination
-    finally:
-        if staging.exists():
-            shutil.rmtree(staging)
-
-
-def check_installed_provider(lock_value: Any, installed_root: Path) -> Path:
-    lock = _validate_install_record(lock_value)
+def check_installed_provider(record_value: Any, installed_root: Path) -> Path:
+    lock = install_record(record_value)
     destination = installed_root.resolve() / lock["providerId"] / lock["bundleSha256"]
-    _verify_existing(destination, lock)
+    if (destination / ".installation.json").exists():
+        _verify_existing(destination, lock)
     _verify_extracted(destination, lock, allow_proof=True)
     return destination
 
 
-def describe_installed_provider(lock_value: Any, installed_root: Path) -> dict[str, Any]:
-    lock = _validate_install_record(lock_value)
+def describe_installed_provider(record_value: Any, installed_root: Path) -> dict[str, Any]:
+    lock = install_record(record_value)
     destination = check_installed_provider(lock, installed_root)
     manifest_bytes = (destination / "provider.json").read_bytes()
     integrity = json.loads((destination / "integrity.json").read_text(encoding="utf-8"))
@@ -139,7 +66,6 @@ def describe_installed_provider(lock_value: Any, installed_root: Path) -> dict[s
     module_path = manifest["clientModulePath"]
     return {
         "bundleSha256": lock["bundleSha256"],
-        "bundleSizeBytes": lock["bundleSizeBytes"],
         "clientModulePath": module_path,
         "fileCount": lock["fileCount"],
         "installationPath": f'{lock["providerId"]}/{lock["bundleSha256"]}',
@@ -153,37 +79,6 @@ def describe_installed_provider(lock_value: Any, installed_root: Path) -> dict[s
     }
 
 
-def _extract_closed_archive(archive: Path, staging: Path, lock: dict[str, Any]) -> None:
-    count = 0
-    size = 0
-    names: set[str] = set()
-    try:
-        with tarfile.open(archive, "r:gz") as source:
-            for member in source:
-                if not member.isfile() or member.islnk() or member.issym() or not _safe_path(member.name):
-                    raise ValueError("PROVIDER_BUNDLE_UNSAFE")
-                if member.name in names or member.size < 0:
-                    raise ValueError("PROVIDER_BUNDLE_UNSAFE")
-                names.add(member.name)
-                count += 1
-                size += member.size
-                if count > lock["fileCount"] or size > lock["unpackedSizeBytes"]:
-                    raise ValueError("PROVIDER_BUNDLE_LIMIT_EXCEEDED")
-                contents = source.extractfile(member)
-                if contents is None:
-                    raise ValueError("PROVIDER_BUNDLE_UNSAFE")
-                payload = contents.read(member.size + 1)
-                if len(payload) != member.size:
-                    raise ValueError("PROVIDER_BUNDLE_UNSAFE")
-                target = staging / member.name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(payload)
-        if count != lock["fileCount"] or size != lock["unpackedSizeBytes"]:
-            raise ValueError("PROVIDER_BUNDLE_LIMIT_INVALID")
-    except (tarfile.TarError, OSError) as error:
-        raise ValueError("PROVIDER_BUNDLE_UNSAFE") from error
-
-
 def _verify_extracted(
     root: Path,
     lock: dict[str, Any],
@@ -194,6 +89,10 @@ def _verify_extracted(
     manifest_bytes = files.get("provider.json")
     if integrity_bytes is None or manifest_bytes is None:
         _integrity_invalid()
+    # A bundle is identified by its integrity.json, independently of transport packaging.
+    if _digest(integrity_bytes) != lock["bundleSha256"] or len(files) != lock["fileCount"] or \
+            sum(len(contents) for contents in files.values()) != lock["unpackedSizeBytes"]:
+        raise ValueError("PROVIDER_BUNDLE_DIGEST_INVALID")
     try:
         integrity = json.loads(integrity_bytes)
         manifest_value = json.loads(manifest_bytes)
@@ -276,12 +175,6 @@ def _verify_existing(destination: Path, lock: dict[str, Any]) -> None:
         raise ValueError("PROVIDER_INSTALLATION_INVALID")
 
 
-def _validate_install_record(value: Any) -> dict[str, Any]:
-    if isinstance(value, dict) and set(value) == LOCK_KEYS:
-        return validate_provider_lock(value)
-    return validate_provider_build_record(value)
-
-
 def _installation_proof(lock: dict[str, Any]) -> dict[str, Any]:
     return {
         "bundleSha256": lock["bundleSha256"],
@@ -349,12 +242,8 @@ def _safe_path(value: Any) -> bool:
     return not path.is_absolute() and all(part not in {"", ".", ".."} for part in path.parts)
 
 
-def _https_url(value: Any) -> bool:
-    return isinstance(value, str) and value.startswith("https://") and len(value) > 8
 
 
-def _positive_integer(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
 def _bounded_integer(value: Any, *, minimum: int, maximum: int) -> bool:
@@ -369,16 +258,14 @@ def _match(pattern: re.Pattern[str], value: Any) -> bool:
     return isinstance(value, str) and pattern.fullmatch(value) is not None
 
 
-def _write_json(path: Path, value: Any) -> None:
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def _digest(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def _lock_invalid() -> None:
-    raise ValueError("PROVIDER_LOCK_INVALID")
+def _record_invalid() -> None:
+    raise ValueError("PROVIDER_RECORD_INVALID")
 
 
 def _integrity_invalid() -> None:

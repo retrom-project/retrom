@@ -231,7 +231,7 @@ runtime-provider-cache-import:
 
 runtime-provider-prepare-candidate:
 	@test -n "$(RETROM_PROVIDER_CANDIDATE_ROOT)" || { echo 'RETROM_PROVIDER_CANDIDATE_ROOT is required' >&2; exit 2; }
-	@python3 scripts/runtime_providers.py prepare-candidate --candidate-root "$(RETROM_PROVIDER_CANDIDATE_ROOT)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)"
+	@python3 scripts/runtime_providers.py prepare-candidate --candidate-root "$(RETROM_PROVIDER_CANDIDATE_ROOT)" --providers-root "$(dir $(RETROM_PROVIDER_ACTIVE_PATH))"
 
 runtime-provider-check: runtime-provider-prepare
 

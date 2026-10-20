@@ -22,7 +22,11 @@ class ProviderInputTests(unittest.TestCase):
     def test_backend_image_requires_explicit_paired_inputs(self) -> None:
         dockerfile = (SCRIPT.parent.parent / "Dockerfile").read_text(encoding="utf-8")
         ignore = (SCRIPT.parent.parent / ".dockerignore").read_text(encoding="utf-8")
-        self.assertIn("COPY --from=providers /active.json", dockerfile)
+        # Providers are installed from chunks at startup; the image carries only their pin.
+        self.assertNotIn("--from=providers", dockerfile)
+        self.assertIn("COPY --chmod=0444 data/runtime-inputs.json /opt/retrom/runtime-inputs.json", dockerfile)
+        self.assertIn("RETROM_PROVIDER_INPUTS=/opt/retrom/runtime-inputs.json", dockerfile)
+        self.assertIn("RETROM_PROVIDER_ROOT=/var/lib/retrom/providers", dockerfile)
         self.assertIn("COPY --from=runtime-tool", dockerfile)
         self.assertNotIn("rpg-runtime/registry", dockerfile)
         for mutable in ("active.json", "candidate-active.json", "installed", "cache", "archive"):

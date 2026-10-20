@@ -161,6 +161,12 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
+      - name: Restore verified Provider chunks
+        uses: actions/cache/restore@v5
+        with:
+          path: .cache/runtime-providers
+          key: retrom-provider-chunks-${{ runner.os }}-${{ hashFiles('data/runtime-inputs.json') }}
+          restore-keys: retrom-provider-chunks-${{ runner.os }}-
       - name: Materialize repository-pinned runtime inputs
         env:
           RETROM_RUNTIME_INPUT_BASE_URL: ${{ vars.RETROM_RUNTIME_INPUT_BASE_URL }}
@@ -260,6 +266,12 @@ jobs:
         run: |
           scripts/prepare-e2e-fonts.sh
           echo "FONTCONFIG_FILE=$PWD/.cache/tools/e2e-fonts/fonts.conf" >> "$GITHUB_ENV"
+      - name: Restore verified Provider chunks
+        uses: actions/cache/restore@v5
+        with:
+          path: .cache/runtime-providers
+          key: retrom-provider-chunks-${{ runner.os }}-${{ hashFiles('data/runtime-inputs.json') }}
+          restore-keys: retrom-provider-chunks-${{ runner.os }}-
       - name: Materialize repository-pinned runtime inputs
         env:
           RETROM_RUNTIME_INPUT_BASE_URL: ${{ vars.RETROM_RUNTIME_INPUT_BASE_URL }}

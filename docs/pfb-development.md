@@ -38,7 +38,7 @@ make -C "$TASK_RETROM_ROOT" pfb-status PFB="$PFB" FORMAT=json
 make -C "$TASK_RETROM_ROOT" runtime-provider-prepare
 ```
 
-命令输出 `RETROM_PROVIDER_INPUT=<绝对目录>`，下一步将这个值作为 `SOURCE_ROOT`。也可使用已有的完整已验证基座；导入只读取和校验资产，不执行来源 PFB 的源码。共享下载缓存在工作区 `.cache/runtime-providers/`，本 PFB 的安装和 active 独立。
+命令输出 `RETROM_PROVIDER_INPUT=<绝对目录>`，下一步将这个值作为 `SOURCE_ROOT`。也可使用已有的完整已验证基座；导入只读取和校验资产，不执行来源 PFB 的源码。共享下载缓存在工作区 `.cache/runtime-providers/`，以内容寻址分块保存所有已下载的 Provider 数据：新的 runtime pin 只下载变化的分块，导入时 Provider 文件以硬链接共享这些已验证的不可变字节，新 PFB 几乎不额外占用磁盘。本 PFB 的安装和 active 独立。
 
 浏览器验证需要 Chrome for Testing 及配套 Node／Playwright 工具。缺少时从当前 Retrom 准备；已有匹配工具可通过 `RETROM_CHROME_EXECUTABLE` 指向其入口：
 
@@ -48,7 +48,7 @@ make -C "$TASK_RETROM_ROOT" pfb-validate PFB="$PFB"
 make -C "$TASK_RETROM_ROOT" pfb-build PFB="$PFB"
 ```
 
-`pfb-build` 准备开发镜像、依赖、生成代码，并发布不可变 `runtime-tools/<sha>` 工具快照；不构建核心或 Provider 归档。再次显式 build 复用未变化的镜像和依赖，仍会构建／发布所选 runtime 工具。当前 app 运行时拒绝 build，需要先停止当前 PFB。
+`pfb-build` 准备开发镜像、依赖、生成代码，并发布不可变 `runtime-tools/<sha>` 工具快照；不构建核心或 Provider 分块。再次显式 build 复用未变化的镜像和依赖，仍会构建／发布所选 runtime 工具。当前 app 运行时拒绝 build，需要先停止当前 PFB。
 
 将下面两个占位值分别替换为初始化返回的实际 ID，以及准备命令输出的 Provider 目录：
 
@@ -92,7 +92,7 @@ make -C "$TASK_RETROM_ROOT" pfb-verify PFB="$PFB"
 | Dockerfile／Compose／entrypoint、依赖锁或 API 生成输入 | 当前 PFB 执行 down → build → up |
 | 核心二进制 | 显式构建核心及配套候选，再导入验证过的基座 |
 
-日常 `up`／`restart` 不自动构建镜像、核心或 Provider 归档。不要手改 toolchain marker 绕过校验，也不要通过删除 workspace 强制重建依赖。
+日常 `up`／`restart` 不自动构建镜像、核心或 Provider 分块。不要手改 toolchain marker 绕过校验，也不要通过删除 workspace 强制重建依赖。
 
 联合验收可在显式 `pfb-build` 时传 `RETROM_RUNTIME_TOOL_INPUT=<本 PFB 的自足工具目录>`，将完整 production 依赖复制到不可变快照；输入不得越出同一命名 PFB。工具清理后运行进程仍固定已发布的 resolved 路径。
 

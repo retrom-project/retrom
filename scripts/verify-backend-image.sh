@@ -37,6 +37,23 @@ source.chmod(0o755)
 for file in source.iterdir(): file.chmod(0o444)
 PY
 
+# The image installs Providers from chunks at startup; the network below is internal, so the
+# data volume is prepared from the verified host inputs (seeded, no download) for the exact pin
+# the image carries. The backend then finds its completion marker and starts without fetching.
+providers="$fixture/providers"
+python3 - "$repository_root" "$providers" <<'PY'
+import os
+import sys
+from pathlib import Path
+root, providers = map(Path, sys.argv[1:])
+sys.path.insert(0, str(root / "scripts"))
+from runtime_provider_sync import sync_providers
+sync_providers(root / "data/runtime-inputs.json", providers, seeds=[Path(os.environ["RETROM_PROVIDER_INPUT"])],
+               mode="production")
+PY
+# Only the new directories become writable for the container UID; shared file inodes stay read-only.
+find "$providers" -type d -exec chmod 0777 {} +
+
 docker network create --internal "$network" >/dev/null
 docker run -d --name "$database" --network "$network" --network-alias postgres \
   --user 1000:1000 --tmpfs /var/lib/postgresql:rw,uid=1000,gid=1000,mode=0700 \
@@ -65,6 +82,7 @@ docker run -d --name "$redis" --network "$network" --network-alias redis \
 docker create --name "$container" --network "$network" --network-alias retrom --user 1000:1000 \
   --tmpfs /var/lib/retrom:rw,uid=1000,gid=1000,mode=0700 \
   --mount "type=bind,source=$fixture,target=/image-source,readonly" \
+  --mount "type=bind,source=$providers,target=/var/lib/retrom/providers" \
   -e RETROM_PUBLIC_ORIGIN=https://retrom.example.com \
   -e RETROM_REDIS_ADDR=redis:6379 \
   -e "RETROM_DATABASE_URL=postgres://retrom:$database_password@postgres:5432/retrom?sslmode=disable" \

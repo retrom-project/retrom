@@ -36,8 +36,8 @@ def create_checkout(root):
 
 
 def prepared_cache(root):
-    pin, _, manifest, downloads = paired_fixture(root)
-    prepared = prepare(pin, root / "source", root / "cache", fetch=lambda url, maximum: downloads[url])
+    pin, archives, manifest, _ = paired_fixture(root)
+    prepared = prepare(pin, root / "source", root / "cache", archive_root=archives)
     return prepared, manifest
 
 
@@ -80,10 +80,12 @@ class ProviderCacheLocationTests(unittest.TestCase):
 
 
 class ProviderCacheImportTests(unittest.TestCase):
-    def test_docker_consumes_explicit_verified_provider_context(self):
+    def test_docker_ships_the_pin_instead_of_provider_files(self):
         dockerfile = (REPOSITORY_ROOT / "Dockerfile").read_text()
-        self.assertIn("COPY --from=providers /active.json", dockerfile)
-        self.assertIn("COPY --from=providers /installed", dockerfile)
+        build = (REPOSITORY_ROOT / "scripts/build-image.sh").read_text()
+        self.assertNotIn("--from=providers", dockerfile)
+        self.assertNotIn("providers=", build)
+        self.assertIn("COPY --chmod=0444 data/runtime-inputs.json /opt/retrom/runtime-inputs.json", dockerfile)
         self.assertIn("COPY --from=runtime-tool / /opt/retrom/runtime-tool/", dockerfile)
         self.assertNotIn("prepare_image_inputs.py", dockerfile)
         self.assertNotIn("COPY data/runtime-providers/release.json", dockerfile)
@@ -93,9 +95,11 @@ class ProviderCacheImportTests(unittest.TestCase):
             root = Path(temporary)
             source, manifest = prepared_cache(root)
             original = {path.relative_to(source): path.read_bytes() for path in source.rglob("*") if path.is_file()}
-            for _ in range(2):
+            for attempt in range(2):
                 result = import_provider_cache(source, root / "shared")
-                self.assertEqual((result["inputSets"], result["archives"]), (1, 3))
+                self.assertEqual((result["inputSets"], result["archives"]), (1, 1))
+                # Every chunk is seeded from the source's installed bundles; the second import adds none.
+                self.assertEqual(result["chunks"] > 0, attempt == 0)
             offline = Mock(side_effect=AssertionError("must use imported downloads"))
             prepared = prepare(root / "runtime-inputs.json", root / "second", root / "shared", fetch=offline)
             verify_prepared(prepared, manifest)

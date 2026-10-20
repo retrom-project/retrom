@@ -67,7 +67,15 @@ jobs:
           make prepare-node
           scripts/prepare-postgres.sh
           make prepare-deps
+      - name: Cache verified Provider chunks
+        uses: actions/cache@v5
+        with:
+          path: .cache/runtime-providers
+          key: retrom-provider-chunks-${{ runner.os }}-${{ hashFiles('data/runtime-inputs.json') }}
+          restore-keys: retrom-provider-chunks-${{ runner.os }}-
       - name: Fill the npm and Go module and build caches
         run: |
           make build web-install
           go test -run '^$' ./...
+      - name: Fill the Provider chunk cache from the pinned release
+        run: python3 scripts/prepare_image_inputs.py

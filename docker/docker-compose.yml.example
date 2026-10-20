@@ -51,7 +51,11 @@ services:
       RETROM_PUBLIC_ORIGIN: "https://games.example.com"
       RETROM_REDIS_ADDR: "redis:6379"
       RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE: "https://{runId}.games.example.com"
+      # 可选：Provider 分块的镜像源或本地目录（默认从 GitHub Release 下载）。
+      # RETROM_RUNTIME_INPUT_BASE_URL: "https://mirror.example.com/retrom-runtime/v0.73.0"
     volumes:
+      # 数据卷同时保存 Provider（providers/）。首次启动或升级镜像时只下载变化的核心分块，
+      # 日志显示进度；之后重启不再下载。providers/ 可再生，可不纳入备份。
       - /srv/retrom/data:/var/lib/retrom
       # 可选：只读挂载已授权的 BIOS/ROM 来源，供服务器目录导入使用。
       # 管理员会在页面中选择容器文件系统内的路径。

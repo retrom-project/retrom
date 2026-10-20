@@ -2,22 +2,22 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 from typing import Any
 
 try:
-    from .runtime_provider_bundle import BUILD_RECORD_KEYS, validate_provider_build_record
+    from .runtime_provider_bundle import INSTALL_RECORD_KEYS, install_record
     from .runtime_provider_io import _load_json
 except ImportError:
-    from runtime_provider_bundle import BUILD_RECORD_KEYS, validate_provider_build_record
+    from runtime_provider_bundle import INSTALL_RECORD_KEYS, install_record
     from runtime_provider_io import _load_json
 
 REPOSITORY = "https://github.com/retrom-project/retrom-runtime"
 DIGEST = re.compile(r"[0-9a-f]{64}")
 TAG = re.compile(r"v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-rc\.[1-9][0-9]*)?")
 MANIFEST_KEYS = {"schemaVersion", "repository", "sourceTreeSha256", "release", "tool", "providers"}
-PROVIDER_KEYS = BUILD_RECORD_KEYS | {"moduleSha256"}
+PROVIDER_KEYS = INSTALL_RECORD_KEYS | {"chunkManifest", "moduleSha256"}
 MAX_METADATA = 1024 * 1024
 
 
@@ -30,10 +30,6 @@ def release_identity(value: Any) -> bool:
         value["repository"] == REPOSITORY and isinstance(value["tag"], str) and \
         TAG.fullmatch(value["tag"]) is not None and isinstance(value["commit"], str) and \
         re.fullmatch(r"[0-9a-f]{40}", value["commit"]) is not None
-
-
-def build_record(provider: dict[str, Any]) -> dict[str, Any]:
-    return {key: provider[key] for key in BUILD_RECORD_KEYS}
 
 
 def validate_manifest(value: Any) -> dict[str, Any]:
@@ -49,7 +45,13 @@ def validate_manifest(value: Any) -> dict[str, Any]:
     for provider in providers:
         if not isinstance(provider, dict) or set(provider) != PROVIDER_KEYS or not digest(provider["moduleSha256"]):
             raise ValueError("RUNTIME_INPUT_PROVIDER_INVALID")
-        validate_provider_build_record(build_record(provider))
+        install_record(provider)
+        chunks = provider["chunkManifest"]
+        if not isinstance(chunks, dict) or set(chunks) != {"asset", "sha256", "sizeBytes"} or \
+                chunks["asset"] != f'{provider["providerId"]}-chunks-{provider["providerVersion"]}.json' or \
+                not digest(chunks["sha256"]) or type(chunks["sizeBytes"]) is not int or \
+                not 0 < chunks["sizeBytes"] <= 16 * MAX_METADATA:
+            raise ValueError("RUNTIME_INPUT_PROVIDER_INVALID")
     if [provider["providerId"] for provider in providers] != ["emulatorjs", "retrom-runtime"]:
         raise ValueError("RUNTIME_INPUT_PROVIDERS_INVALID")
     versions = {provider["providerVersion"] for provider in providers}
@@ -74,6 +76,5 @@ def manifest_bytes(value: dict[str, Any]) -> bytes:
 
 
 def artifact_records(value: dict[str, Any]) -> list[dict[str, Any]]:
-    return [value["tool"], *({"archive": PurePosixPath(provider["archive"]).name,
-                              "sizeBytes": provider["bundleSizeBytes"], "sha256": provider["bundleSha256"]}
-                             for provider in value["providers"])]
+    """Whole archives fetched by Python; Provider chunks belong to `retrom providers sync`."""
+    return [value["tool"]]

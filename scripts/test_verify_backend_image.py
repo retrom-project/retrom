@@ -27,13 +27,25 @@ if args[0] == "exec":
     if failure == "web" and args[1].endswith("-web") and "node" in args: sys.exit(1)
 ''')
             docker.chmod(0o755)
-            calls = root / "calls.jsonl"
+            retrom = root / "retrom"
+            retrom.write_text('''#!/usr/bin/env python3
+import json, os, sys
+args = sys.argv[1:]
+with open(os.environ["IMAGE_CHECK_SYNC"], "w") as output:
+    output.write(json.dumps(args))
+os.makedirs(args[args.index("--root") + 1], exist_ok=True)
+print("{}")
+''')
+            retrom.chmod(0o755)
+            calls, sync = root / "calls.jsonl", root / "sync.json"
             result = subprocess.run(
                 ["bash", str(ROOT / "scripts/verify-backend-image.sh"), "retrom:fixture", "retrom-web:fixture"],
-                env={**os.environ, "PATH": str(root) + ":" + os.environ["PATH"],
+                env={**os.environ, "PATH": str(root) + ":" + os.environ["PATH"], "RETROM_BINARY": str(retrom),
+                     "RETROM_PROVIDER_INPUT": str(root / "prepared/providers"), "IMAGE_CHECK_SYNC": str(sync),
                      "IMAGE_CHECK_CALLS": str(calls), "IMAGE_CHECK_FAILURE": failure},
                 capture_output=True, text=True, timeout=10,
             )
+            self.sync = json.loads(sync.read_text()) if sync.exists() else None
             return result, [json.loads(line) for line in calls.read_text().splitlines()]
 
     def assert_cleanup(self, calls):
@@ -64,6 +76,13 @@ if args[0] == "exec":
         self.assertEqual(pg[pg.index("--network") + 1], web[web.index("--network") + 1])
         self.assertNotIn("-p", web)
         self.assertIn(web[web.index("--name") + 1], calls[-2])
+        # The internal network cannot download: the data volume is seeded from the prepared inputs
+        # for the exact pin the image carries, then mounted where the backend installs Providers.
+        self.assertEqual(self.sync[:2], ["providers", "sync"])
+        self.assertEqual(self.sync[self.sync.index("--inputs") + 1], str(ROOT / "data/runtime-inputs.json"))
+        self.assertEqual(self.sync[self.sync.index("--mode") + 1], "production")
+        self.assertTrue(self.sync[self.sync.index("--seed") + 1].endswith("prepared/providers"))
+        self.assertTrue(any(arg.endswith("target=/var/lib/retrom/providers") for arg in app))
         self.assert_cleanup(calls)
 
     def test_database_and_backend_failure_clean_all_owned_resources(self):
