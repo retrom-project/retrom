@@ -23,11 +23,15 @@ type Service struct {
 	Runtime    *runtimeclient.Client
 	Storage    *storage.Store
 	Sources    storage.Sources
+	Uploads    storage.Uploads
+	Redis      Temporary
 	Now        func() time.Time
 	Context    context.Context
 	mutex      sync.Mutex
 	cancel     map[string]context.CancelFunc
 	workers    sync.WaitGroup
+
+	uploadState uploads
 }
 
 func (s *Service) Inspect(ctx context.Context,
@@ -37,6 +41,10 @@ func (s *Service) Inspect(ctx context.Context,
 ) {
 	if err := p.Admin(); err != nil {
 		return nil, wrap(err)
+	}
+	input, err := s.resolveSource(ctx, p, input)
+	if err != nil {
+		return nil, err
 	}
 	collections, err := s.inspect(ctx, input)
 	if err != nil {
@@ -53,15 +61,16 @@ func (s *Service) Create(ctx context.Context, p model.Principal, input model.Gam
 	if err := p.Admin(); err != nil {
 		return model.Scan{}, wrap(err)
 	}
-	collections,
-		err := s.inspect(ctx,
-		model.SourceInput{
-			Path:   input.Path,
-			Format: input.Format,
-		})
+	source, err := s.resolveSource(ctx, p,
+		model.SourceInput{Path: input.Path, UploadID: input.UploadID, Format: input.Format})
 	if err != nil {
 		return model.Scan{}, err
 	}
+	collections, err := s.inspect(ctx, source)
+	if err != nil {
+		return model.Scan{}, err
+	}
+	input.Path = source.Path
 	mappings, err := s.validateMappings(ctx, collections, input.Mappings)
 	if err != nil {
 		return model.Scan{}, err
@@ -78,13 +87,30 @@ func (s *Service) Create(ctx context.Context, p model.Principal, input model.Gam
 		cancel()
 		return model.Scan{}, err
 	}
+	if input.UploadID != "" {
+		if err = s.consumeUpload(ctx, p, input.UploadID); err != nil {
+			s.release(scan.ID)
+			s.workers.Done()
+			return model.Scan{}, err
+		}
+	}
 	if err = s.Repository.CreateScan(ctx, scan, p.User.ID); err != nil {
 		s.release(scan.ID)
 		s.workers.Done()
+		if input.UploadID != "" {
+			s.finishUpload(input.UploadID)
+		}
 		return scan, wrap(err)
 	}
 	stop := s.onShutdown(cancel)
-	go func() { defer stop(); defer s.workers.Done(); s.run(worker, scan, p, input, collections, mappings) }()
+	go func() {
+		defer stop()
+		defer s.workers.Done()
+		if input.UploadID != "" {
+			defer s.finishUpload(input.UploadID)
+		}
+		s.run(worker, scan, p, input, collections, mappings)
+	}()
 	return scan, nil
 }
 

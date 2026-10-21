@@ -59,13 +59,21 @@ func contractValidator() (func(*http.Request) error, error) {
 		if formatErr := parameterFormats(route, params, r); formatErr != nil {
 			return formatErr
 		}
-		multipart := strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data")
-		if !multipart {
-			r.Body = http.MaxBytesReader(nil, r.Body, 1024*1024)
+		contentType := r.Header.Get("Content-Type")
+		// File bodies are bounded by their handlers; only JSON bodies are read for validation.
+		binary := strings.HasPrefix(contentType, "multipart/form-data") ||
+			strings.HasPrefix(contentType, "application/octet-stream")
+		if !binary {
+			limit := int64(1024 * 1024)
+			if route.Operation.OperationID == "CreateUpload" {
+				// Declaring up to 50,000 upload paths exceeds the ordinary JSON bound.
+				limit = 16 * 1024 * 1024
+			}
+			r.Body = http.MaxBytesReader(nil, r.Body, limit)
 		}
 		options := &openapi3filter.Options{
 			AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
-			ExcludeRequestBody: multipart,
+			ExcludeRequestBody: binary,
 			SchemaValidationOptions: []openapi3.SchemaValidationOption{
 				openapi3.EnableFormatValidation(),
 				openapi3.WithStringFormatValidator("uuid", openapi3.NewCallbackValidator(validateUUID)),

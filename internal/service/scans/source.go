@@ -31,8 +31,25 @@ type (
 	}
 )
 
+// resolveSource turns a request naming a server path or a complete upload into the
+// absolute source tree both scan paths read.
+func (s *Service) resolveSource(ctx context.Context, p model.Principal, input model.SourceInput,
+) (model.SourceInput, error) {
+	if (input.Path == "") == (input.UploadID == "") {
+		return model.SourceInput{}, model.ErrInvalid
+	}
+	if input.UploadID == "" {
+		return input, nil
+	}
+	source, err := s.uploadSource(ctx, p, input.UploadID, input.Format)
+	if err != nil {
+		return model.SourceInput{}, err
+	}
+	return model.SourceInput{Path: source, Format: input.Format}, nil
+}
+
 func (s *Service) inspect(ctx context.Context, input model.SourceInput) ([]Collection, error) {
-	if !model.OneOf(input.Format, "pegasus", "emulationstation") {
+	if !model.OneOf(input.Format, "pegasus", "emulationstation", "files") {
 		return nil, model.ErrInvalid
 	}
 	root, err := s.Sources.Open(input.Path)
@@ -40,6 +57,13 @@ func (s *Service) inspect(ctx context.Context, input model.SourceInput) ([]Colle
 		return nil, wrap(err)
 	}
 	defer closeRoot(root)
+	if input.Format == "files" {
+		collection, filesErr := parseFiles(root, input.Path)
+		if filesErr != nil {
+			return nil, filesErr
+		}
+		return []Collection{collection}, nil
+	}
 	entries, err := readDir(root, ".")
 	if err != nil {
 		return nil, err

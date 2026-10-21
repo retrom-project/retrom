@@ -11,6 +11,7 @@ vi.mock("next/navigation", () => ({
     push: (path: string) => window.history.pushState(null, "", path),
   }),
 }));
+vi.mock("@/lib/use-phone-layout", () => ({ usePhoneLayout: () => false }));
 vi.mock("@/lib/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof ApiClient>();
   return { ...actual, api: { GET: calls.get, POST: calls.post } };

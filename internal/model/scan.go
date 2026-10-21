@@ -25,9 +25,11 @@ type (
 		Path      string `json:"path"`
 		GameCount int64  `json:"gameCount"`
 	}
+	// SourceInput names exactly one source: a server path or a completed browser upload.
 	SourceInput struct {
-		Path   string `json:"path"`
-		Format string `json:"format"`
+		Path     string `json:"path,omitempty"`
+		UploadID string `json:"uploadId,omitempty"`
+		Format   string `json:"format"`
 	}
 	SourceMapping struct {
 		SourceKey   string   `json:"sourceKey"`
@@ -35,7 +37,8 @@ type (
 		TagIDs      []string `json:"tagIds"`
 	}
 	GameScanInput struct {
-		Path     string          `json:"path"`
+		Path     string          `json:"path,omitempty"`
+		UploadID string          `json:"uploadId,omitempty"`
 		Format   string          `json:"format"`
 		Mappings []SourceMapping `json:"mappings"`
 	}

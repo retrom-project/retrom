@@ -109,14 +109,21 @@ func run(ctx context.Context) error {
 	if err = repository.InterruptScans(ctx, time.Now().UnixMilli()); err != nil {
 		return fmt.Errorf("interrupt old scans: %w", err)
 	}
+	uploads, err := storage.OpenUploads(dataRoot + "/uploads")
+	if err != nil {
+		return fmt.Errorf("initialize upload staging: %w", err)
+	}
 	scanService := &scans.Service{
 		Repository: repository,
 		Runtime:    runtime,
 		Storage:    managed,
 		Sources:    storage.Sources{},
+		Uploads:    uploads,
+		Redis:      redisClient,
 		Now:        time.Now,
 		Context:    ctx,
 	}
+	go scanService.RunUploadCleanup(ctx)
 	transport := &httpapi.Server{
 		Accounts: service, Origin: environment("RETROM_PUBLIC_ORIGIN", "http://localhost:4000"),
 		CookieName: "retrom_session",

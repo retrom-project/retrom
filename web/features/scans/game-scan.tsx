@@ -11,13 +11,20 @@ import { PageHeader, FeedbackBanner } from "@/components/ui";
 import { SourcePicker } from "./source-picker";
 import { BiosScan } from "./bios-scan";
 import { ScanProgressList } from "./scan-progress";
+import { CollectionMapping } from "./collection-mapping";
 import { useToast } from "@/components/toast-provider";
+import { usePhoneLayout } from "@/lib/use-phone-layout";
+import { formatDescriptions, type UploadedSource } from "./upload-sheet";
+import { useBrowserUploads } from "./browser-uploads";
 type SourceFormat = Schema<"GameScanRequest">["format"] | "";
+type UploadedFiles = { uploadId: string; fileCount: number };
 
 export function GameScan() {
   const router = useRouter();
   const { notify } = useToast();
   const [selecting, setSelecting] = useState(false);
+  const phone = usePhoneLayout();
+  const [upload, setUpload] = useState<UploadedFiles | null>(null);
   const [scanningBios, setScanningBios] = useState(false);
   const [scanRevision, setScanRevision] = useState(0);
   const [path, setPath] = useState("/");
@@ -28,6 +35,7 @@ export function GameScan() {
   const [busy, setBusy] = useState(false);
   const directories = useResource(loadDirectories);
   const tags = useResource(loadTags);
+  const uploads = useBrowserUploads({ phone, onUploaded: uploaded, onFailure: reportFailure, setBusy });
   function reportFailure(failure: unknown, fallback: string) {
     const message = failure instanceof Error ? failure.message : fallback;
     if (failure instanceof ApiError && failure.status === 400) {
@@ -35,6 +43,21 @@ export function GameScan() {
     } else {
       notify({ tone: "bad", message });
     }
+  }
+  // A loose upload's only collection is the staging tree; name it for what it is.
+  function collectionName(entry: Schema<"SourceEntry">) {
+    return upload && format === "files" ? "上传的游戏文件" : entry.name;
+  }
+  function showCollections(items: Schema<"SourceEntry">[]) {
+    setEntries(items);
+    setMappings(items.map((entry) => ({ sourceKey: entry.key, platformInstanceId: "", tagIds: [] })));
+  }
+  function uploaded(source: UploadedSource) {
+    setFormat(source.format);
+    setUpload({ uploadId: source.uploadId, fileCount: source.fileCount });
+    setError("");
+    showCollections(source.items);
+    notify({ tone: "good", message: `上传完成，已读取 ${source.items.length} 个来源集合。` });
   }
   function changeSource(path: string) {
     setPath(path);
@@ -53,7 +76,8 @@ export function GameScan() {
           body: { path, format },
         }),
       );
-      setEntries(data.items);
+      setUpload(null);
+      showCollections(data.items);
       notify(
         data.items.length
           ? {
@@ -66,13 +90,6 @@ export function GameScan() {
             },
       );
       setSelecting(false);
-      setMappings(
-        data.items.map((entry) => ({
-          sourceKey: entry.key,
-          platformInstanceId: "",
-          tagIds: [],
-        })),
-      );
     } catch (failure) {
       reportFailure(failure, "无法读取来源。");
     } finally {
@@ -88,13 +105,14 @@ export function GameScan() {
     try {
       const scan = result(
         await api.POST("/api/v1/admin/game-scans", {
-          body: { path, format, mappings },
+          body: upload ? { uploadId: upload.uploadId, format, mappings } : { path, format, mappings },
         }),
       );
       notify({
         tone: "good",
         message: "扫描已开始。接收完成的游戏将进入统一待审核列表。",
       });
+      uploads.reload();
       router.push(`/admin/reviews?scanId=${encodeURIComponent(scan.id)}`);
     } catch (failure) {
       reportFailure(failure, "扫描启动失败。");
@@ -106,10 +124,12 @@ export function GameScan() {
     <>
       <PageHeader
         title="来源扫描"
-        description="从服务器目录扫描游戏来源或补齐 BIOS，统一查看扫描进度。"
+        description="从服务器目录或浏览器上传扫描游戏来源，或补齐 BIOS，统一查看扫描进度。"
       />
       <ScanSources
         onBios={() => setScanningBios(true)}
+        phone={phone}
+        onUpload={() => { setError(""); uploads.open(); }}
         onSelect={() => {
           setFormat("");
           setEntries([]);
@@ -128,97 +148,20 @@ export function GameScan() {
         onClose={() => setSelecting(false)}
         onInspect={() => void inspect()}
       /> : null}
+      {uploads.view}
       {entries.length ? (
-        <section className={`panel ${styles.selection}`}>
-          <header className="panel-head">
-            <div>
-              <h2>核对来源集合与游戏目录</h2>
-              <p>
-                {entries.length} 个来源集合 · {path}
-              </p>
-            </div>
-          </header>
-          {entries.map((entry, index) => (
-            <div className={styles.mapping} key={entry.key}>
-              <div>
-                <h3>{entry.name}</h3>
-                <p>
-                  {entry.gameCount} 款游戏 · {entry.path}
-                </p>
-              </div>
-              <div className={styles.mappingControls}>
-                <label className="field">
-                  <span className="field-label">游戏目录</span>
-                  <select
-                    aria-label={`${entry.name}游戏目录`}
-                    value={mappings[index]?.platformInstanceId ?? ""}
-                    onChange={(event) =>
-                      setMappings((value) =>
-                        value.map((mapping, item) =>
-                          item === index
-                            ? {
-                                ...mapping,
-                                platformInstanceId: event.target.value,
-                              }
-                            : mapping,
-                        ),
-                      )
-                    }
-                  >
-                    <option value="">选择游戏目录</option>
-                    {directories.data?.items
-                      .filter((directory) => directory.enabled)
-                      .map((directory) => (
-                        <option value={directory.id} key={directory.id}>
-                          {directory.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <div className={styles.tagChoices}>
-                  {tags.data?.items.map((tag) => (
-                    <label key={tag.id}>
-                      <input
-                        type="checkbox"
-                        checked={
-                          mappings[index]?.tagIds.includes(tag.id) ?? false
-                        }
-                        onChange={(event) =>
-                          setMappings((value) =>
-                            value.map((mapping, item) =>
-                              item === index
-                                ? {
-                                    ...mapping,
-                                    tagIds: event.target.checked
-                                      ? [...mapping.tagIds, tag.id]
-                                      : mapping.tagIds.filter(
-                                          (id) => id !== tag.id,
-                                        ),
-                                  }
-                                : mapping,
-                            ),
-                          )
-                        }
-                      />
-                      {tag.name}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-          <footer className={styles.mappingFooter}>
-            <button
-              className="button"
-              disabled={
-                !format || busy || mappings.some((mapping) => !mapping.platformInstanceId)
-              }
-              onClick={() => void start()}
-            >
-              开始扫描
-            </button>
-          </footer>
-        </section>
+        <CollectionMapping
+          entries={entries}
+          mappings={mappings}
+          onMappingsChange={setMappings}
+          directories={directories.data?.items}
+          tags={tags.data?.items}
+          summary={upload ? `浏览器上传 · ${upload.fileCount} 个文件` : path}
+          showPaths={!upload}
+          nameOf={collectionName}
+          disabled={!format || busy || mappings.some((mapping) => !mapping.platformInstanceId)}
+          onStart={() => void start()}
+        />
       ) : null}
       {!selecting && error ? (
         <FeedbackBanner tone="bad">{error}</FeedbackBanner>
@@ -255,7 +198,9 @@ function GameSourcePicker({ busy, path, format, error, onPathChange, onFormatCha
           ? "选择包含 metadata.pegasus.txt 的来源目录。"
           : format === "emulationstation"
             ? "选择包含 gamelist.xml 的来源目录。"
-            : "选择服务器目录，并指定文件组织形式。"
+            : format === "files"
+              ? `选择存放游戏的目录。${formatDescriptions.files}`
+              : "选择服务器目录，并指定文件组织形式。"
       }
       placement="right"
       className={styles.sheet}
@@ -296,6 +241,7 @@ function GameSourcePicker({ busy, path, format, error, onPathChange, onFormatCha
             <option value="">请选择文件组织形式</option>
             <option value="pegasus">metadata.pegasus.txt</option>
             <option value="emulationstation">gamelist.xml</option>
+            <option value="files">散装文件（每个文件或文件夹一款游戏）</option>
           </select>
         </label>
       </SourcePicker>
@@ -304,15 +250,21 @@ function GameSourcePicker({ busy, path, format, error, onPathChange, onFormatCha
   );
 }
 
-function ScanSources({ onSelect, onBios }: {
+// Uploading gigabytes of games is a desktop task; phones keep server scans only.
+function ScanSources({ phone, onSelect, onBios, onUpload }: {
+  phone: boolean;
   onSelect: () => void;
   onBios: () => void;
+  onUpload: () => void;
 }) {
   return <div className={styles.entryGrid}>
     <article className={styles.entry}>
       <h2>游戏扫描</h2>
-      <p>读取 Pegasus 或 EmulationStation 游戏清单，核对集合与目标目录后复制内容。游戏进入待审核，不会自动发布。</p>
-      <footer><button className="button" onClick={onSelect}>本地扫描</button></footer>
+      <p>读取 Pegasus、EmulationStation 游戏清单或散装游戏文件，核对集合与目标目录后复制内容。游戏进入待审核，不会自动发布。</p>
+      <footer>
+        {phone ? null : <button className="button secondary" onClick={onUpload}>浏览器上传</button>}
+        <button className="button" onClick={onSelect}>本地扫描</button>
+      </footer>
     </article>
     <article className={styles.entry}>
       <h2>BIOS扫描</h2>
