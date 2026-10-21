@@ -9,9 +9,6 @@ import (
 	"path"
 	"slices"
 	"strings"
-	"unicode/utf8"
-
-	"golang.org/x/text/encoding/simplifiedchinese"
 
 	"retrom/internal/model"
 	"retrom/internal/storage"
@@ -244,8 +241,12 @@ func zipEntries(file *os.File, size int64) ([]entry, error) {
 	entries := make([]entry, 0, len(archive.File))
 	for _, member := range archive.File {
 		if !member.FileInfo().IsDir() {
+			name, nameErr := zipMemberName(member)
+			if nameErr != nil {
+				return nil, nameErr
+			}
 			entries = append(entries, entry{
-				name: archiveName(member.Name), size: int64(member.UncompressedSize64),
+				name: name, size: int64(member.UncompressedSize64),
 				open: member.Open,
 			})
 		}
@@ -265,15 +266,4 @@ func sevenEntries(file *os.File, size int64) ([]entry, error) {
 		}
 	}
 	return entries, nil
-}
-
-func archiveName(value string) string {
-	if utf8.ValidString(value) {
-		return value
-	}
-	decoded, err := simplifiedchinese.GB18030.NewDecoder().Bytes([]byte(value))
-	if err != nil {
-		return ""
-	}
-	return string(decoded)
 }
