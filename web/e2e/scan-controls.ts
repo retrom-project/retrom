@@ -27,6 +27,8 @@ export async function verifyScanControls(page: Page, info: TestInfo) {
   await page.keyboard.press("Escape");
   await expect(sheet).toHaveCount(0);
 
+  await verifyUploadControls(page, info);
+
   await page.getByRole("button", { name: "选择 BIOS 目录", exact: true }).click();
   const bios = page.getByRole("dialog", { name: "BIOS扫描", exact: true });
   const platforms = bios.getByRole("group", { name: "平台范围", exact: true });
@@ -51,4 +53,28 @@ export async function verifyScanControls(page: Page, info: TestInfo) {
   await page.screenshot({ path: info.outputPath("bios-scan-unselected.png") });
   await page.keyboard.press("Escape");
   await expect(bios).toHaveCount(0);
+}
+
+async function verifyUploadControls(page: Page, info: TestInfo) {
+  const upload = page.getByRole("button", { name: "浏览器上传", exact: true });
+  if ((page.viewportSize()?.width ?? 0) < 768) {
+    await expect(upload).toHaveCount(0);
+    return;
+  }
+  await expect(upload).toHaveCount(1);
+  await upload.click();
+  const sheet = page.getByRole("dialog", { name: "浏览器上传游戏", exact: true });
+  const format = sheet.getByLabel("上传文件组织形式", { exact: true });
+  const start = sheet.getByRole("button", { name: "开始上传", exact: true });
+  await expect(format).toHaveValue("");
+  await expect(start).toBeDisabled();
+  await format.selectOption("files");
+  await expect(sheet).toContainText("同名的 png/jpg/webp 图片作为封面");
+  await expect(sheet.getByText("选择文件", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("选择文件夹", { exact: true })).toBeVisible();
+  await expect(start).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath("browser-upload-sheet.png") });
+  await page.keyboard.press("Escape");
+  await expect(sheet).toHaveCount(0);
 }

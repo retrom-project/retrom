@@ -65,3 +65,15 @@
 .reviewProgress h2 { margin: 0; font-size: var(--text-lead); }
 .reviewProgress p { margin: 8px 0; color: var(--muted); font-size: var(--text-small); overflow-wrap: anywhere; }
 .reviewProgress progress { display: block; width: 100%; height: 8px; accent-color: var(--purple); }
+
+.dropZone { min-width: 0; padding: 22px; display: grid; justify-items: center; gap: 10px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius-panel); background: var(--surface-subtle); }
+.dropZone p { margin: 0; color: var(--muted); font-size: var(--text-small); }
+.dropZone small { color: var(--muted); font-size: var(--text-caption); }
+.dropActive { border-color: var(--purple-line); background: var(--purple-soft); }
+.dropActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.uploadSummary { min-width: 0; padding: 12px 14px; display: grid; gap: 8px; border: 1px solid var(--line); border-radius: var(--radius-panel); }
+.uploadSummary header { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: var(--text-small); }
+.uploadSummary ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.uploadSummary li { min-width: 0; display: flex; justify-content: space-between; gap: 12px; font-size: var(--text-caption); }
+.uploadSummary li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uploadSummary small, .uploadSummary li small { flex: none; color: var(--muted); font-size: var(--text-caption); }

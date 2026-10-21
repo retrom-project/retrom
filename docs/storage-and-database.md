@@ -11,7 +11,7 @@ PostgreSQL保存事实，Redis保存TTL临时run与原子作用域限流，本�
 | BIOS／运行依赖 | `bios/<bios-file-id>/<file-uuid>` |
 | 尚未发布的临时文件 | `temporary/<uuid>` |
 
-例如存档实际位于 `RETROM_DATA_DIR/managed/saves/`，不在 `RETROM_DATA_DIR/saves/`。账号链接密钥另存于 `RETROM_DATA_DIR/account-link.key`。备份应包含整个数据根和对应的 PostgreSQL 备份，步骤及停写要求见[Docker 部署指南](docker-deployment.md#数据备份与版本升级)。
+例如存档实际位于 `RETROM_DATA_DIR/managed/saves/`，不在 `RETROM_DATA_DIR/saves/`。账号链接密钥另存于 `RETROM_DATA_DIR/account-link.key`。浏览器上传暂存于 `RETROM_DATA_DIR/uploads/<upload-id>/`（`files/` 为完成的来源树，`parts/` 为接收中的文件），它是临时来源而非受管内容，扫描结束或会话失效后删除，可不纳入备份。备份应包含整个数据根和对应的 PostgreSQL 备份，步骤及停写要求见[Docker 部署指南](docker-deployment.md#数据备份与版本升级)。
 
 准备先写 `temporary/` 独占文件，计算 SHA/大小、fsync，再原子 rename 并 fsync 文件/父目录。通用存储允许0字节项目文件；ROM/save/BIOS领域在适用边界要求非空。DB事务内不进行复制、解包或Node运行准备。
 

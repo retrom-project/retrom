@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -162,5 +164,46 @@ func TestResourceContractAcceptsSafeNamesAndRejectsEscapedUnsafeNames(t *testing
 				}
 			}
 		})
+	}
+}
+
+func TestContractLeavesUploadChunksToTheirHandlerAndBoundsUploadDeclarations(t *testing.T) {
+	t.Parallel()
+	validate, err := contractValidator()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := "4f0a7d1e-62b4-4a43-9a58-8e5f21b5c7a1"
+	chunk := httptest.NewRequestWithContext(t.Context(), http.MethodPut,
+		"/api/v1/admin/uploads/"+id+"/files/3?offset=0", strings.NewReader(strings.Repeat("x", 2*1024*1024)))
+	chunk.Header.Set("Content-Type", "application/octet-stream")
+	if err = validate(chunk); err != nil {
+		t.Fatalf("chunk above the JSON bound error=%v", err)
+	}
+	if body, readErr := io.ReadAll(chunk.Body); readErr != nil || len(body) != 2*1024*1024 {
+		t.Fatalf("the handler must still read the whole chunk: %d %v", len(body), readErr)
+	}
+	missingOffset := httptest.NewRequestWithContext(t.Context(), http.MethodPut,
+		"/api/v1/admin/uploads/"+id+"/files/3", strings.NewReader("x"))
+	missingOffset.Header.Set("Content-Type", "application/octet-stream")
+	if err = validate(missingOffset); !errors.Is(err, model.ErrInvalid) {
+		t.Fatalf("missing offset error=%v", err)
+	}
+	files := make([]string, 0, 20000)
+	for index := range 20000 {
+		files = append(files, fmt.Sprintf(`{"path":"Collection/games/game-%05d.zip","sizeBytes":1024}`, index))
+	}
+	declaration := `{"files":[` + strings.Join(files, ",") + `]}`
+	create := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/uploads",
+		strings.NewReader(declaration))
+	create.Header.Set("Content-Type", "application/json")
+	if err = validate(create); err != nil || len(declaration) <= 1024*1024 {
+		t.Fatalf("a large declaration (%d bytes) error=%v", len(declaration), err)
+	}
+	inspect := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/game-scans/inspect",
+		strings.NewReader(`{"uploadId":"`+id+`","format":"files"}`))
+	inspect.Header.Set("Content-Type", "application/json")
+	if err = validate(inspect); err != nil {
+		t.Fatalf("inspect an upload error=%v", err)
 	}
 }

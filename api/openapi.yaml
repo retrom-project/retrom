@@ -166,6 +166,15 @@
     "/api/v1/admin/scans/{scanId}/cancel": {
       "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1scans~1{scanId}~1cancel"
     },
+    "/api/v1/admin/uploads": {
+      "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1uploads"
+    },
+    "/api/v1/admin/uploads/{uploadId}": {
+      "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1uploads~1{uploadId}"
+    },
+    "/api/v1/admin/uploads/{uploadId}/files/{index}": {
+      "$ref": "./domains/scans.yaml#/paths/~1api~1v1~1admin~1uploads~1{uploadId}~1files~1{index}"
+    },
     "/api/v1/admin/bios": {
       "$ref": "./domains/bios.yaml#/paths/~1api~1v1~1admin~1bios"
     },
@@ -361,6 +370,21 @@
       },
       "ScanProgress": {
         "$ref": "./components/common.yaml#/components/schemas/ScanProgress"
+      },
+      "UploadRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/UploadRequest"
+      },
+      "UploadFileRequest": {
+        "$ref": "./components/common.yaml#/components/schemas/UploadFileRequest"
+      },
+      "UploadFile": {
+        "$ref": "./components/common.yaml#/components/schemas/UploadFile"
+      },
+      "Upload": {
+        "$ref": "./components/common.yaml#/components/schemas/Upload"
+      },
+      "UploadProgress": {
+        "$ref": "./components/common.yaml#/components/schemas/UploadProgress"
       },
       "BiosRequirement": {
         "$ref": "./components/common.yaml#/components/schemas/BiosRequirement"

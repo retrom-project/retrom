@@ -16,6 +16,9 @@ var (
 	ErrRateLimited     = errors.New("rate limited")
 	ErrBIOSMissing     = errors.New("required BIOS is not installed")
 	ErrContextExpired  = errors.New("runtime context expired")
+	ErrUploadOffset    = errors.New("upload offset does not match received bytes")
+	ErrUploadLimit     = errors.New("too many active uploads")
+	ErrStorageFull     = errors.New("insufficient storage")
 )
 
 func Invalid(field string) error { return fmt.Errorf("%s: %w", field, ErrInvalid) }

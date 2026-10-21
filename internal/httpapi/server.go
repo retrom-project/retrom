@@ -177,33 +177,42 @@ func respond(w http.ResponseWriter, value any) error {
 	return nil
 }
 
+// errorResponses maps domain errors to responses; the first match wins.
+var errorResponses = []struct {
+	err           error
+	status        int
+	code, message string
+}{
+	{model.ErrInvalid, 400, "INVALID_INPUT", "Input is invalid"},
+	{model.ErrUnauthorized, 401, "AUTHENTICATION_REQUIRED", "Sign in to continue"},
+	{model.ErrForbidden, 403, "FORBIDDEN", "Operation is not permitted"},
+	{model.ErrNotFound, 404, "NOT_FOUND", "Item is unavailable"},
+	{model.ErrTagNameConflict, 409, "TAG_NAME_CONFLICT", "A tag with this name already exists"},
+	{model.ErrConflict, 409, "VERSION_CONFLICT", "Item changed; refresh and try again"},
+	{model.ErrUnavailable, 503, "SERVICE_UNAVAILABLE", "Service is temporarily unavailable"},
+	{model.ErrRateLimited, 429, "RATE_LIMITED", "Try again later"},
+	{model.ErrBIOSMissing, 409, "BIOS_MISSING", "Required BIOS is not installed; check BIOS management"},
+	{model.ErrContextExpired, 409, "CONTEXT_EXPIRED", "Run context expired; preserve unsaved progress"},
+	{model.ErrUploadOffset, 409, "UPLOAD_OFFSET_CONFLICT", "Upload offset changed; read the received bytes and resume"},
+	{model.ErrUploadLimit, 409, "UPLOAD_LIMIT", "Too many uploads are in progress"},
+	{model.ErrStorageFull, 507, "INSUFFICIENT_STORAGE", "Not enough free space for this upload"},
+}
+
 func writeError(w http.ResponseWriter, err error) {
 	status, code, message := http.StatusInternalServerError, "INTERNAL_ERROR", "Request could not be completed"
 	var contentError *model.RuntimeContentError
-	switch {
-	case errors.As(err, &contentError):
+	if errors.As(err, &contentError) {
 		status, code, message = 400, contentError.Code, contentError.Message
-	case errors.Is(err, model.ErrInvalid):
-		status, code, message = 400, "INVALID_INPUT", "Input is invalid"
-	case errors.Is(err, model.ErrUnauthorized):
-		status, code, message = 401, "AUTHENTICATION_REQUIRED", "Sign in to continue"
-	case errors.Is(err, model.ErrForbidden):
-		status, code, message = 403, "FORBIDDEN", "Operation is not permitted"
-	case errors.Is(err, model.ErrNotFound):
-		status, code, message = 404, "NOT_FOUND", "Item is unavailable"
-	case errors.Is(err, model.ErrTagNameConflict):
-		status, code, message = 409, "TAG_NAME_CONFLICT", "A tag with this name already exists"
-	case errors.Is(err, model.ErrConflict):
-		status, code, message = 409, "VERSION_CONFLICT", "Item changed; refresh and try again"
-	case errors.Is(err, model.ErrUnavailable):
-		status, code, message = 503, "SERVICE_UNAVAILABLE", "Service is temporarily unavailable"
-	case errors.Is(err, model.ErrRateLimited):
-		status, code, message = 429, "RATE_LIMITED", "Try again later"
+	} else {
+		for _, response := range errorResponses {
+			if errors.Is(err, response.err) {
+				status, code, message = response.status, response.code, response.message
+				break
+			}
+		}
+	}
+	if status == http.StatusTooManyRequests {
 		w.Header().Set("Retry-After", "900")
-	case errors.Is(err, model.ErrBIOSMissing):
-		status, code, message = 409, "BIOS_MISSING", "Required BIOS is not installed; check BIOS management"
-	case errors.Is(err, model.ErrContextExpired):
-		status, code, message = 409, "CONTEXT_EXPIRED", "Run context expired; preserve unsaved progress"
 	}
 	if status == 500 {
 		slog.Error("HTTP request failed", "error", err)

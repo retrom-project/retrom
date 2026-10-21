@@ -808,6 +808,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Declare a browser upload: every file path and size, checked against the limits and free space before anything is staged. */
+        post: operations["CreateUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/uploads/{uploadId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uploadId: string;
+            };
+            cookie?: never;
+        };
+        /** @description Received bytes of each declared file, for resuming. */
+        get: operations["GetUpload"];
+        put?: never;
+        post?: never;
+        /** @description Cancel an upload that has not started a scan and remove its staged files. */
+        delete: operations["DeleteUpload"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/uploads/{uploadId}/files/{index}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uploadId: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Append one chunk (at most chunkSizeBytes) at offset, which must equal the file's received bytes; otherwise 409 UPLOAD_OFFSET_CONFLICT. */
+        put: operations["WriteUploadChunk"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/bios": {
         parameters: {
             query?: never;
@@ -1419,11 +1476,14 @@ export interface components {
             /** Format: int64 */
             gameCount: number;
         };
+        /** @description Exactly one of path (a server directory) or uploadId (a complete browser upload). */
         SourceInspectRequest: {
             /** @description Absolute path visible to the server process. */
-            path: string;
+            path?: string;
             /** @enum {string} */
-            format: "pegasus" | "emulationstation";
+            format: "pegasus" | "emulationstation" | "files";
+            /** Format: uuid */
+            uploadId?: string;
         };
         SourceMapping: {
             sourceKey: string;
@@ -1431,12 +1491,15 @@ export interface components {
             platformInstanceId: string;
             tagIds: string[];
         };
+        /** @description Exactly one of path (a server directory) or uploadId (a complete browser upload). */
         GameScanRequest: {
             /** @description Absolute path visible to the server process. */
-            path: string;
+            path?: string;
             /** @enum {string} */
-            format: "pegasus" | "emulationstation";
+            format: "pegasus" | "emulationstation" | "files";
             mappings: components["schemas"]["SourceMapping"][];
+            /** Format: uuid */
+            uploadId?: string;
         };
         BiosScanRequest: {
             /** @description Absolute path visible to the server process. */
@@ -1467,6 +1530,37 @@ export interface components {
             /** Format: int64 */
             updatedAtMs: number;
             error: string | null;
+        };
+        UploadRequest: {
+            files: components["schemas"]["UploadFileRequest"][];
+        };
+        UploadFileRequest: {
+            /** @description Safe relative path inside the upload. */
+            path: string;
+            /** Format: int64 */
+            sizeBytes: number;
+        };
+        UploadFile: {
+            path: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            /** Format: int64 */
+            receivedBytes: number;
+        };
+        Upload: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            chunkSizeBytes: number;
+            /** Format: int64 */
+            expiresAtMs: number;
+            completed: boolean;
+            files: components["schemas"]["UploadFile"][];
+        };
+        UploadProgress: {
+            /** Format: int64 */
+            receivedBytes: number;
+            completed: boolean;
         };
         BiosRequirement: {
             key: string;
@@ -6739,6 +6833,326 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScanProgress"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CreateUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Upload"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            507: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uploadId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Upload"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    DeleteUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uploadId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    WriteUploadChunk: {
+        parameters: {
+            query: {
+                offset: number;
+            };
+            header?: never;
+            path: {
+                uploadId: string;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadProgress"];
                 };
             };
             /** @description Request failed */

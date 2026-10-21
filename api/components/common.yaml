@@ -1343,7 +1343,6 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "path",
           "format"
         ],
         "properties": {
@@ -1357,10 +1356,16 @@
             "type": "string",
             "enum": [
               "pegasus",
-              "emulationstation"
+              "emulationstation",
+              "files"
             ]
+          },
+          "uploadId": {
+            "type": "string",
+            "format": "uuid"
           }
-        }
+        },
+        "description": "Exactly one of path (a server directory) or uploadId (a complete browser upload)."
       },
       "SourceMapping": {
         "type": "object",
@@ -1391,7 +1396,6 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "path",
           "format",
           "mappings"
         ],
@@ -1406,7 +1410,8 @@
             "type": "string",
             "enum": [
               "pegasus",
-              "emulationstation"
+              "emulationstation",
+              "files"
             ]
           },
           "mappings": {
@@ -1414,8 +1419,13 @@
             "items": {
               "$ref": "#/components/schemas/SourceMapping"
             }
+          },
+          "uploadId": {
+            "type": "string",
+            "format": "uuid"
           }
-        }
+        },
+        "description": "Exactly one of path (a server directory) or uploadId (a complete browser upload)."
       },
       "BiosScanRequest": {
         "type": "object",
@@ -2897,6 +2907,122 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "UploadRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "files"
+        ],
+        "properties": {
+          "files": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50000,
+            "items": {
+              "$ref": "#/components/schemas/UploadFileRequest"
+            }
+          }
+        }
+      },
+      "UploadFileRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sizeBytes"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "description": "Safe relative path inside the upload."
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967296
+          }
+        }
+      },
+      "UploadFile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sizeBytes",
+          "receivedBytes"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "receivedBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "Upload": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "chunkSizeBytes",
+          "expiresAtMs",
+          "completed",
+          "files"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "chunkSizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "expiresAtMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UploadFile"
+            }
+          }
+        }
+      },
+      "UploadProgress": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "receivedBytes",
+          "completed"
+        ],
+        "properties": {
+          "receivedBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "completed": {
+            "type": "boolean"
           }
         }
       }

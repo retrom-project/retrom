@@ -1,6 +1,6 @@
 # 服务器来源导入与审核
 
-首次准备来源可按[Pegasus／EmulationStation 示例](import-source-examples.md)组织文件，再在“来源扫描”中选择格式、读取集合并映射目标目录。游戏目录和允许核心的配置见[游戏目录](platform-instance.md)；核心内容前提由 runtime 的 [Target 指南](https://github.com/retrom-project/retrom-runtime/blob/master/docs/targets/README.md)维护。
+首次准备来源可按[Pegasus／EmulationStation 示例](import-source-examples.md)组织文件，或使用散装文件形式，再在“来源扫描”中选择服务器目录或浏览器上传、选择格式、读取集合并映射目标目录。游戏目录和允许核心的配置见[游戏目录](platform-instance.md)；核心内容前提由 runtime 的 [Target 指南](https://github.com/retrom-project/retrom-runtime/blob/master/docs/targets/README.md)维护。
 
 管理员从 `/` 浏览服务进程可访问的目录，以绝对 `path` 选择来源，inspect Pegasus metadata.pegasus.txt或EmulationStation gamelist.xml，再将collection映射到现存目录和≤20个活动共享Tag。目录列表返回名称和完整路径，允许普通目录符号链接，权限和挂载范围由实际操作系统决定；容器只能浏览已挂载的内容。来源只读，扫描打开所选目录的os.Root，元数据引用仍使用安全相对路径，递归和文件大小保留扫描算法边界。Players保留有界字符串（例如1-4），未知人数/年份返回null。
 
@@ -21,6 +21,12 @@ pending_review是共享管理员审核队列，来自所有来源，不按扫描
 取消只停止后续候选，已提交Game/BIOS保留；重启将运行中进度标记interrupted，不自动续跑。两个扫描执行槽有界。scan_progress只提供短期提示：维护worker每分钟最多删除200条超过24小时的终态，保留running，不读取/反查或删除Game与BIOS。
 
 发布后资料/媒体直接CAS编辑；ROM按所选绝对文件或项目目录路径复制替换，做文件安全、配置结构/引用与统一内容身份计算，不调用完整运行准备，不把缺BIOS/Parent当替换门禁。替换保留published，旧文件退休并保留宽限，下一次启动才判断实际可运行性。
+
+## 浏览器上传与散装文件
+
+桌面端“来源扫描”的“浏览器上传”把选择或拖入的文件、文件夹（保留相对路径）分块上传到 `RETROM_DATA_DIR/uploads/<id>/` 暂存，完成后与服务器目录完全相同地检查、映射和扫描；手机不提供该入口。单文件≤4 GiB、单次合计≤20 GiB、最多50,000个文件，同时最多2个进行中的上传。网络中断按已接收字节续传；刷新页面后重新选择同一批文件即可继续同一会话。上传在最后一次写入24小时后失效，扫描结束（完成、失败或取消）或取消上传时立即删除暂存，失败后需重新上传。没有会话、也不属于运行中扫描且超过24小时的残留暂存每24小时清理一次。
+
+文件组织形式 `files`（散装文件）同时适用于上传和服务器目录：所选目录的每个顶层文件或文件夹是一款游戏，标题取文件名（去扩展名）或文件夹名，资料留待审核补全；与某款游戏同名的顶层 png/jpg/jpeg/webp 图片作为其封面，以`.`开头的隐藏项忽略。多文件游戏应放在一个文件夹中或打包为ZIP/7z，入口与解包仍按所选目录的运行绑定由runtime决定。一次 `files` 来源对应一个集合，即一个目标游戏目录。
 
 BIOS扫描与游戏扫描在“来源扫描”页并列，使用同一绝对目录选择和进度列表；运行依赖页只管理已安装BIOS。扫描按选定platform/core范围复用runtime识别，不修改来源文件。
 
