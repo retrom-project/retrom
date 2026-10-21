@@ -21,6 +21,11 @@ async function request(path, method = "GET", input) {
   return text ? JSON.parse(text) : null;
 }
 
+// The backend downloads Provider chunks over HTTPS with the system trust store.
+const roots = (await readFile("/etc/ssl/certs/ca-certificates.crt", "utf8").catch(() => ""))
+  .split("-----BEGIN CERTIFICATE-----").length - 1;
+if (roots < 100) throw new Error(`IMAGE_TLS_ROOTS_MISSING:${roots}`);
+
 const before = await request("/api/v1/auth/context");
 if (before.initialized || before.user !== null) throw new Error("IMAGE_DATABASE_NOT_EMPTY");
 const initialized = await request("/api/v1/auth/initialize", "POST", {
