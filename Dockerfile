@@ -24,6 +24,9 @@ ARG IMAGE_INPUT_DIGEST
 LABEL io.retrom.image-input-sha256=$IMAGE_INPUT_DIGEST
 RUN mkdir -p /var/lib/retrom && chown 1000:1000 /var/lib/retrom
 COPY --from=build --chmod=0555 /out/retrom /usr/local/bin/retrom
+# The Go backend downloads Provider chunks over HTTPS and trusts only the system roots; the slim
+# Node base has none (Node bundles its own), so take them from the pinned build stage.
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=runtime-tool / /opt/retrom/runtime-tool/
 COPY --chmod=0444 data/runtime-inputs.json /opt/retrom/runtime-inputs.json
 COPY --from=runtime-dependencies /auth/password-blocklists/ /opt/retrom/dependencies/auth/password-blocklists/
