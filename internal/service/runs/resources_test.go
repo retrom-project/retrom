@@ -14,7 +14,7 @@ import (
 func TestResourceURLPreservesDriverNameAndEscapesProjectFilename(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{"1941.zip", "项目/画面 #1.cue"} {
-		file := blob(model.GameFile{LogicalKey: name})
+		file := blob(model.ContentFile{LogicalKey: name})
 		parsed, err := url.Parse(ResourceURL("run", file))
 		if err != nil {
 			t.Fatal(err)
@@ -30,8 +30,8 @@ func TestResourceURLPreservesDriverNameAndEscapesProjectFilename(t *testing.T) {
 
 func TestPlanVirtualFilenamePreservesOriginalBlobIdentity(t *testing.T) {
 	t.Parallel()
-	original := model.GameFile{ID: "file-id", LogicalKey: "original.zip", SHA256: "raw-digest", SizeBytes: 42}
-	byKey := map[string]model.GameFile{original.LogicalKey: original}
+	original := model.ContentFile{ID: "file-id", LogicalKey: "original.zip", SHA256: "raw-digest", SizeBytes: 42}
+	byKey := map[string]model.ContentFile{original.LogicalKey: original}
 	for _, kind := range []string{"ROM_BLOB", "SEEKABLE_BLOB"} {
 		plan := runtimeclient.Resource{
 			Kind: kind, Files: []string{original.LogicalKey},
@@ -58,7 +58,7 @@ func TestPlanVirtualFilenamePreservesOriginalBlobIdentity(t *testing.T) {
 
 func TestPlanRejectsUnsafeBlobFilenameAndKeepsTreePaths(t *testing.T) {
 	t.Parallel()
-	byKey := map[string]model.GameFile{"original.zip": {LogicalKey: "original.zip"}}
+	byKey := map[string]model.ContentFile{"original.zip": {LogicalKey: "original.zip"}}
 	plan := runtimeclient.Resource{Kind: "ROM_BLOB", Files: []string{"original.zip"}}
 	for _, name := range []string{"../game.zip", "/game.zip", "nested/game.zip"} {
 		plan.Paths = map[string]string{"original.zip": name}

@@ -42,6 +42,9 @@ func (r *Repository) InsertFiles(ctx context.Context, gameID string, files []mod
 			file.SizeBytes, file.SHA256, now); err != nil {
 			return err
 		}
+		if err := r.insertMembers(ctx, file); err != nil {
+			return err
+		}
 	}
 	return nil
 }

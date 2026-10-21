@@ -22,12 +22,14 @@ type (
 )
 
 type GameFile struct {
-	ID         string `json:"id"`
-	LogicalKey string `json:"logicalKey"`
-	Role       string `json:"role"`
-	SizeBytes  int64  `json:"sizeBytes"`
-	SHA256     string `json:"sha256"`
-	StorageKey string `json:"-"`
+	ID          string           `json:"id"`
+	LogicalKey  string           `json:"logicalKey"`
+	Role        string           `json:"role"`
+	SizeBytes   int64            `json:"sizeBytes"`
+	SHA256      string           `json:"sha256"`
+	StorageKey  string           `json:"-"`
+	Members     []GameFileMember `json:"-"`
+	MemberCount int              `json:"-"`
 }
 type Game struct {
 	ID                 string  `json:"id"`
@@ -53,6 +55,7 @@ type Game struct {
 	UpdatedAtMs        int64   `json:"updatedAtMs"`
 }
 type GameDetail struct {
+	ContentFiles      []ContentFile   `json:"-"`
 	Game              Game            `json:"game"`
 	Files             []GameFile      `json:"files"`
 	CoreIDs           []string        `json:"coreIds"`

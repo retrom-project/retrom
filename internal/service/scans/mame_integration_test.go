@@ -46,7 +46,10 @@ func TestMameCompanionCopyUsesOnlyTheMetadataDirectory(t *testing.T) {
 			if len(files) != want {
 				t.Fatalf("files=%+v", files)
 			}
-			f.Game.Files = files
+			f.Game.Files, err = service.finalizeContent(t.Context(), f.Game.ID, model.Directory{PlatformID: "arcade", DefaultCoreID: "mame_arcade"}, json.RawMessage(`{"content":{"kind":"ARCADE","entryFile":"shikigam.zip"}}`), files)
+			if err != nil {
+				t.Fatal(err)
+			}
 			f.Game.Input.RuntimeConfig = json.RawMessage(`{"content":{"kind":"ARCADE","entryFile":"shikigam.zip"}}`)
 			scan := model.Scan{ID: uuid.NewString(), ScanType: "game", Status: "running", TotalKnown: true, TotalCount: 1, CreatedAtMs: 1000}
 			if err = f.Repository.CreateScan(t.Context(), scan, f.Principal.User.ID); err != nil {
@@ -57,7 +60,7 @@ func TestMameCompanionCopyUsesOnlyTheMetadataDirectory(t *testing.T) {
 			}
 			assertCounts(t, f.Repository, scan.ID, 1, 1)
 			if inside {
-				assertMameCopy(t, store, files[1], directory)
+				assertMameCopy(t, store, model.FileContent(f.Game.Files[1]), directory)
 			}
 		})
 	}
@@ -101,7 +104,7 @@ func fixtureMameSource(t *testing.T, directory string, inside bool) {
 	}
 }
 
-func assertMameCopy(t *testing.T, store *storage.Store, file model.GameFile, directory string) {
+func assertMameCopy(t *testing.T, store *storage.Store, file model.ContentFile, directory string) {
 	t.Helper()
 	if file.LogicalKey != "shikigam/shikigam.chd" || file.SizeBytes != 4096 {
 		t.Fatalf("companion=%+v", file)

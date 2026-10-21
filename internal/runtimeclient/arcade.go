@@ -14,10 +14,10 @@ type ArcadeParents struct {
 }
 
 func (c *Client) ArcadeParents(ctx context.Context, directory model.Directory, config json.RawMessage,
-	files []model.GameFile, core, attachment string,
+	files []model.ContentFile, core, attachment string,
 ) (ArcadeParents, error) {
 	var result ArcadeParents
-	locators := make(map[string]string, len(files))
+	locators := make(map[string]Locator, len(files))
 	for _, file := range files {
 		if c.Locate == nil {
 			return result, model.ErrUnavailable
@@ -26,7 +26,7 @@ func (c *Client) ArcadeParents(ctx context.Context, directory model.Directory, c
 		if err != nil {
 			return result, fmt.Errorf("parent file locator: %w", err)
 		}
-		locators[file.LogicalKey] = absolute
+		locators[file.LogicalKey] = Locator{Path: absolute, Offset: file.Offset, SizeBytes: file.SizeBytes}
 	}
 	input := map[string]any{
 		"directory": map[string]any{

@@ -30,21 +30,27 @@ type (
 		Now               func() time.Time
 	}
 	Blob struct {
-		ID          string `json:"id"`
-		Filename    string `json:"filename"`
-		Key         string `json:"key"`
-		LogicalPath string `json:"logicalPath"`
-		SHA256      string `json:"sha256"`
-		SizeBytes   int64  `json:"sizeBytes"`
-		MediaType   string `json:"mediaType"`
+		ID             string `json:"id"`
+		Filename       string `json:"filename"`
+		Key            string `json:"key"`
+		LogicalPath    string `json:"logicalPath"`
+		SHA256         string `json:"sha256"`
+		SizeBytes      int64  `json:"sizeBytes"`
+		MediaType      string `json:"mediaType"`
+		Offset         int64  `json:"offset"`
+		PackageID      string `json:"packageId,omitempty"`
+		PackageSize    int64  `json:"-"`
+		PackageMembers int    `json:"-"`
+		PackageSHA256  string `json:"-"`
 	}
 	Context struct {
-		Run         model.Run                 `json:"run"`
-		UserID      string                    `json:"userId"`
-		ContentHash string                    `json:"contentHash"`
-		Files       []Blob                    `json:"files"`
-		Indexes     map[string][]Blob         `json:"indexes"`
-		Checkpoint  *runtimeclient.Checkpoint `json:"checkpoint"`
+		Run           model.Run                 `json:"run"`
+		UserID        string                    `json:"userId"`
+		ContentHash   string                    `json:"contentHash"`
+		Files         []Blob                    `json:"files"`
+		Indexes       map[string][]Blob         `json:"indexes"`
+		Checkpoint    *runtimeclient.Checkpoint `json:"checkpoint"`
+		TemporaryKeys []string                  `json:"temporaryKeys,omitempty"`
 	}
 )
 
@@ -60,7 +66,7 @@ func (s *Service) Create(ctx context.Context, p model.Principal, input model.Run
 	} else if input.Purpose != "play" {
 		return model.Run{}, model.ErrInvalid
 	}
-	detail, err := s.Repository.GameDetail(ctx, p.User.ID, input.GameID, status)
+	detail, err := s.Repository.GameRuntimeDetail(ctx, p.User.ID, input.GameID, status)
 	if err != nil {
 		return model.Run{}, wrap(err)
 	}
@@ -95,9 +101,11 @@ func (s *Service) Create(ctx context.Context, p model.Principal, input model.Run
 		ExpiresAtMs:     s.Now().Add(lifetime).UnixMilli(),
 	}
 	if err = s.envelope(ctx, &context, detail, prepared, save); err != nil {
+		s.releaseTemporary(context.TemporaryKeys)
 		return model.Run{}, err
 	}
 	if err = s.store(ctx, context); err != nil {
+		s.releaseTemporary(context.TemporaryKeys)
 		return model.Run{}, err
 	}
 	return context.Run, nil
@@ -127,6 +135,11 @@ func (s *Service) Get(ctx context.Context, p model.Principal, id string) (Contex
 		return Context{}, wrap(err)
 	}
 	result.Run.ExpiresAtMs = s.Now().Add(lifetime).UnixMilli()
+	for _, key := range result.TemporaryKeys {
+		if err = s.Storage.TouchTemporary(key, s.Now()); err != nil {
+			return Context{}, wrap(err)
+		}
+	}
 	return result, nil
 }
 
@@ -157,10 +170,15 @@ func (s *Service) store(ctx context.Context, value Context) error {
 }
 
 func (s *Service) Close(ctx context.Context, p model.Principal, id string) error {
-	if _, err := s.Get(ctx, p, id); err != nil {
+	run, err := s.Get(ctx, p, id)
+	if err != nil {
 		return err
 	}
-	return wrap(s.Redis.Delete(ctx, "run:"+id))
+	if err = s.Redis.Delete(ctx, "run:"+id); err != nil {
+		return wrap(err)
+	}
+	s.releaseTemporary(run.TemporaryKeys)
+	return nil
 }
 
 func (s *Service) Event(ctx context.Context, p model.Principal, id, event string) error {
@@ -233,7 +251,7 @@ func (s *Service) envelope(ctx context.Context,
 		ROMSet:           prepared.ROMSet,
 		Content:          config.Content,
 	}
-	resources, err := s.resources(ctx, run, detail.Files, prepared)
+	resources, err := s.resources(ctx, run, detail.ContentFiles, prepared)
 	if err != nil {
 		return err
 	}
@@ -354,8 +372,8 @@ func (s *Service) Restorable(ctx context.Context,
 	return result, wrap(err)
 }
 
-func blob(file model.GameFile) Blob {
-	return Blob{
+func blob(file model.ContentFile) Blob {
+	result := Blob{
 		ID:          uuid.NewString(),
 		Filename:    path.Base(file.LogicalKey),
 		Key:         file.StorageKey,
@@ -363,7 +381,15 @@ func blob(file model.GameFile) Blob {
 		SHA256:      file.SHA256,
 		SizeBytes:   file.SizeBytes,
 		MediaType:   mediaType(file.LogicalKey),
+		Offset:      file.Offset,
 	}
+	if file.Package != nil {
+		result.PackageMembers = file.Package.MemberCount
+		result.PackageID = file.Package.ID
+		result.PackageSize = file.Package.SizeBytes
+		result.PackageSHA256 = file.Package.SHA256
+	}
+	return result
 }
 
 func mediaType(name string) string {

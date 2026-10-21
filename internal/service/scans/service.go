@@ -192,6 +192,7 @@ func (s *Service) importGame(ctx context.Context,
 	}
 	defer closeRoot(selected)
 	id := uuid.NewString()
+	defer s.removeStaging(id)
 	files, err := s.content(ctx, selected, id, candidate.Files, directory, inventory)
 	if err != nil {
 		return err
@@ -219,22 +220,31 @@ func (s *Service) importGame(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	game := model.PreparedGame{ID: id, Input: candidate.Input, Files: files, Media: media, ContentHash: hash}
-	return s.commitGame(ctx, p, game, scan)
+	physical, err := s.finalizeContent(ctx, id, directory, config, files)
+	if err != nil {
+		return err
+	}
+	game := model.PreparedGame{ID: id, Input: candidate.Input, Files: physical, Media: media, ContentHash: hash}
+	imported := scan.ImportedCount
+	err = s.commitGame(ctx, p, game, scan)
+	if !errors.Is(err, persistence.ErrCommitUncertain) && (err != nil || scan.ImportedCount == imported) {
+		s.removePrepared(physical)
+	}
+	return err
 }
 
 func (s *Service) configure(ctx context.Context,
 	directory model.Directory,
-	files []model.GameFile) (json.RawMessage,
+	files []model.ContentFile) (json.RawMessage,
 	error,
 ) {
-	locators := make(map[string]string, len(files))
+	locators := make(map[string]runtimeclient.Locator, len(files))
 	for _, file := range files {
 		absolute, err := s.Storage.Absolute(file.StorageKey)
 		if err != nil {
 			return nil, wrap(err)
 		}
-		locators[file.LogicalKey] = absolute
+		locators[file.LogicalKey] = runtimeclient.Locator{Path: absolute, Offset: file.Offset, SizeBytes: file.SizeBytes}
 	}
 	var config json.RawMessage
 	err := s.Runtime.Call(ctx,

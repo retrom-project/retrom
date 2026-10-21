@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"retrom/internal/model"
+	"retrom/internal/runtimeclient"
 	"retrom/internal/storage"
 )
 
@@ -46,7 +47,7 @@ func TestSourceContentRejectsSocketBeforeOpening(t *testing.T) {
 
 func TestContentReferencesCannotChangeSourceOrLogicalBoundary(t *testing.T) {
 	t.Parallel()
-	locators := map[string]string{"disc/game.cue": "/managed/immutable-file"}
+	locators := map[string]runtimeclient.Locator{"disc/game.cue": {Path: "/managed/immutable-file"}}
 	valid := contentReference{LogicalKey: "disc/audio/track.wav", RelativeTo: "disc/game.cue", RelativePath: "audio/track.wav"}
 	if !validContentReference(valid, locators) {
 		t.Fatal("safe relative reference rejected")

@@ -195,7 +195,7 @@ var errorResponses = []struct {
 	{model.ErrContextExpired, 409, "CONTEXT_EXPIRED", "Run context expired; preserve unsaved progress"},
 	{model.ErrUploadOffset, 409, "UPLOAD_OFFSET_CONFLICT", "Upload offset changed; read the received bytes and resume"},
 	{model.ErrUploadLimit, 409, "UPLOAD_LIMIT", "Too many uploads are in progress"},
-	{model.ErrStorageFull, 507, "INSUFFICIENT_STORAGE", "Not enough free space for this upload"},
+	{model.ErrStorageFull, 507, "INSUFFICIENT_STORAGE", "Not enough free space for content"},
 }
 
 func writeError(w http.ResponseWriter, err error) {

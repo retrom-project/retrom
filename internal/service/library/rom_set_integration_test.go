@@ -93,7 +93,7 @@ func TestDATSelectionCASFailureKeepsParentConfigurationAndBytes(t *testing.T) {
 	input := gameUpdate(before)
 	input.RuntimeConfig = json.RawMessage(`{"content":{"kind":"ARCADE","entryFile":"1941j.zip"},"cores":{"mame2003":{"romSet":"1941","parentFiles":["1941.zip"]}}}`)
 	validate := s.ValidateConfig
-	s.ValidateConfig = func(ctx context.Context, platform string, config json.RawMessage, files []model.GameFile) error {
+	s.ValidateConfig = func(ctx context.Context, platform string, config json.RawMessage, files []model.ContentFile) error {
 		if err := validate(ctx, platform, config, files); err != nil {
 			return err
 		}

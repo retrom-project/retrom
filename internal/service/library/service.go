@@ -16,7 +16,7 @@ type Service struct {
 	Repository     *persistence.Repository
 	Runtime        *runtimeclient.Client
 	Storage        *storage.Store
-	ValidateConfig func(context.Context, string, json.RawMessage, []model.GameFile) error
+	ValidateConfig func(context.Context, string, json.RawMessage, []model.ContentFile) error
 	Now            func() time.Time
 }
 
@@ -45,7 +45,7 @@ func (s *Service) Detail(ctx context.Context, p model.Principal, id, status stri
 	return result, wrap(err)
 }
 
-func (s *Service) Validate(ctx context.Context, input model.GameInput, files []model.GameFile) error {
+func (s *Service) Validate(ctx context.Context, input model.GameInput, files []model.ContentFile) error {
 	if err := model.ValidateGameFields(input); err != nil {
 		return wrap(err)
 	}
@@ -73,7 +73,7 @@ func (s *Service) Update(ctx context.Context,
 	if err != nil {
 		return model.GameDetail{}, wrap(err)
 	}
-	files := old.Files
+	files := old.ContentFiles
 	directory, err := s.Repository.Directory(ctx, input.PlatformInstanceID)
 	if err != nil {
 		return model.GameDetail{}, wrap(err)

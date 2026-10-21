@@ -205,7 +205,7 @@ func assertParentChange(t *testing.T, before, after model.GameDetail, status str
 	t.Helper()
 	if after.Game.Version != before.Game.Version+1 || after.Game.Status != status || len(after.Files) != 2 ||
 		after.Game.ContentHash == before.Game.ContentHash ||
-		parentFile(t, after, "1941j.zip") != parentFile(t, before, "1941j.zip") ||
+		!reflect.DeepEqual(parentFile(t, after, "1941j.zip"), parentFile(t, before, "1941j.zip")) ||
 		parentFile(t, after, "1941.zip").ID == parentFile(t, before, "1941.zip").ID {
 		t.Fatalf("parent change replaced unrelated facts: %+v", after)
 	}

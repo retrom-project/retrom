@@ -115,7 +115,19 @@ func (r *Repository) GameDetail(ctx context.Context, userID, id, status string) 
 	}
 	files, err := r.GameFiles(ctx, id)
 	result.Files = files
-	return result, err
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+func (r *Repository) GameRuntimeDetail(ctx context.Context, userID, id, status string) (model.GameDetail, error) {
+	detail, err := r.GameDetail(ctx, userID, id, status)
+	if err != nil {
+		return detail, err
+	}
+	detail.ContentFiles, err = r.ContentFiles(ctx, detail.Files)
+	return detail, err
 }
 
 func (r *Repository) GameFiles(ctx context.Context, id string) ([]model.GameFile, error) {

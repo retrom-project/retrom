@@ -16,9 +16,9 @@ func (s *Service) DOSEntryCandidates(ctx context.Context, p model.Principal, id,
 	if err := p.Admin(); err != nil {
 		return result, wrap(err)
 	}
-	detail, err := s.Repository.GameDetail(ctx, p.User.ID, id, "pending_review")
+	detail, err := s.Repository.GameRuntimeDetail(ctx, p.User.ID, id, "pending_review")
 	if errors.Is(err, model.ErrNotFound) {
-		detail, err = s.Repository.GameDetail(ctx, p.User.ID, id, "published")
+		detail, err = s.Repository.GameRuntimeDetail(ctx, p.User.ID, id, "published")
 	}
 	if err != nil {
 		return result, wrap(err)
@@ -27,8 +27,8 @@ func (s *Service) DOSEntryCandidates(ctx context.Context, p model.Principal, id,
 	if err != nil {
 		return result, err
 	}
-	locators := make(map[string]string, len(detail.Files))
-	for _, file := range detail.Files {
+	locators := make(map[string]runtimeclient.Locator, len(detail.ContentFiles))
+	for _, file := range detail.ContentFiles {
 		if s.Runtime.Locate == nil {
 			return result, model.ErrUnavailable
 		}
@@ -36,10 +36,10 @@ func (s *Service) DOSEntryCandidates(ctx context.Context, p model.Principal, id,
 		if locateErr != nil {
 			return result, model.ErrUnavailable
 		}
-		locators[file.LogicalKey] = location
+		locators[file.LogicalKey] = runtimeclient.Locator{Path: location, Offset: file.Offset, SizeBytes: file.SizeBytes}
 	}
 	err = s.Runtime.Call(ctx, "dos-entry-candidates", map[string]any{
-		"config": config, "files": runtimeclient.Files(detail.Files), "locators": locators,
+		"config": config, "files": runtimeclient.Files(detail.ContentFiles), "locators": locators,
 	}, &result)
 	if err != nil || result.Entries == nil {
 		return model.DOSEntryCandidates{Entries: []string{}}, model.ErrUnavailable

@@ -29,7 +29,7 @@ func (s *Service) ArcadeParentOptions(ctx context.Context, p model.Principal, id
 	if err != nil {
 		return model.ArcadeParentOptions{}, wrap(err)
 	}
-	result, err := s.Runtime.ArcadeParents(ctx, directory, detail.RuntimeConfig, detail.Files, core, "")
+	result, err := s.Runtime.ArcadeParents(ctx, directory, detail.RuntimeConfig, detail.ContentFiles, core, "")
 	return result.ArcadeParentOptions, wrap(err)
 }
 
@@ -80,13 +80,13 @@ func (s *Service) UploadParent(ctx context.Context, p model.Principal, id, core,
 func (s *Service) attachParent(ctx context.Context, old model.GameDetail,
 	directory model.Directory, core string, file model.GameFile,
 ) error {
-	files := make([]model.GameFile, 0, len(old.Files)+1)
-	for _, existing := range old.Files {
+	files := make([]model.ContentFile, 0, len(old.ContentFiles)+1)
+	for _, existing := range old.ContentFiles {
 		if existing.LogicalKey != file.LogicalKey {
 			files = append(files, existing)
 		}
 	}
-	files = append(files, file)
+	files = append(files, model.FileContent(file))
 	projection, err := s.Runtime.ArcadeParents(ctx, directory, old.RuntimeConfig, files, core, file.LogicalKey)
 	if err != nil {
 		return wrap(err)
@@ -125,9 +125,9 @@ func (s *Service) confirmParent(ctx context.Context, gameID, fileID string, comm
 }
 
 func (s *Service) managedGame(ctx context.Context, p model.Principal, id string) (model.GameDetail, error) {
-	detail, err := s.Repository.GameDetail(ctx, p.User.ID, id, "pending_review")
+	detail, err := s.Repository.GameRuntimeDetail(ctx, p.User.ID, id, "pending_review")
 	if errors.Is(err, model.ErrNotFound) {
-		detail, err = s.Repository.GameDetail(ctx, p.User.ID, id, "published")
+		detail, err = s.Repository.GameRuntimeDetail(ctx, p.User.ID, id, "published")
 	}
 	return detail, wrap(err)
 }

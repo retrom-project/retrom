@@ -15,7 +15,7 @@ import (
 func (s *Service) bios(ctx context.Context,
 	run *Context,
 	prepared runtimeclient.Prepared,
-	_ []model.GameFile) ([]map[string]any,
+	_ []model.ContentFile) ([]map[string]any,
 	error,
 ) {
 	requirements := prepared.BiosRequirements

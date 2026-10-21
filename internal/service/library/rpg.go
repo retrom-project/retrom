@@ -18,7 +18,7 @@ func (s *Service) RPGEntryCandidates(ctx context.Context, p model.Principal, id,
 	if err != nil {
 		return result, err
 	}
-	input := map[string]any{"config": detail.RuntimeConfig, "files": runtimeclient.Files(detail.Files)}
+	input := map[string]any{"config": detail.RuntimeConfig, "files": runtimeclient.Files(detail.ContentFiles)}
 	if engine != "" {
 		input["engine"] = engine
 	}

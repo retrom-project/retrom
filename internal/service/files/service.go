@@ -71,6 +71,9 @@ func (s *Service) Sweep(ctx context.Context) error {
 			slog.Error("purge retired file", "id", file.ID, "error", err)
 		}
 	}
+	if err = s.Repository.PurgePackageMembers(ctx); err != nil {
+		return wrap(err)
+	}
 	return s.orphans(ctx)
 }
 
@@ -123,7 +126,11 @@ func (s *Service) orphans(ctx context.Context) error {
 		return wrap(err)
 	}
 	for _, entry := range entries {
-		if entry.ModifiedAt.After(s.Now().Add(-s.Grace)) {
+		grace := s.Grace
+		if strings.HasPrefix(entry.Key, "temporary/") {
+			grace = 2 * time.Hour
+		}
+		if entry.ModifiedAt.After(s.Now().Add(-grace)) {
 			continue
 		}
 		if !strings.HasPrefix(entry.Key, "temporary/") {

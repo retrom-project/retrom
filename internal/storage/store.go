@@ -59,8 +59,7 @@ func (s *Store) Close() error {
 }
 
 func SafeRelative(value string) bool {
-	return value != "" && len(value) <= 1024 && !strings.ContainsAny(value, "\\\x00") &&
-		!strings.HasPrefix(value, "/") && path.Clean(value) == value && value != ".." && !strings.HasPrefix(value, "../")
+	return model.SafeContentPath(value)
 }
 
 func OwnerKey(kind, id string) (string, error) {
@@ -114,29 +113,37 @@ func (s *Store) prepareWrite(ctx context.Context, temporary, key, owner string,
 }
 
 func (s *Store) copyTemporary(ctx context.Context, key string, reader io.Reader, maximum int64) (File, error) {
+	return s.copyPayload(ctx, key, reader, maximum, true)
+}
+
+func (s *Store) copyPayload(ctx context.Context, key string, reader io.Reader, maximum int64,
+	durable bool,
+) (File, error) {
 	file, err := s.root.OpenFile(key, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		return File{}, fmt.Errorf("create temporary file: %w", err)
+		return File{}, diskFailure("create temporary file", err)
 	}
 	defer closeFile(file)
 	hash := sha256.New()
 	source := io.LimitReader(&contextReader{ctx: ctx, reader: reader}, maximum+1)
 	copied, err := io.Copy(io.MultiWriter(file, hash), source)
 	if err != nil {
-		return File{}, fmt.Errorf("write managed file: %w", err)
+		return File{}, diskFailure("write managed file", err)
 	}
 	if copied > maximum {
 		return File{}, errTooLarge
 	}
-	if err = file.Sync(); err != nil {
-		return File{}, fmt.Errorf("sync managed file: %w", err)
+	if durable {
+		if err = file.Sync(); err != nil {
+			return File{}, diskFailure("sync managed file", err)
+		}
 	}
 	return File{SHA256: hex.EncodeToString(hash.Sum(nil)), Size: copied}, nil
 }
 
 func (s *Store) publish(temporary, key, owner string) error {
 	if err := s.root.MkdirAll(owner, 0o700); err != nil {
-		return fmt.Errorf("create owner directory: %w", err)
+		return diskFailure("create owner directory", err)
 	}
 	if err := s.syncDirectory(path.Dir(owner)); err != nil {
 		return err
@@ -145,12 +152,12 @@ func (s *Store) publish(temporary, key, owner string) error {
 		return err
 	}
 	if err := s.root.Rename(temporary, key); err != nil {
-		return fmt.Errorf("publish managed file: %w", err)
+		return diskFailure("publish managed file", err)
 	}
 	if err := s.syncDirectory(owner); err != nil {
 		return err
 	}
-	return s.syncDirectory("temporary")
+	return s.syncDirectory(path.Dir(temporary))
 }
 
 func (s *Store) syncDirectory(key string) error {
@@ -160,7 +167,7 @@ func (s *Store) syncDirectory(key string) error {
 	}
 	defer closeFile(directory)
 	if err = directory.Sync(); err != nil {
-		return fmt.Errorf("sync managed directory: %w", err)
+		return diskFailure("sync managed directory", err)
 	}
 	return nil
 }
@@ -184,16 +191,26 @@ func (s *Store) Remove(key string) error {
 		return fmt.Errorf("remove managed file: %w", err)
 	}
 	parts := strings.Split(key, "/")
-	if len(parts) == 3 {
-		owner, err := OwnerKey(parts[0], parts[1])
-		if err == nil {
-			if err = s.root.Remove(owner); err != nil && !errors.Is(err, os.ErrNotExist) &&
-				!errors.Is(err, syscall.ENOTEMPTY) && !errors.Is(err, syscall.EEXIST) {
-				return fmt.Errorf("remove empty managed owner: %w", err)
-			}
-		}
+	if len(parts) != 3 {
+		return nil
+	}
+	owner, valid := removableOwner(parts[0], parts[1])
+	if !valid {
+		return nil
+	}
+	if err := s.root.Remove(owner); err != nil && !errors.Is(err, os.ErrNotExist) &&
+		!errors.Is(err, syscall.ENOTEMPTY) && !errors.Is(err, syscall.EEXIST) {
+		return fmt.Errorf("remove empty managed owner: %w", err)
 	}
 	return nil
+}
+
+func removableOwner(kind, id string) (string, bool) {
+	if kind == "temporary" {
+		return kind + "/" + id, model.UUID(id)
+	}
+	owner, err := OwnerKey(kind, id)
+	return owner, err == nil
 }
 
 func (s *Store) RemoveOwner(kind, id string) error {

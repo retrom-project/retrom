@@ -14,6 +14,10 @@ GET资源的HEAD按同份GET读契约验证，保留参数与授权门禁且不�
 
 资源路径绑定本人run上下文及服务端允许资源ID；支持强ETag、If-Match与流式Range。强ETag为双引号sha256-加实际摘要，不能放宽runtime身份校验。受管文件响应带有 `Cache-Control: private, no-store, no-transform`；Provider 资产按下述正式／开发策略分别处理，均保留 `no-transform`，防止中间代理改变已固定的字节表示。Provider静态路径限定已验证安装manifest/integrity资产。文件和索引逻辑路径保留扩展名并规范编码Unicode/#，不暴露宿主路径或任意URL。
 
+GameDetail.files 表示受管物理文件，项目的单条记录 role 为 project_package，大小和 SHA 描述整个 STORE ZIP。管理员通过 GET `/api/v1/admin/games/{gameId}/content?after=…&prefix=…&limit=100` 读取逻辑目录；待审或已发布游戏均需管理员授权。返回 `{items:[{logicalKey,sizeBytes,sha256,mediaType}],nextCursor}`，nextCursor 为下一页使用的路径或 null；按大小写敏感路径顺序分页，limit 为 1..100，prefix 是字面路径前缀。响应不暴露 storage key、成员偏移或成员 ID，详情不嵌入整个成员索引。
+
+运行项目索引仍为 schemaVersion 1 的 path/url/sizeBytes/sha256/mediaType。每个逻辑资源在 Run 中分配不透明 UUID，并冻结所属包、key、偏移、长度和摘要；Range、Content-Range 总长及 ETag 都对应该成员。替换当前包不改变已创建 Run 的定位，也不改变浏览器读取协议。
+
 正式 Provider 资源 `/runtime/providers/{providerId}/{bundleSha256}/{asset}` 始终返回该已安装 Bundle 的原始内容。不超过 8 MiB 且扩展名为 `.js`、`.mjs`、`.json`、`.css`、`.html`、`.svg`、`.png`、`.jpg`、`.woff`、`.woff2`、`.ttf`、`.otf` 或 `.ico` 的资源采用 `private, max-age=31536000, immutable, no-transform`；Wasm、核心归档及其他资源采用 `private, no-store, no-transform`，可由 Runtime 的摘要缓存复用。授权及资产允许列表仍在服务端校验。
 
 PFB 开发资源采用 `/runtime/providers/{providerId}/{bundleSha256}/dev/{moduleSha256}/{asset}`，精确匹配当前开发模块摘要，返回 `private, no-store, no-transform`。覆盖层未修改的资源读取同一已安装 Bundle；旧开发摘要返回 404。Envelope 的 runtime base、入口模块和 bridge 必须属于同一正式或开发路径，正式 URL 不读取开发覆盖层。

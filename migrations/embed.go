@@ -11,3 +11,8 @@ var Schema string
 //
 //go:embed 002_query_indexes.sql
 var QueryIndexes string
+
+// ContentPackages adds immutable STORE ZIP member indexes to existing databases.
+//
+//go:embed 003_content_packages.sql
+var ContentPackages string

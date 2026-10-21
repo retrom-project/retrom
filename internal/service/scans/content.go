@@ -32,13 +32,14 @@ func (s *Service) content(ctx context.Context,
 	root *os.Root,
 	id string,
 	files []string,
-	directory model.Directory, inventory *sourceInventory) ([]model.GameFile,
+	directory model.Directory, inventory *sourceInventory) ([]model.ContentFile,
 	error,
 ) {
+	ctx = context.WithValue(ctx, contentBudgetKey{}, &contentBudget{})
 	if len(files) == 0 || len(files) > 64 {
 		return nil, model.ErrInvalid
 	}
-	result := make([]model.GameFile, 0)
+	result := make([]model.ContentFile, 0)
 	origins := make(map[string]string)
 	for _, name := range files {
 		part, sources, err := s.contentFile(ctx, root, id, name, directory)
@@ -53,14 +54,21 @@ func (s *Service) content(ctx context.Context,
 	if len(result) > maximumGameFiles {
 		return nil, model.ErrInvalid
 	}
-	return s.discoverContent(ctx, root, id, result, origins, directory, inventory)
+	result, err := s.discoverContent(ctx, root, id, result, origins, directory, inventory)
+	if err != nil {
+		return nil, err
+	}
+	if err = storage.ValidateContent(result); err != nil {
+		return nil, wrap(err)
+	}
+	return result, nil
 }
 
 func (s *Service) contentFile(ctx context.Context, root *os.Root, id, name string,
 	directory model.Directory,
-) ([]model.GameFile, map[string]string, error) {
+) ([]model.ContentFile, map[string]string, error) {
 	name = strings.TrimPrefix(name, "./")
-	if !storage.SafeRelative(name) {
+	if name != "." && !storage.SafeRelative(name) {
 		return nil, nil, model.ErrInvalid
 	}
 	info, err := root.Stat(name)
@@ -92,7 +100,7 @@ func (s *Service) contentFile(ctx context.Context, root *os.Root, id, name strin
 	if err != nil {
 		return nil, nil, err
 	}
-	return []model.GameFile{stored}, map[string]string{stored.LogicalKey: name}, nil
+	return []model.ContentFile{stored}, map[string]string{stored.LogicalKey: name}, nil
 }
 
 func (s *Service) keepArchive(directory model.Directory, extension string) bool {
@@ -112,7 +120,7 @@ func (s *Service) keepArchive(directory model.Directory, extension string) bool 
 	return false
 }
 
-func (s *Service) walk(ctx context.Context, root *os.Root, id, base, current string) ([]model.GameFile, error) {
+func (s *Service) walk(ctx context.Context, root *os.Root, id, base, current string) ([]model.ContentFile, error) {
 	if strings.Count(current, "/") > 24 {
 		return nil, model.ErrInvalid
 	}
@@ -120,7 +128,7 @@ func (s *Service) walk(ctx context.Context, root *os.Root, id, base, current str
 	if err != nil {
 		return nil, err
 	}
-	result := make([]model.GameFile, 0)
+	result := make([]model.ContentFile, 0)
 	for _, entry := range entries {
 		if entry.Type()&os.ModeSymlink != 0 {
 			return nil, model.ErrInvalid
@@ -158,15 +166,20 @@ func (s *Service) walk(ctx context.Context, root *os.Root, id, base, current str
 	return result, nil
 }
 
-func (s *Service) copy(ctx context.Context, id, name string, reader io.Reader) (model.GameFile, error) {
+func (s *Service) copy(ctx context.Context, id, name string, reader io.Reader) (model.ContentFile, error) {
 	if !storage.SafeRelative(name) {
-		return model.GameFile{}, model.ErrInvalid
+		return model.ContentFile{}, model.ErrInvalid
 	}
-	file, err := s.Storage.Write(ctx, "games", id, reader, storage.MaximumFileSize)
+	maximum, err := contentReadLimit(ctx)
 	if err != nil {
-		return model.GameFile{}, wrap(err)
+		return model.ContentFile{}, err
 	}
-	return model.GameFile{
+	file, err := s.Storage.StageLimit(ctx, id, reader, maximum)
+	if err != nil {
+		return model.ContentFile{}, wrap(err)
+	}
+	recordContent(ctx, file.Size)
+	return model.ContentFile{
 			ID:         uuid.NewString(),
 			LogicalKey: name,
 			Role:       "content",
@@ -177,7 +190,7 @@ func (s *Service) copy(ctx context.Context, id, name string, reader io.Reader) (
 		nil
 }
 
-func (s *Service) archive(ctx context.Context, root *os.Root, id, name, ext string) ([]model.GameFile, error) {
+func (s *Service) archive(ctx context.Context, root *os.Root, id, name, ext string) ([]model.ContentFile, error) {
 	file, err := root.Open(name)
 	if err != nil {
 		return nil, fmt.Errorf("open archive: %w", err)
@@ -200,13 +213,13 @@ func (s *Service) archive(ctx context.Context, root *os.Root, id, name, ext stri
 	return s.extract(ctx, id, entries)
 }
 
-func (s *Service) extract(ctx context.Context, id string, entries []entry) ([]model.GameFile, error) {
+func (s *Service) extract(ctx context.Context, id string, entries []entry) ([]model.ContentFile, error) {
 	if len(entries) == 0 || len(entries) > maximumGameFiles {
 		return nil, model.ErrInvalid
 	}
 	seen := make(map[string]bool, len(entries))
 	var total int64
-	result := make([]model.GameFile, 0, len(entries))
+	result := make([]model.ContentFile, 0, len(entries))
 	for _, entry := range entries {
 		if !storage.SafeRelative(entry.name) || seen[entry.name] || entry.size < 0 || entry.size > storage.MaximumFileSize {
 			return nil, model.ErrInvalid
@@ -228,6 +241,9 @@ func (s *Service) extract(ctx context.Context, id string, entries []entry) ([]mo
 		if closeErr != nil {
 			return nil, fmt.Errorf("close archive member: %w", closeErr)
 		}
+		if file.SizeBytes != entry.size {
+			return nil, model.ErrInvalid
+		}
 		result = append(result, file)
 	}
 	return result, nil
@@ -240,6 +256,9 @@ func zipEntries(file *os.File, size int64) ([]entry, error) {
 	}
 	entries := make([]entry, 0, len(archive.File))
 	for _, member := range archive.File {
+		if member.Flags&1 != 0 || member.Mode()&os.ModeSymlink != 0 {
+			return nil, model.ErrInvalid
+		}
 		if !member.FileInfo().IsDir() {
 			name, nameErr := zipMemberName(member)
 			if nameErr != nil {
@@ -261,6 +280,9 @@ func sevenEntries(file *os.File, size int64) ([]entry, error) {
 	}
 	entries := make([]entry, 0, len(archive.File))
 	for _, member := range archive.File {
+		if member.FileInfo().Mode()&os.ModeSymlink != 0 {
+			return nil, model.ErrInvalid
+		}
 		if !member.FileInfo().IsDir() {
 			entries = append(entries, entry{name: member.Name, size: int64(member.UncompressedSize), open: member.Open})
 		}

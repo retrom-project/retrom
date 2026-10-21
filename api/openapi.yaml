@@ -222,6 +222,9 @@
     },
     "/api/v1/admin/games/{gameId}/runtime-options/rpgmaker": {
       "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1runtime-options~1rpgmaker"
+    },
+    "/api/v1/admin/games/{gameId}/content": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1content"
     }
   },
   "components": {
@@ -517,6 +520,12 @@
       },
       "BiosVerification": {
         "$ref": "./components/common.yaml#/components/schemas/BiosVerification"
+      },
+      "ContentFile": {
+        "$ref": "./components/common.yaml#/components/schemas/ContentFile"
+      },
+      "ContentPage": {
+        "$ref": "./components/common.yaml#/components/schemas/ContentPage"
       }
     }
   }

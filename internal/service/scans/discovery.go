@@ -21,17 +21,17 @@ type contentReference struct {
 	Optional     bool   `json:"optional"`
 }
 
-func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string, files []model.GameFile,
+func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string, files []model.ContentFile,
 	origins map[string]string, directory model.Directory, inventory *sourceInventory,
-) ([]model.GameFile, error) {
-	locators := make(map[string]string, len(files))
+) ([]model.ContentFile, error) {
+	locators := make(map[string]runtimeclient.Locator, len(files))
 	seen := make(map[string]bool, len(files))
 	for _, file := range files {
 		absolute, err := s.Storage.Absolute(file.StorageKey)
 		if err != nil {
 			return nil, wrap(err)
 		}
-		locators[file.LogicalKey] = absolute
+		locators[file.LogicalKey] = runtimeclient.Locator{Path: absolute, Offset: file.Offset, SizeBytes: file.SizeBytes}
 		seen[file.LogicalKey] = true
 	}
 	output, err := s.contentReferences(ctx, root, files, locators, directory, inventory)
@@ -65,7 +65,7 @@ func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string,
 	return files, nil
 }
 
-func validContentReference(reference contentReference, locators map[string]string) bool {
+func validContentReference(reference contentReference, locators map[string]runtimeclient.Locator) bool {
 	if reference.SourcePath != "" {
 		return storage.SafeRelative(reference.SourcePath) && storage.SafeRelative(reference.LogicalKey) &&
 			reference.RelativeTo == "" && reference.RelativePath == ""
@@ -78,22 +78,22 @@ func validContentReference(reference contentReference, locators map[string]strin
 
 func (s *Service) copyReference(ctx context.Context, root *os.Root, id string, reference contentReference,
 	source string,
-) (model.GameFile, error) {
+) (model.ContentFile, error) {
 	name := reference.SourcePath
 	if name == "" {
 		name = path.Join(path.Dir(source), reference.RelativePath)
 	}
 	file, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
 	if err != nil {
-		return model.GameFile{}, fmt.Errorf("open referenced source content: %w", err)
+		return model.ContentFile{}, fmt.Errorf("open referenced source content: %w", err)
 	}
 	defer closeFile(file)
 	info, err := file.Stat()
 	if err != nil {
-		return model.GameFile{}, fmt.Errorf("stat referenced source content: %w", err)
+		return model.ContentFile{}, fmt.Errorf("stat referenced source content: %w", err)
 	}
 	if !info.Mode().IsRegular() {
-		return model.GameFile{}, model.ErrInvalid
+		return model.ContentFile{}, model.ErrInvalid
 	}
 	return s.copy(ctx, id, reference.LogicalKey, file)
 }
@@ -103,8 +103,8 @@ type discoveredContent struct {
 	SourceSearch *sourceSearch      `json:"sourceSearch"`
 }
 
-func (s *Service) contentReferences(ctx context.Context, root *os.Root, files []model.GameFile,
-	locators map[string]string, directory model.Directory, inventory *sourceInventory,
+func (s *Service) contentReferences(ctx context.Context, root *os.Root, files []model.ContentFile,
+	locators map[string]runtimeclient.Locator, directory model.Directory, inventory *sourceInventory,
 ) (*discoveredContent, error) {
 	output := &discoveredContent{}
 	input := map[string]any{

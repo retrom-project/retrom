@@ -714,7 +714,8 @@
             "type": "string",
             "enum": [
               "content",
-              "parent"
+              "parent",
+              "project_package"
             ]
           },
           "sizeBytes": {
@@ -3056,6 +3057,52 @@
             "items": {
               "$ref": "#/components/schemas/Upload"
             }
+          }
+        }
+      },
+      "ContentFile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "logicalKey",
+          "sizeBytes",
+          "sha256",
+          "mediaType"
+        ],
+        "properties": {
+          "logicalKey": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string"
+          }
+        }
+      },
+      "ContentPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContentFile"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
           }
         }
       }

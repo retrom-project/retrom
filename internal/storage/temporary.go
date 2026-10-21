@@ -3,11 +3,24 @@ package storage
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"path"
 	"strings"
+	"time"
 
 	"retrom/internal/model"
 )
+
+func (s *Store) TouchTemporary(key string, now time.Time) error {
+	if !SafeRelative(key) || !strings.HasPrefix(key, "temporary/") {
+		return model.ErrInvalid
+	}
+	if err := s.root.Chtimes(key, now, now); err != nil {
+		return fmt.Errorf("touch temporary resource: %w", err)
+	}
+	return nil
+}
 
 func (s *Store) RemoveTemporary(key string) error {
 	parts := strings.Split(key, "/")
@@ -20,7 +33,7 @@ func (s *Store) RemoveTemporary(key string) error {
 	return nil
 }
 
-func (s *Store) StageTree(ctx context.Context, files []model.GameFile) (string, string, error) {
+func (s *Store) StageTree(ctx context.Context, files []model.ContentFile) (string, string, error) {
 	key, absolute, err := s.TemporaryPath()
 	if err != nil {
 		return "", "", err
@@ -39,9 +52,26 @@ func (s *Store) StageTree(ctx context.Context, files []model.GameFile) (string, 
 		if err = s.root.MkdirAll(path.Dir(target), 0o700); err != nil {
 			return key, "", fmt.Errorf("create staged directory: %w", err)
 		}
-		if err = s.root.Link(file.StorageKey, target); err != nil {
-			return key, "", fmt.Errorf("stage immutable file: %w", err)
+		if err = s.stageLogicalFile(ctx, file, target); err != nil {
+			return key, "", err
 		}
 	}
 	return key, absolute, nil
+}
+
+func (s *Store) stageLogicalFile(ctx context.Context, file model.ContentFile, target string) error {
+	source, err := s.OpenContent(file.StorageKey, file.Offset, file.SizeBytes)
+	if err != nil {
+		return err
+	}
+	defer closeFile(source)
+	destination, err := s.root.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fmt.Errorf("create staged member: %w", err)
+	}
+	defer closeFile(destination)
+	if _, err = io.Copy(destination, &contextReader{ctx: ctx, reader: source}); err != nil {
+		return fmt.Errorf("stage member: %w", err)
+	}
+	return nil
 }

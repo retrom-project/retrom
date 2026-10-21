@@ -24,6 +24,16 @@ func (r *Repository) PurgeGame(ctx context.Context, id string, now int64) error 
 	if status != "deleted" {
 		return model.ErrConflict
 	}
+	if err = r.Execute(ctx, `DELETE FROM game_file_member_tab WHERE (game_file_id,logical_path) IN (
+ SELECT m.game_file_id,m.logical_path FROM game_file_member_tab m JOIN game_file_tab f ON f.id=m.game_file_id
+ WHERE f.game_id=$1 ORDER BY m.game_file_id,m.logical_path LIMIT 1000)`, id); err != nil {
+		return err
+	}
+	remaining, err := r.Count(ctx, `SELECT count(*) FROM game_file_member_tab m
+ JOIN game_file_tab f ON f.id=m.game_file_id WHERE f.game_id=$1`, id)
+	if err != nil || remaining > 0 {
+		return err
+	}
 	for _, table := range []string{
 		"save_tab", "recent_game_tab", "favorite_folder_game_tab", "favorite_tab",
 		"game_tag_tab", "game_file_tab", "game_media_tab",
@@ -33,6 +43,12 @@ func (r *Repository) PurgeGame(ctx context.Context, id string, now int64) error 
 		}
 	}
 	return r.Execute(ctx, "UPDATE game_tab SET status='purged',updated_at_ms=$2 WHERE id=$1 AND status='deleted'", id, now)
+}
+
+func (r *Repository) PurgePackageMembers(ctx context.Context) error {
+	return r.Execute(ctx, `DELETE FROM game_file_member_tab WHERE (game_file_id,logical_path) IN (
+ SELECT m.game_file_id,m.logical_path FROM game_file_tab f JOIN game_file_member_tab m ON m.game_file_id=f.id
+ WHERE f.status='purged' ORDER BY f.id,m.logical_path LIMIT 1000)`)
 }
 
 func (r *Repository) RetiredFiles(ctx context.Context, before int64) ([]model.RetiredFile, error) {

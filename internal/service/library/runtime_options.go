@@ -12,9 +12,9 @@ func (s *Service) ScummvmCandidates(ctx context.Context, p model.Principal, id s
 	if err := p.Admin(); err != nil {
 		return nil, wrap(err)
 	}
-	detail, err := s.Repository.GameDetail(ctx, p.User.ID, id, "pending_review")
+	detail, err := s.Repository.GameRuntimeDetail(ctx, p.User.ID, id, "pending_review")
 	if err != nil {
-		detail, err = s.Repository.GameDetail(ctx, p.User.ID, id, "published")
+		detail, err = s.Repository.GameRuntimeDetail(ctx, p.User.ID, id, "published")
 	}
 	if err != nil {
 		return nil, wrap(err)
@@ -29,7 +29,7 @@ func (s *Service) ScummvmCandidates(ctx context.Context, p model.Principal, id s
 	if root == "" {
 		return nil, model.ErrUnavailable
 	}
-	key, tree, err := s.Storage.StageTree(ctx, detail.Files)
+	key, tree, err := s.Storage.StageTree(ctx, detail.ContentFiles)
 	if key != "" {
 		defer func() {
 			if removeErr := s.Storage.RemoveTemporary(key); removeErr != nil {

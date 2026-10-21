@@ -73,7 +73,7 @@ func launchPreparationFixture(t *testing.T) (testsupport.Fixture, *Service, mode
 	f.Publish(t)
 	client, _ := prepareRuntimeFixture(t)
 	s := &Service{Repository: f.Repository, Runtime: client}
-	detail, err := f.Repository.GameDetail(t.Context(), f.Principal.User.ID, f.Game.ID, "published")
+	detail, err := f.Repository.GameRuntimeDetail(t.Context(), f.Principal.User.ID, f.Game.ID, "published")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -21,8 +21,9 @@ type DB interface {
 }
 
 type Repository struct {
-	pool *pgxpool.Pool
-	db   DB
+	pool         *pgxpool.Pool
+	db           DB
+	contentCache *contentCache
 }
 
 var ErrCommitUncertain = errors.New("transaction commit result is uncertain")
@@ -36,7 +37,7 @@ func Open(ctx context.Context, url string) (*Repository, error) {
 		pool.Close()
 		return nil, fmt.Errorf("connect PostgreSQL: %w", err)
 	}
-	return &Repository{pool: pool, db: pool}, nil
+	return &Repository{pool: pool, db: pool, contentCache: newContentCache()}, nil
 }
 
 func (r *Repository) Close() {
@@ -71,6 +72,9 @@ func (r *Repository) Migrate(ctx context.Context) error {
 		}
 	}
 	if err = applyMigration(ctx, tx, "002_query_indexes", migrations.QueryIndexes); err != nil {
+		return err
+	}
+	if err = applyMigration(ctx, tx, "003_content_packages", migrations.ContentPackages); err != nil {
 		return err
 	}
 	if err = tx.Commit(ctx); err != nil {
