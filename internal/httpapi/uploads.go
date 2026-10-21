@@ -20,6 +20,14 @@ func (s *Server) createUpload(w http.ResponseWriter, r *http.Request, p model.Pr
 	return respond(w, upload)
 }
 
+func (s *Server) uploads(w http.ResponseWriter, r *http.Request, p model.Principal) error {
+	items, err := s.Scans.ListUploads(r.Context(), p)
+	if err != nil {
+		return wrap(err)
+	}
+	return respond(w, model.List[model.Upload]{Items: items})
+}
+
 func (s *Server) upload(w http.ResponseWriter, r *http.Request, p model.Principal) error {
 	upload, err := s.Scans.Upload(r.Context(), p, r.PathValue("uploadId"))
 	if err != nil {

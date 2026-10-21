@@ -193,7 +193,7 @@ func TestContractLeavesUploadChunksToTheirHandlerAndBoundsUploadDeclarations(t *
 	for index := range 20000 {
 		files = append(files, fmt.Sprintf(`{"path":"Collection/games/game-%05d.zip","sizeBytes":1024}`, index))
 	}
-	declaration := `{"files":[` + strings.Join(files, ",") + `]}`
+	declaration := `{"format":"files","files":[` + strings.Join(files, ",") + `]}`
 	create := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/uploads",
 		strings.NewReader(declaration))
 	create.Header.Set("Content-Type", "application/json")

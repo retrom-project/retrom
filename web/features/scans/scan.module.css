@@ -77,3 +77,6 @@
 .uploadSummary li { min-width: 0; display: flex; justify-content: space-between; gap: 12px; font-size: var(--text-caption); }
 .uploadSummary li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .uploadSummary small, .uploadSummary li small { flex: none; color: var(--muted); font-size: var(--text-caption); }
+.uploadRow { padding: 16px 18px; justify-content: space-between; flex-wrap: wrap; }
+.uploadActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.looseChoice { display: flex; align-items: center; gap: 6px; font-size: var(--text-small); }

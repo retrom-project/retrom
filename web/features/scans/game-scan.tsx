@@ -11,9 +11,11 @@ import { PageHeader, FeedbackBanner } from "@/components/ui";
 import { SourcePicker } from "./source-picker";
 import { BiosScan } from "./bios-scan";
 import { ScanProgressList } from "./scan-progress";
+import { CollectionMapping } from "./collection-mapping";
 import { useToast } from "@/components/toast-provider";
 import { usePhoneLayout } from "@/lib/use-phone-layout";
-import { formatDescriptions, UploadSheet, type UploadedSource } from "./upload-sheet";
+import { formatDescriptions, type UploadedSource } from "./upload-sheet";
+import { useBrowserUploads } from "./browser-uploads";
 type SourceFormat = Schema<"GameScanRequest">["format"] | "";
 type UploadedFiles = { uploadId: string; fileCount: number };
 
@@ -21,7 +23,7 @@ export function GameScan() {
   const router = useRouter();
   const { notify } = useToast();
   const [selecting, setSelecting] = useState(false);
-  const [uploadingSource, setUploadingSource] = useState(false);
+  const phone = usePhoneLayout();
   const [upload, setUpload] = useState<UploadedFiles | null>(null);
   const [scanningBios, setScanningBios] = useState(false);
   const [scanRevision, setScanRevision] = useState(0);
@@ -33,6 +35,7 @@ export function GameScan() {
   const [busy, setBusy] = useState(false);
   const directories = useResource(loadDirectories);
   const tags = useResource(loadTags);
+  const uploads = useBrowserUploads({ phone, onUploaded: uploaded, onFailure: reportFailure, setBusy });
   function reportFailure(failure: unknown, fallback: string) {
     const message = failure instanceof Error ? failure.message : fallback;
     if (failure instanceof ApiError && failure.status === 400) {
@@ -50,7 +53,6 @@ export function GameScan() {
     setMappings(items.map((entry) => ({ sourceKey: entry.key, platformInstanceId: "", tagIds: [] })));
   }
   function uploaded(source: UploadedSource) {
-    setUploadingSource(false);
     setFormat(source.format);
     setUpload({ uploadId: source.uploadId, fileCount: source.fileCount });
     setError("");
@@ -110,6 +112,7 @@ export function GameScan() {
         tone: "good",
         message: "扫描已开始。接收完成的游戏将进入统一待审核列表。",
       });
+      uploads.reload();
       router.push(`/admin/reviews?scanId=${encodeURIComponent(scan.id)}`);
     } catch (failure) {
       reportFailure(failure, "扫描启动失败。");
@@ -125,7 +128,8 @@ export function GameScan() {
       />
       <ScanSources
         onBios={() => setScanningBios(true)}
-        onUpload={() => { setError(""); setUploadingSource(true); }}
+        phone={phone}
+        onUpload={() => { setError(""); uploads.open(); }}
         onSelect={() => {
           setFormat("");
           setEntries([]);
@@ -144,98 +148,20 @@ export function GameScan() {
         onClose={() => setSelecting(false)}
         onInspect={() => void inspect()}
       /> : null}
-      {uploadingSource ? <UploadSheet onClose={() => setUploadingSource(false)} onUploaded={uploaded} /> : null}
+      {uploads.view}
       {entries.length ? (
-        <section className={`panel ${styles.selection}`}>
-          <header className="panel-head">
-            <div>
-              <h2>核对来源集合与游戏目录</h2>
-              <p>
-                {entries.length} 个来源集合 · {upload ? `浏览器上传 · ${upload.fileCount} 个文件` : path}
-              </p>
-            </div>
-          </header>
-          {entries.map((entry, index) => (
-            <div className={styles.mapping} key={entry.key}>
-              <div>
-                <h3>{collectionName(entry)}</h3>
-                <p>
-                  {entry.gameCount} 款游戏{upload ? "" : ` · ${entry.path}`}
-                </p>
-              </div>
-              <div className={styles.mappingControls}>
-                <label className="field">
-                  <span className="field-label">游戏目录</span>
-                  <select
-                    aria-label={`${collectionName(entry)}游戏目录`}
-                    value={mappings[index]?.platformInstanceId ?? ""}
-                    onChange={(event) =>
-                      setMappings((value) =>
-                        value.map((mapping, item) =>
-                          item === index
-                            ? {
-                                ...mapping,
-                                platformInstanceId: event.target.value,
-                              }
-                            : mapping,
-                        ),
-                      )
-                    }
-                  >
-                    <option value="">选择游戏目录</option>
-                    {directories.data?.items
-                      .filter((directory) => directory.enabled)
-                      .map((directory) => (
-                        <option value={directory.id} key={directory.id}>
-                          {directory.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <div className={styles.tagChoices}>
-                  {tags.data?.items.map((tag) => (
-                    <label key={tag.id}>
-                      <input
-                        type="checkbox"
-                        checked={
-                          mappings[index]?.tagIds.includes(tag.id) ?? false
-                        }
-                        onChange={(event) =>
-                          setMappings((value) =>
-                            value.map((mapping, item) =>
-                              item === index
-                                ? {
-                                    ...mapping,
-                                    tagIds: event.target.checked
-                                      ? [...mapping.tagIds, tag.id]
-                                      : mapping.tagIds.filter(
-                                          (id) => id !== tag.id,
-                                        ),
-                                  }
-                                : mapping,
-                            ),
-                          )
-                        }
-                      />
-                      {tag.name}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-          <footer className={styles.mappingFooter}>
-            <button
-              className="button"
-              disabled={
-                !format || busy || mappings.some((mapping) => !mapping.platformInstanceId)
-              }
-              onClick={() => void start()}
-            >
-              开始扫描
-            </button>
-          </footer>
-        </section>
+        <CollectionMapping
+          entries={entries}
+          mappings={mappings}
+          onMappingsChange={setMappings}
+          directories={directories.data?.items}
+          tags={tags.data?.items}
+          summary={upload ? `浏览器上传 · ${upload.fileCount} 个文件` : path}
+          showPaths={!upload}
+          nameOf={collectionName}
+          disabled={!format || busy || mappings.some((mapping) => !mapping.platformInstanceId)}
+          onStart={() => void start()}
+        />
       ) : null}
       {!selecting && error ? (
         <FeedbackBanner tone="bad">{error}</FeedbackBanner>
@@ -324,13 +250,13 @@ function GameSourcePicker({ busy, path, format, error, onPathChange, onFormatCha
   );
 }
 
-function ScanSources({ onSelect, onBios, onUpload }: {
+// Uploading gigabytes of games is a desktop task; phones keep server scans only.
+function ScanSources({ phone, onSelect, onBios, onUpload }: {
+  phone: boolean;
   onSelect: () => void;
   onBios: () => void;
   onUpload: () => void;
 }) {
-  // Uploading gigabytes of games is a desktop task; phones keep server scans only.
-  const phone = usePhoneLayout();
   return <div className={styles.entryGrid}>
     <article className={styles.entry}>
       <h2>游戏扫描</h2>

@@ -815,7 +815,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** @description The current administrator's uploads that have not started a scan, newest first, for resuming transfers or mapping after a reload. */
+        get: operations["ListUploads"];
         put?: never;
         /** @description Declare a browser upload: every file path and size, checked against the limits and free space before anything is staged. */
         post: operations["CreateUpload"];
@@ -1532,6 +1533,8 @@ export interface components {
             error: string | null;
         };
         UploadRequest: {
+            /** @enum {string} */
+            format: "pegasus" | "emulationstation" | "files";
             files: components["schemas"]["UploadFileRequest"][];
         };
         UploadFileRequest: {
@@ -1550,6 +1553,8 @@ export interface components {
         Upload: {
             /** Format: uuid */
             id: string;
+            /** @enum {string} */
+            format: "pegasus" | "emulationstation" | "files";
             /** Format: int64 */
             chunkSizeBytes: number;
             /** Format: int64 */
@@ -1561,6 +1566,9 @@ export interface components {
             /** Format: int64 */
             receivedBytes: number;
             completed: boolean;
+        };
+        UploadList: {
+            items: components["schemas"]["Upload"][];
         };
         BiosRequirement: {
             key: string;
@@ -6873,6 +6881,53 @@ export interface operations {
             };
             /** @description Request failed */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListUploads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadList"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

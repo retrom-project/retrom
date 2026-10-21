@@ -386,6 +386,9 @@
       "UploadProgress": {
         "$ref": "./components/common.yaml#/components/schemas/UploadProgress"
       },
+      "UploadList": {
+        "$ref": "./components/common.yaml#/components/schemas/UploadList"
+      },
       "BiosRequirement": {
         "$ref": "./components/common.yaml#/components/schemas/BiosRequirement"
       },

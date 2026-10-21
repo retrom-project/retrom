@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type * as ApiClient from "@/lib/api/client";
-import { mergeEntries, inputEntries } from "./upload-files";
+import { inputEntries, looksLikeLooseFolder, looseTitles, mergeEntries, singleFolder, unwrapFolder } from "./upload-files";
 import { transferUpload, uploadLimits, uploadProblem, type UploadEntry, type UploadSession } from "./upload-transfer";
 
 const calls = vi.hoisted(() => ({ get: vi.fn() }));
@@ -27,7 +27,7 @@ function entry(path: string, size: number): UploadEntry {
 
 function session(files: UploadEntry[], chunkSizeBytes: number, received: number[] = []): UploadSession {
   return {
-    id: "4f0a7d1e-62b4-4a43-9a58-8e5f21b5c7a1", chunkSizeBytes, expiresAtMs: 1, completed: false,
+    id: "4f0a7d1e-62b4-4a43-9a58-8e5f21b5c7a1", format: "files", chunkSizeBytes, expiresAtMs: 1, completed: false,
     files: files.map((item, index) => ({ path: item.path, sizeBytes: item.file.size, receivedBytes: received[index] ?? 0 })),
   };
 }
@@ -96,4 +96,16 @@ it("retries a chunk after a network failure or server error and stops on a clien
   await expect(transferUpload(session(files, 4), files, () => undefined, new AbortController().signal))
     .rejects.toMatchObject({ status: 404 });
   expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it("treats one folder of plain files as loose games and a folder with subfolders as one game", () => {
+  const roms = [entry("test/X地带.zip", 3), entry("test/X地带.png", 2), entry("test/Other.nes", 1)];
+  expect(singleFolder(roms)).toBe("test");
+  expect(looksLikeLooseFolder(roms, "test")).toBe(true);
+  expect(looseTitles(roms)).toEqual(["test"]);
+  expect(looseTitles(unwrapFolder(roms, "test"))).toEqual(["Other", "X地带"]);
+  const rpg = [entry("Quest/Game.exe", 3), entry("Quest/www/data/Map001.json", 1)];
+  expect(looksLikeLooseFolder(rpg, "Quest")).toBe(false);
+  expect(singleFolder([...rpg, entry("Other.nes", 1)])).toBe("");
+  expect(looseTitles([entry("Lonely.webp", 1), entry(".DS_Store", 1)])).toEqual(["Lonely"]);
 });

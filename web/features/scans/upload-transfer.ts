@@ -15,7 +15,6 @@ export const uploadLimits = {
 
 const parallelFiles = 2;
 const retryDelaysMs = [1_000, 2_000, 4_000, 8_000, 16_000];
-const resumeKey = "retrom.upload.resume";
 
 /** Returns a user-facing reason when the selection exceeds a server limit, else "". */
 export function uploadProblem(entries: UploadEntry[]): string {
@@ -49,36 +48,31 @@ function parentOf(path: string) {
   return index > 0 ? path.slice(0, index) : "";
 }
 
-function signature(entries: UploadEntry[]) {
-  return entries.map((entry) => `${entry.path}\n${entry.file.size}`).join("\n");
+/** Whether a new selection is exactly the declared file list of an earlier session. */
+export function matchesUpload(entries: UploadEntry[], session: UploadSession) {
+  const declared = new Map(session.files.map((file) => [file.path, file.sizeBytes]));
+  return entries.length === declared.size && entries.every((entry) => declared.get(entry.path) === entry.file.size);
 }
 
-/** Reuses an unfinished session of the same selection (after a reload) or declares a new one. */
-export async function openUpload(entries: UploadEntry[]): Promise<UploadSession> {
-  const remembered = readResume();
-  if (remembered?.signature === signature(entries)) {
-    try {
-      return result(await api.GET("/api/v1/admin/uploads/{uploadId}", {
-        params: { path: { uploadId: remembered.id } },
-      }));
-    } catch (failure) {
-      if (!(failure instanceof ApiError && failure.status === 404)) { throw failure; }
-    }
-  }
-  const session = result(await api.POST("/api/v1/admin/uploads", {
-    body: { files: entries.map((entry) => ({ path: entry.path, sizeBytes: entry.file.size })) },
-  }));
-  writeResume({ id: session.id, signature: signature(entries) });
-  return session;
+/**
+ * Continues `resume` when the selection matches it (after a reload or from another browser),
+ * otherwise declares a new session. Entries are reordered to the session's file order.
+ */
+export async function openUpload(
+  entries: UploadEntry[], format: UploadSession["format"], resume?: UploadSession,
+): Promise<{ session: UploadSession; entries: UploadEntry[] }> {
+  const session = resume && matchesUpload(entries, resume)
+    ? result(await api.GET("/api/v1/admin/uploads/{uploadId}", { params: { path: { uploadId: resume.id } } }))
+    : result(await api.POST("/api/v1/admin/uploads", {
+      body: { format, files: entries.map((entry) => ({ path: entry.path, sizeBytes: entry.file.size })) },
+    }));
+  const byPath = new Map(entries.map((entry) => [entry.path, entry]));
+  return { session, entries: session.files.map((file) => byPath.get(file.path)!) };
 }
 
 export async function cancelUpload(id: string) {
-  forgetUpload();
-  result(await api.DELETE("/api/v1/admin/uploads/{uploadId}", { params: { path: { uploadId: id } } }));
-}
-
-export function forgetUpload() {
-  try { window.localStorage.removeItem(resumeKey); } catch { /* storage is a convenience only */ }
+  const { error, response } = await api.DELETE("/api/v1/admin/uploads/{uploadId}", { params: { path: { uploadId: id } } });
+  if (error) { throw new ApiError(error.code, error.message, response.status); }
 }
 
 /** Sends every missing byte of the session, two files at a time, each file chunk by chunk. */
@@ -155,19 +149,4 @@ function wait(milliseconds: number, signal: AbortSignal) {
     const timer = setTimeout(resolve, milliseconds);
     signal.addEventListener("abort", () => { clearTimeout(timer); reject(signal.reason); }, { once: true });
   });
-}
-
-function readResume(): { id: string; signature: string } | null {
-  try {
-    const value: unknown = JSON.parse(window.localStorage.getItem(resumeKey) ?? "null");
-    return value && typeof value === "object" && "id" in value && "signature" in value
-      ? value as { id: string; signature: string }
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeResume(value: { id: string; signature: string }) {
-  try { window.localStorage.setItem(resumeKey, JSON.stringify(value)); } catch { /* storage is a convenience only */ }
 }

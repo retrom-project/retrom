@@ -41,3 +41,32 @@ export function mergeEntries(current: UploadEntry[], added: UploadEntry[]): Uplo
   for (const entry of added) { byPath.set(entry.path, entry); }
   return [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path));
 }
+
+const coverPattern = /\.(png|jpe?g|webp)$/iu;
+
+/** The folder every selected path sits in, when the selection is exactly one top-level folder. */
+export function singleFolder(entries: UploadEntry[]): string {
+  const first = entries[0]?.path.split("/")[0] ?? "";
+  return first && entries.every((entry) => entry.path.startsWith(`${first}/`)) ? first : "";
+}
+
+/** Drops the shared top-level folder so each file inside it becomes its own loose game. */
+export function unwrapFolder(entries: UploadEntry[], folder: string): UploadEntry[] {
+  return entries.map((entry) => ({ ...entry, path: entry.path.slice(folder.length + 1) }));
+}
+
+/** A folder of loose ROMs (files only, no subfolders) rather than one multi-file game. */
+export function looksLikeLooseFolder(entries: UploadEntry[], folder: string) {
+  const inner = unwrapFolder(entries, folder);
+  return inner.length > 0 && inner.every((entry) => !entry.path.includes("/"));
+}
+
+/** Game titles a loose source would produce, mirroring the server's top-level rule. */
+export function looseTitles(entries: UploadEntry[]): string[] {
+  const names = [...new Set(entries.map((entry) => entry.path.split("/")[0]))].filter((name) => !name.startsWith("."));
+  const stem = (name: string) => name.replace(/\.[^.]+$/u, "") || name;
+  const games = names.filter((name) => !coverPattern.test(name) || names.every((other) =>
+    other === name || stem(other) !== stem(name) || coverPattern.test(other)));
+  return games.map((name) => (entries.some((entry) => entry.path.startsWith(`${name}/`)) ? name : stem(name)))
+    .sort((left, right) => left.localeCompare(right));
+}

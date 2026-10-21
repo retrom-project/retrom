@@ -6,10 +6,12 @@ import { api, result } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
 import { formatBytes } from "@/lib/format-bytes";
 import styles from "./scan.module.css";
-import { droppedEntries, inputEntries, mergeEntries } from "./upload-files";
 import {
-  cancelUpload, forgetUpload, openUpload, transferUpload, uploadProblem,
-  type UploadEntry, type UploadTotals,
+  droppedEntries, inputEntries, looksLikeLooseFolder, looseTitles, mergeEntries, singleFolder, unwrapFolder,
+} from "./upload-files";
+import {
+  cancelUpload, matchesUpload, openUpload, transferUpload, uploadProblem,
+  type UploadEntry, type UploadSession, type UploadTotals,
 } from "./upload-transfer";
 
 export type SourceFormat = Schema<"GameScanRequest">["format"];
@@ -22,32 +24,31 @@ export const formatDescriptions: Record<SourceFormat, string> = {
   files: "每个顶层文件或文件夹算一款游戏，标题取文件名；同名的 png/jpg/webp 图片作为封面。多文件游戏请放在一个文件夹中，或打包为 ZIP/7z。",
 };
 
-export function UploadSheet({ onClose, onUploaded }: {
+export function UploadSheet({ resume, onClose, onUploaded }: {
+  resume?: UploadSession;
   onClose: () => void;
   onUploaded: (source: UploadedSource) => void;
 }) {
-  const [format, setFormat] = useState<SourceFormat | "">("");
+  const [format, setFormat] = useState<SourceFormat | "">(resume?.format ?? "");
   const [entries, setEntries] = useState<UploadEntry[]>([]);
+  const loose = useLooseSelection(format, entries);
+  const uploadEntries = loose.entries;
   const [phase, setPhase] = useState<Phase>("select");
-  const [uploadId, setUploadId] = useState("");
+  // The server session this sheet works on: the resumed one, or one it declared itself.
+  const [session, setSession] = useState<UploadSession | null>(resume ?? null);
   const [totals, setTotals] = useState<UploadTotals | null>(null);
   const [error, setError] = useState("");
   const transfer = useRef<AbortController | null>(null);
-  const problem = uploadProblem(entries);
+  const problem = selectionProblem(uploadEntries, resume);
   const uploading = phase === "uploading";
-  useEffect(() => {
-    if (!uploading) { return; }
-    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [uploading]);
+  useLeaveWarning(uploading);
   useEffect(() => () => transfer.current?.abort(), []);
 
   function replaceSelection(next: (value: UploadEntry[]) => UploadEntry[]) {
-    // A changed selection no longer matches the declared session; release its slot.
-    if (uploadId) {
-      void cancelUpload(uploadId).catch(() => undefined);
-      setUploadId("");
+    // A changed selection no longer matches a session declared here; release its slot.
+    if (session && session.id !== resume?.id) {
+      void cancelUpload(session.id).catch(() => undefined);
+      setSession(null);
       setTotals(null);
     }
     setEntries(next);
@@ -56,10 +57,9 @@ export function UploadSheet({ onClose, onUploaded }: {
   function add(added: UploadEntry[]) {
     replaceSelection((value) => mergeEntries(value, added));
   }
-  async function inspect(id: string, selected: SourceFormat) {
+  async function inspect(id: string, selected: SourceFormat, fileCount: number) {
     const data = result(await api.POST("/api/v1/admin/game-scans/inspect", { body: { uploadId: id, format: selected } }));
-    forgetUpload();
-    onUploaded({ uploadId: id, format: selected, fileCount: entries.length, items: data.items });
+    onUploaded({ uploadId: id, format: selected, fileCount, items: data.items });
   }
   async function start() {
     if (!format || problem) { return; }
@@ -69,12 +69,12 @@ export function UploadSheet({ onClose, onUploaded }: {
     setError("");
     let transferred = false;
     try {
-      const session = await openUpload(entries);
-      setUploadId(session.id);
-      await transferUpload(session, entries, setTotals, controller.signal);
+      const opened = await openUpload(uploadEntries, format, session ?? undefined);
+      setSession(opened.session);
+      await transferUpload(opened.session, opened.entries, setTotals, controller.signal);
       transferred = true;
       setPhase("uploaded");
-      await inspect(session.id, format);
+      await inspect(opened.session.id, format, opened.session.files.length);
     } catch (failure) {
       if (controller.signal.aborted) { return; }
       setPhase(transferred ? "uploaded" : "select");
@@ -82,18 +82,18 @@ export function UploadSheet({ onClose, onUploaded }: {
     }
   }
   async function retryInspect() {
-    if (!format) { return; }
+    if (!format || !session) { return; }
     setError("");
     try {
-      await inspect(uploadId, format);
+      await inspect(session.id, format, session.files.length);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "无法读取来源集合。");
     }
   }
   async function abandon() {
     transfer.current?.abort();
-    if (uploadId) {
-      try { await cancelUpload(uploadId); } catch { /* an expired session is already gone */ }
+    if (session) {
+      try { await cancelUpload(session.id); } catch { /* an expired session is already gone */ }
     }
     onClose();
   }
@@ -104,12 +104,12 @@ export function UploadSheet({ onClose, onUploaded }: {
       open
       busy={uploading}
       title="浏览器上传游戏"
-      description="上传完成后按所选形式读取来源集合，再映射游戏目录开始扫描。"
+      description={sheetDescription(resume)}
       placement="right"
       className={styles.sheet}
       onClose={uploading ? () => undefined : onClose}
-      footer={<UploadFooter phase={phase} started={!!uploadId} ready={!!format && !problem}
-        onCancel={() => void (uploadId || uploading ? abandon() : onClose())}
+      footer={<UploadFooter phase={phase} started={!!session} ready={!!format && !problem}
+        onCancel={() => void (session || uploading ? abandon() : onClose())}
         onStart={() => void start()} onInspect={() => void retryInspect()} />}
     >
       <div className={styles.picker}>
@@ -127,6 +127,7 @@ export function UploadSheet({ onClose, onUploaded }: {
         <UploadDropZone enabled={phase === "select"} onAdd={add} />
         {entries.length ? <UploadSummary entries={entries} totalBytes={totalBytes} locked={phase !== "select"}
           onClear={() => replaceSelection(() => [])} /> : null}
+        {format === "files" && entries.length ? loose.view(phase !== "select") : null}
         {totals && phase !== "select" ? <UploadProgress totals={totals} /> : null}
         {entries.length && problem ? <FeedbackBanner tone="bad">{problem}</FeedbackBanner> : null}
         {error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : null}
@@ -200,4 +201,47 @@ function UploadDropZone({ enabled, onAdd }: { enabled: boolean; onAdd: (entries:
     </div>
     <small>单文件不超过 4 GiB，单次合计不超过 20 GiB。</small>
   </div>;
+}
+
+/** The reason the selection cannot be uploaded; a resumed upload needs its original files. */
+function selectionProblem(entries: UploadEntry[], resume?: UploadSession) {
+  const problem = uploadProblem(entries);
+  if (problem || !resume || !entries.length || matchesUpload(entries, resume)) { return problem; }
+  return `请重新选择原来的 ${resume.files.length} 个文件，路径和大小需与上传时一致。`;
+}
+
+function sheetDescription(resume?: UploadSession) {
+  return resume
+    ? `继续未完成的上传：重新选择原来的 ${resume.files.length} 个文件，已上传的部分不会重复发送。`
+    : "上传完成后按所选形式读取来源集合，再映射游戏目录开始扫描。";
+}
+
+/** Asks before leaving the page while bytes are still being sent. */
+function useLeaveWarning(active: boolean) {
+  useEffect(() => {
+    if (!active) { return; }
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [active]);
+}
+
+/**
+ * A loose selection that is one folder is ambiguous: a folder of ROMs, or one multi-file
+ * game. Folders of plain files default to "each file is a game"; the administrator decides.
+ */
+function useLooseSelection(format: SourceFormat | "", entries: UploadEntry[]) {
+  const [eachFile, setEachFile] = useState<boolean | null>(null);
+  const folder = format === "files" ? singleFolder(entries) : "";
+  const unwrap = !!folder && (eachFile ?? looksLikeLooseFolder(entries, folder));
+  const selected = unwrap ? unwrapFolder(entries, folder) : entries;
+  const titles = looseTitles(selected);
+  const view = (locked: boolean) => <section className={styles.uploadSummary} aria-label="识别结果">
+    {folder ? <label className={styles.looseChoice}>
+      <input type="checkbox" checked={unwrap} disabled={locked} onChange={(event) => setEachFile(event.target.checked)} />
+      把“{folder}”文件夹里的每个文件作为一款游戏
+    </label> : null}
+    <small>将识别为 {titles.length} 款游戏：{titles.slice(0, 6).join("、")}{titles.length > 6 ? " 等" : ""}</small>
+  </section>;
+  return { entries: selected, view };
 }

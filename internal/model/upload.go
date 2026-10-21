@@ -15,7 +15,8 @@ type (
 		SizeBytes int64  `json:"sizeBytes"`
 	}
 	UploadInput struct {
-		Files []UploadFileInput `json:"files"`
+		Format string            `json:"format"`
+		Files  []UploadFileInput `json:"files"`
 	}
 	UploadFile struct {
 		Path          string `json:"path"`
@@ -24,6 +25,7 @@ type (
 	}
 	Upload struct {
 		ID             string       `json:"id"`
+		Format         string       `json:"format"`
 		ChunkSizeBytes int64        `json:"chunkSizeBytes"`
 		ExpiresAtMs    int64        `json:"expiresAtMs"`
 		Completed      bool         `json:"completed"`

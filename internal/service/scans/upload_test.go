@@ -98,7 +98,7 @@ func TestUploadDeclarationEnforcesSafeTreesAndLimits(t *testing.T) {
 
 func declareUpload(t *testing.T, s *Service, owner model.Principal) model.Upload {
 	t.Helper()
-	upload, err := s.CreateUpload(t.Context(), owner, model.UploadInput{Files: []model.UploadFileInput{
+	upload, err := s.CreateUpload(t.Context(), owner, model.UploadInput{Format: "files", Files: []model.UploadFileInput{
 		{Path: "Super Game.nes", SizeBytes: 4}, {Path: "Super Game.png", SizeBytes: 3}, {Path: "Quest/GAME.EXE", SizeBytes: 2},
 	}})
 	if err != nil || upload.Completed || len(upload.Files) != 3 || upload.ChunkSizeBytes != model.UploadChunkBytes {
@@ -161,7 +161,7 @@ func TestUploadSessionsAreLimitedToTwoActiveUploads(t *testing.T) {
 	t.Parallel()
 	s, _ := uploadService(t)
 	owner := admin()
-	declare := model.UploadInput{Files: []model.UploadFileInput{{Path: "a.nes", SizeBytes: 1}}}
+	declare := model.UploadInput{Format: "files", Files: []model.UploadFileInput{{Path: "a.nes", SizeBytes: 1}}}
 	first, err := s.CreateUpload(t.Context(), owner, declare)
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +184,7 @@ func TestUploadCleanupRemovesOnlyAbandonedStaging(t *testing.T) {
 	t.Parallel()
 	s, directory := uploadService(t)
 	owner := admin()
-	declare := model.UploadInput{Files: []model.UploadFileInput{{Path: "a.nes", SizeBytes: 1}}}
+	declare := model.UploadInput{Format: "files", Files: []model.UploadFileInput{{Path: "a.nes", SizeBytes: 1}}}
 	live, err := s.CreateUpload(t.Context(), owner, declare)
 	if err != nil {
 		t.Fatal(err)
@@ -257,5 +257,52 @@ func TestLooseFilesSourceMakesEachTopLevelEntryAGameWithSameNameCover(t *testing
 		if got[index] != want[index] {
 			t.Fatalf("game %d=%+v want %+v", index, got[index], want[index])
 		}
+	}
+}
+
+func TestUploadListShowsOnlyTheAdministratorsUploadsWithFormatAndExpiry(t *testing.T) {
+	t.Parallel()
+	s, _ := uploadService(t)
+	owner, other := admin(), admin()
+	upload := declareUpload(t, s, owner)
+	declare := model.UploadInput{Format: "pegasus", Files: []model.UploadFileInput{{Path: "a.nes", SizeBytes: 1}}}
+	if _, err := s.CreateUpload(t.Context(), other, declare); err != nil {
+		t.Fatal(err)
+	}
+	listed, err := s.ListUploads(t.Context(), owner)
+	if err != nil || len(listed) != 1 || listed[0].ID != upload.ID || listed[0].Format != "files" || listed[0].Completed {
+		t.Fatalf("listed=%+v error=%v", listed, err)
+	}
+	if listed[0].ExpiresAtMs <= time.Now().UnixMilli() {
+		t.Fatalf("expiry %d is not after the last write", listed[0].ExpiresAtMs)
+	}
+	if _, err = s.CreateUpload(t.Context(), owner, model.UploadInput{Files: declare.Files}); !errors.Is(err, model.ErrInvalid) {
+		t.Fatalf("an upload needs a format: %v", err)
+	}
+}
+
+func TestUploadListRemembersTheReadFormatAndDropsScannedUploads(t *testing.T) {
+	t.Parallel()
+	s, _ := uploadService(t)
+	owner := admin()
+	upload := declareUpload(t, s, owner)
+	for index, content := range []string{"NES\x1a", "png", "MZ"} {
+		if _, err := s.WriteUpload(t.Context(), owner, upload.ID, index, 0, strings.NewReader(content)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Reading the upload with another format is remembered for a later resumed mapping.
+	if _, err := s.Inspect(t.Context(), owner, model.SourceInput{UploadID: upload.ID, Format: "pegasus"}); !errors.Is(err, model.ErrInvalid) {
+		t.Fatalf("a loose upload has no pegasus metadata: %v", err)
+	}
+	listed, err := s.ListUploads(t.Context(), owner)
+	if err != nil || len(listed) != 1 || !listed[0].Completed || listed[0].Format != "pegasus" {
+		t.Fatalf("listed=%+v error=%v", listed, err)
+	}
+	if err = s.consumeUpload(t.Context(), owner, upload.ID); err != nil {
+		t.Fatal(err)
+	}
+	if listed, err = s.ListUploads(t.Context(), owner); err != nil || len(listed) != 0 {
+		t.Fatalf("a scanned upload is no longer listed: %+v %v", listed, err)
 	}
 }

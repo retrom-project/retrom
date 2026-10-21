@@ -2,11 +2,14 @@ package scans
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -39,15 +42,45 @@ type uploads struct {
 	scanned map[string]bool
 }
 
+// uploadSession is the Redis value of one upload: who may use it, how it will be read and
+// when it was last written (its sliding expiry).
+type uploadSession struct {
+	Owner       string `json:"owner"`
+	Format      string `json:"format"`
+	TouchedAtMs int64  `json:"touchedAtMs"`
+}
+
 func uploadKey(id string) string { return "upload:" + id }
+
+func (s *Service) saveSession(ctx context.Context, id string, session uploadSession) (uploadSession, error) {
+	session.TouchedAtMs = s.Now().UnixMilli()
+	value, err := json.Marshal(session)
+	if err != nil {
+		return session, fmt.Errorf("encode upload session: %w", err)
+	}
+	return session, wrap(s.Redis.Set(ctx, uploadKey(id), string(value), uploadWindow))
+}
+
+// readSession returns ErrContextExpired when the session no longer exists.
+func (s *Service) readSession(ctx context.Context, id string) (uploadSession, error) {
+	value, err := s.Redis.Get(ctx, uploadKey(id))
+	if err != nil {
+		return uploadSession{}, fmt.Errorf("read upload session: %w", err)
+	}
+	var session uploadSession
+	if err = json.Unmarshal([]byte(value), &session); err != nil {
+		return uploadSession{}, fmt.Errorf("decode upload session: %w", err)
+	}
+	return session, nil
+}
 
 func (s *Service) CreateUpload(ctx context.Context, p model.Principal, input model.UploadInput) (model.Upload, error) {
 	if err := p.Admin(); err != nil {
 		return model.Upload{}, wrap(err)
 	}
 	total, err := validateUploadFiles(input.Files)
-	if err != nil {
-		return model.Upload{}, err
+	if err != nil || !model.OneOf(input.Format, "pegasus", "emulationstation", "files") {
+		return model.Upload{}, errors.Join(model.ErrInvalid, err)
 	}
 	s.uploadState.mutex.Lock()
 	defer s.uploadState.mutex.Unlock()
@@ -69,17 +102,57 @@ func (s *Service) CreateUpload(ctx context.Context, p model.Principal, input mod
 	if err = s.Uploads.Create(id, input.Files); err != nil {
 		return model.Upload{}, errors.Join(wrap(err), s.Uploads.Remove(id))
 	}
-	if err = s.Redis.Set(ctx, uploadKey(id), p.User.ID, uploadWindow); err != nil {
-		return model.Upload{}, errors.Join(wrap(err), s.Uploads.Remove(id))
+	session, err := s.saveSession(ctx, id, uploadSession{Owner: p.User.ID, Format: input.Format})
+	if err != nil {
+		return model.Upload{}, errors.Join(err, s.Uploads.Remove(id))
 	}
-	return s.uploadView(id)
+	return s.uploadView(id, session)
 }
 
 func (s *Service) Upload(ctx context.Context, p model.Principal, id string) (model.Upload, error) {
-	if err := s.ownUpload(ctx, p, id); err != nil {
+	session, err := s.ownUpload(ctx, p, id)
+	if err != nil {
 		return model.Upload{}, err
 	}
-	return s.uploadView(id)
+	return s.uploadView(id, session)
+}
+
+// ListUploads returns p's uploads that have not started a scan, newest first, so an
+// administrator can resume or map them after a reload or from another browser.
+func (s *Service) ListUploads(ctx context.Context, p model.Principal) ([]model.Upload, error) {
+	if err := p.Admin(); err != nil {
+		return nil, wrap(err)
+	}
+	ids, err := s.Uploads.IDs()
+	if err != nil {
+		return nil, wrap(err)
+	}
+	order := slices.SortedFunc(func(yield func(string) bool) {
+		for id := range ids {
+			if !yield(id) {
+				return
+			}
+		}
+	}, func(left, right string) int { return ids[right].Compare(ids[left]) })
+	result := make([]model.Upload, 0, len(order))
+	for _, id := range order {
+		session, readErr := s.readSession(ctx, id)
+		if errors.Is(readErr, model.ErrContextExpired) || (readErr == nil && session.Owner != p.User.ID) {
+			continue
+		}
+		if readErr != nil {
+			return nil, wrap(readErr)
+		}
+		view, viewErr := s.uploadView(id, session)
+		if errors.Is(viewErr, os.ErrNotExist) {
+			continue // cancelled or scanned between listing and reading
+		}
+		if viewErr != nil {
+			return nil, viewErr
+		}
+		result = append(result, view)
+	}
+	return result, nil
 }
 
 // WriteUpload appends one chunk; a wrong offset or a chunk already being written for the
@@ -87,7 +160,8 @@ func (s *Service) Upload(ctx context.Context, p model.Principal, id string) (mod
 func (s *Service) WriteUpload(ctx context.Context, p model.Principal, id string, index int, offset int64,
 	reader io.Reader,
 ) (model.UploadProgress, error) {
-	if err := s.ownUpload(ctx, p, id); err != nil {
+	session, err := s.ownUpload(ctx, p, id)
+	if err != nil {
 		return model.UploadProgress{}, err
 	}
 	key := fmt.Sprintf("%s/%d", id, index)
@@ -95,8 +169,8 @@ func (s *Service) WriteUpload(ctx context.Context, p model.Principal, id string,
 		return model.UploadProgress{}, model.ErrUploadOffset
 	}
 	defer s.uploadState.writing.Delete(key)
-	if err := s.Redis.Set(ctx, uploadKey(id), p.User.ID, uploadWindow); err != nil {
-		return model.UploadProgress{}, wrap(err)
+	if _, err = s.saveSession(ctx, id, session); err != nil {
+		return model.UploadProgress{}, err
 	}
 	received, err := s.Uploads.Append(id, index, offset, reader)
 	if err != nil {
@@ -110,7 +184,7 @@ func (s *Service) WriteUpload(ctx context.Context, p model.Principal, id string,
 }
 
 func (s *Service) DeleteUpload(ctx context.Context, p model.Principal, id string) error {
-	if err := s.ownUpload(ctx, p, id); err != nil {
+	if _, err := s.ownUpload(ctx, p, id); err != nil {
 		return err
 	}
 	if err := s.Redis.Delete(ctx, uploadKey(id)); err != nil {
@@ -119,9 +193,11 @@ func (s *Service) DeleteUpload(ctx context.Context, p model.Principal, id string
 	return wrap(s.Uploads.Remove(id))
 }
 
-// uploadSource returns the staged tree of a complete upload owned by p.
-func (s *Service) uploadSource(ctx context.Context, p model.Principal, id string) (string, error) {
-	if err := s.ownUpload(ctx, p, id); err != nil {
+// uploadSource returns the staged tree of a complete upload owned by p and remembers the
+// format it is read with, which a resumed mapping offers again.
+func (s *Service) uploadSource(ctx context.Context, p model.Principal, id, format string) (string, error) {
+	session, err := s.ownUpload(ctx, p, id)
+	if err != nil {
 		return "", err
 	}
 	files, received, err := s.Uploads.Files(id)
@@ -133,6 +209,12 @@ func (s *Service) uploadSource(ctx context.Context, p model.Principal, id string
 			return "", model.ErrInvalid
 		}
 	}
+	if format != session.Format && model.OneOf(format, "pegasus", "emulationstation", "files") {
+		session.Format = format
+		if _, err = s.saveSession(ctx, id, session); err != nil {
+			return "", err
+		}
+	}
 	source, err := s.Uploads.Source(id)
 	return source, wrap(err)
 }
@@ -140,7 +222,11 @@ func (s *Service) uploadSource(ctx context.Context, p model.Principal, id string
 // consumeUpload hands a complete upload to a starting scan: it can no longer be written,
 // inspected or scanned again, and finishUpload removes it when the scan ends.
 func (s *Service) consumeUpload(ctx context.Context, p model.Principal, id string) error {
-	if _, err := s.uploadSource(ctx, p, id); err != nil {
+	session, err := s.ownUpload(ctx, p, id)
+	if err != nil {
+		return err
+	}
+	if _, err = s.uploadSource(ctx, p, id, session.Format); err != nil {
 		return err
 	}
 	s.uploadState.mutex.Lock()
@@ -217,28 +303,28 @@ func (s *Service) activeUploads(ctx context.Context) (int, error) {
 	return active, nil
 }
 
-func (s *Service) ownUpload(ctx context.Context, p model.Principal, id string) error {
+func (s *Service) ownUpload(ctx context.Context, p model.Principal, id string) (uploadSession, error) {
 	if err := p.Admin(); err != nil {
-		return wrap(err)
+		return uploadSession{}, wrap(err)
 	}
 	if !model.UUID(id) {
-		return model.ErrNotFound
+		return uploadSession{}, model.ErrNotFound
 	}
-	owner, err := s.Redis.Get(ctx, uploadKey(id))
-	if errors.Is(err, model.ErrContextExpired) || (err == nil && owner != p.User.ID) {
-		return model.ErrNotFound
+	session, err := s.readSession(ctx, id)
+	if errors.Is(err, model.ErrContextExpired) || (err == nil && session.Owner != p.User.ID) {
+		return uploadSession{}, model.ErrNotFound
 	}
-	return wrap(err)
+	return session, wrap(err)
 }
 
-func (s *Service) uploadView(id string) (model.Upload, error) {
+func (s *Service) uploadView(id string, session uploadSession) (model.Upload, error) {
 	files, received, err := s.Uploads.Files(id)
 	if err != nil {
 		return model.Upload{}, wrap(err)
 	}
 	view := model.Upload{
-		ID: id, ChunkSizeBytes: model.UploadChunkBytes, Completed: true,
-		ExpiresAtMs: s.Now().Add(uploadWindow).UnixMilli(), Files: make([]model.UploadFile, len(files)),
+		ID: id, Format: session.Format, ChunkSizeBytes: model.UploadChunkBytes, Completed: true,
+		ExpiresAtMs: session.TouchedAtMs + uploadWindow.Milliseconds(), Files: make([]model.UploadFile, len(files)),
 	}
 	for index, file := range files {
 		view.Files[index] = model.UploadFile{Path: file.Path, SizeBytes: file.SizeBytes, ReceivedBytes: received[index]}

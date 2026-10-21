@@ -41,7 +41,7 @@ func (s *Service) resolveSource(ctx context.Context, p model.Principal, input mo
 	if input.UploadID == "" {
 		return input, nil
 	}
-	source, err := s.uploadSource(ctx, p, input.UploadID)
+	source, err := s.uploadSource(ctx, p, input.UploadID, input.Format)
 	if err != nil {
 		return model.SourceInput{}, err
 	}

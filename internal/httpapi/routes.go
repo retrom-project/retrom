@@ -12,6 +12,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	}{
 		{"POST /api/v1/admin/game-scans/inspect", s.inspectSource, true},
 		{"POST /api/v1/admin/game-scans", s.createScan, true},
+		{"GET /api/v1/admin/uploads", s.uploads, true},
 		{"POST /api/v1/admin/uploads", s.createUpload, true},
 		{"GET /api/v1/admin/uploads/{uploadId}", s.upload, true},
 		{"PUT /api/v1/admin/uploads/{uploadId}/files/{index}", s.writeUpload, true},

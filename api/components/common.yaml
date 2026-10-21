@@ -2914,9 +2914,18 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "format",
           "files"
         ],
         "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "pegasus",
+              "emulationstation",
+              "files"
+            ]
+          },
           "files": {
             "type": "array",
             "minItems": 1,
@@ -2978,6 +2987,7 @@
         "additionalProperties": false,
         "required": [
           "id",
+          "format",
           "chunkSizeBytes",
           "expiresAtMs",
           "completed",
@@ -2987,6 +2997,14 @@
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "pegasus",
+              "emulationstation",
+              "files"
+            ]
           },
           "chunkSizeBytes": {
             "type": "integer",
@@ -3023,6 +3041,21 @@
           },
           "completed": {
             "type": "boolean"
+          }
+        }
+      },
+      "UploadList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Upload"
+            }
           }
         }
       }
