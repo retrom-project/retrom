@@ -25,7 +25,7 @@ export async function loadEntries(view: View, directory: string | undefined, fol
 const libraryDestinations = [
   { id: "all", name: "全部游戏", code: "ALL", view: "games" },
   { id: "recent", name: "最近游玩", code: "RECENT", view: "recent" },
-  { id: "favorites", name: "收藏游戏", code: "FAVORITES", view: "favorites" },
+  { id: "favorites", name: "收藏游戏", code: "FAV", view: "favorites" },
   { id: "saves", name: "我的存档", code: "SAVES", view: "saves" },
 ] as const;
 export async function loadDestinations(): Promise<{ items: Destination[] }> {

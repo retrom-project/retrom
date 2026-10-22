@@ -58,6 +58,19 @@ describe("immersive background audio", () => {
     await waitFor(() => expect(screen.getByText("playing")).toBeInTheDocument());
   });
 
+  it("retries a refused start on the next key or pointer gesture", async () => {
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockRejectedValueOnce(new DOMException("blocked"));
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+    render(<BackgroundAudioHarness />);
+    await waitFor(() => expect(screen.getByText("blocked")).toBeInTheDocument());
+    play.mockResolvedValueOnce();
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    await waitFor(() => expect(screen.getByText("playing")).toBeInTheDocument());
+    expect(play).toHaveBeenCalledTimes(2);
+    fireEvent.pointerDown(window);
+    expect(play).toHaveBeenCalledTimes(2);
+  });
+
   it("pauses while hidden and resumes after visibility returns", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);

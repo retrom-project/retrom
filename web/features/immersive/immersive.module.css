@@ -215,6 +215,7 @@
 }
 
 .gameTitles {
+  position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
@@ -358,6 +359,40 @@
   place-items: center;
 }
 
+/* The current cover, blurred and enlarged, fills the stage behind the sharp artwork. */
+.mediaBackdrop {
+  position: absolute;
+  inset: -12%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.42;
+  filter: blur(42px) saturate(1.35);
+  animation: immersive-backdrop-in 320ms ease-out;
+}
+
+.mediaBackdrop img {object-fit: cover;}
+
+.mediaStage::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  content: "";
+  background: radial-gradient(ellipse at center, transparent 35%, rgb(9 13 22 / 0.55));
+}
+
+.mediaStage > .poster,
+.mediaStage > .savePreview,
+.mediaStage > .videoPanel {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes immersive-backdrop-in {
+  from {opacity: 0;}
+  to {opacity: 0.42;}
+}
+
 .poster {
   position: relative;
   width: min(100%, calc(48dvh * 5 / 7));
@@ -454,14 +489,24 @@
 
 .descriptionPanel {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-height: 0;
   padding: clamp(18px, 2vw, 36px);
   overflow: hidden;
   border-top: 1px solid rgb(255 255 255 / 0.08);
 }
 
-.descriptionPanel > p:first-child {
+.descriptionHeading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: clamp(14px, 1.6vw, 28px);
+  align-items: end;
+  min-width: 0;
+}
+
+.descriptionHeading > div {min-width: 0;}
+
+.descriptionHeading p {
   margin: 0 0 6px;
   color: var(--immersive-cyan);
   font-size: var(--text-immersive-caption);
@@ -493,19 +538,25 @@
 }
 
 .description {
+  position: relative;
   margin: 0;
   min-height: 0;
   padding-right: 12px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   color: var(--immersive-muted);
   font-size: var(--text-immersive-body);
   line-height: 1.55;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
 }
 
-.description::-webkit-scrollbar {display: none;}
+/* Only whole lines are shown; the measured count keeps the last line from being cut. */
+.description > p:last-child {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--description-lines, 3);
+}
+
+.description[data-lines="0"] > p:last-child {display: none;}
 
 .dialogBackdrop,
 .launchOverlay,
@@ -672,6 +723,17 @@
   .helpBar {
     right: 28px;
     left: 28px;
+    gap: 14px;
+    font-size: var(--text-immersive-caption);
+  }
+
+  .helpBar span {gap: 6px;}
+
+  .helpBar kbd {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
   }
 
   .gameListView {
@@ -681,7 +743,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spinner {animation: none;}
+  .spinner,
+  .mediaBackdrop {animation: none;}
   .videoPanel video,
   .fullscreenRestore {transition: none;}
   .titleList > button {scroll-behavior: auto;}
@@ -702,8 +765,33 @@
 
 .controllerGlyph svg { width: 32px; height: 32px; }
 .fullscreenRestore svg { width: 18px; height: 18px; }
-.menuTrigger { display: inline-flex; align-items: center; gap: 10px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.menuTrigger { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .notice { position: absolute; z-index: 5; right: 0; bottom: 0; max-width: 440px; padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); }
 
 .savePreview { position: relative; width: 100%; height: 100%; min-height: 0; }
 .savePreview img { object-fit: contain; }
+
+.helpBar span.helpPair {gap: 6px;}
+
+.helpBar kbd[data-button="LB"],
+.helpBar kbd[data-button="RB"],
+.helpBar kbd[data-button="LT"],
+.helpBar kbd[data-button="RT"] {
+  width: auto;
+  min-width: 42px;
+  padding: 0 8px;
+  font-size: var(--text-immersive-caption);
+  border-radius: var(--radius-control);
+}
+
+.helpPair kbd + kbd {margin-right: 4px;}
+
+@media (width <= 1279px) {
+  .helpBar {gap: 12px;}
+  .helpBar span.helpPair {gap: 4px;}
+  .helpBar kbd[data-button="LB"],
+  .helpBar kbd[data-button="RB"],
+  .helpBar kbd[data-button="LT"],
+  .helpBar kbd[data-button="RT"] {min-width: 32px; padding: 0 5px;}
+  .helpPair kbd + kbd {margin-right: 2px;}
+}

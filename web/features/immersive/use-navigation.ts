@@ -109,4 +109,8 @@ const keys: Record<string, NavigationAction> = {
   S: "menu",
   y: "favorite",
   Y: "favorite",
+  PageUp: "pagePrevious",
+  PageDown: "pageNext",
+  Home: "groupPrevious",
+  End: "groupNext",
 };

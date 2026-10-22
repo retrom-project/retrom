@@ -56,6 +56,9 @@
   --text-immersive-heading: clamp(20px, 1.4vw, 30px);
   --text-immersive-title: clamp(32px, 3.2vw, 64px);
   --text-immersive-mark: min(clamp(72px, 10vw, 150px), 80cqh);
+  /* Whole platform codes of 5-6 and 7-10 characters also fit the mark container's width. */
+  --text-immersive-mark-medium: min(clamp(72px, 10vw, 150px), 80cqh, calc(100cqi / 3.9));
+  --text-immersive-mark-long: min(clamp(72px, 10vw, 150px), 80cqh, calc(100cqi / 6.4));
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;

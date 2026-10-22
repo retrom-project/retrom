@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { InfiniteScrollFooter } from "@/components/infinite-scroll-footer";
 import type { InfiniteResource } from "@/lib/use-infinite-resource";
 import type { Schema } from "@/lib/api/types";
@@ -24,6 +24,7 @@ export function ImmersiveGames({
   onSelect,
   title,
   onLaunch,
+  overlay,
 }: {
   returnTo: string;
   entries: ImmersiveEntry[];
@@ -36,6 +37,7 @@ export function ImmersiveGames({
   onSelect: (index: number) => void;
   title: string;
   onLaunch: () => void;
+  overlay?: ReactNode;
 }) {
   const list = useRef<HTMLDivElement>(null);
   const selectedButton = useRef<HTMLButtonElement>(null);
@@ -73,6 +75,7 @@ export function ImmersiveGames({
           ))}
           <InfiniteScrollFooter count={entries.length} total={total} {...resource} scrollRoot={list} />
         </div>
+        {overlay}
       </section>
       {entry ? (
         <GamePresentation entry={entry} returnTo={returnTo} saves={saveView ? saves : undefined} />
@@ -91,18 +94,22 @@ function GamePresentation({ entry, returnTo, saves }: { entry: ImmersiveEntry; r
     <section className={`${styles.gameDetails} ${saves ? libraryStyles.saveGameDetails : ""}`}>
       <GameMedia entry={saves ? { game, save: saves.previewSave } : entry} saveView={!!saves} />
       {saves ? <ImmersiveSaveCarousel gameTitle={game.title} selection={saves} returnTo={returnTo} /> : <div className={styles.descriptionPanel}>
-        <p>{game.directoryName} {game.releaseYear ?? ""}</p>
-        <h2>{game.title}</h2>
-        <div className={styles.description}><GameSynopsis entry={entry} /></div>
-        <LaunchButton
-          gameId={game.id}
-          coreId={save?.extinfo.coreId}
-          saveId={save?.id} restoreWarning={save?.restoreWarning}
-          disabled={!!save && !save.restorable}
-          returnTo={returnTo}
-        >
-          {save ? "从存档继续" : "开始游戏"}
-        </LaunchButton>
+        <header className={styles.descriptionHeading}>
+          <div>
+            <p>{game.directoryName} {game.releaseYear ?? ""}</p>
+            <h2 title={game.title}>{game.title}</h2>
+          </div>
+          <LaunchButton
+            gameId={game.id}
+            coreId={save?.extinfo.coreId}
+            saveId={save?.id} restoreWarning={save?.restoreWarning}
+            disabled={!!save && !save.restorable}
+            returnTo={returnTo}
+          >
+            {save ? "从存档继续" : "开始游戏"}
+          </LaunchButton>
+        </header>
+        <WholeLines key={game.id}><GameSynopsis entry={entry} /></WholeLines>
         {save?.kind === "game_save" ? (
           <p>进入游戏后，请在游戏内读取存档。</p>
         ) : null}
@@ -118,6 +125,9 @@ function GameMedia({ entry: { game, save }, saveView = false }: { entry: Immersi
       <div
         className={`${styles.mediaStage} ${video ? styles.withVideo : styles.coverOnly}`}
       >
+        {artwork ? <div key={artwork} className={styles.mediaBackdrop} aria-hidden="true">
+          <Image src={artwork} fill sizes="20vw" alt="" unoptimized />
+        </div> : null}
         <div className={saveView ? styles.savePreview : styles.poster}>
           {artwork ? (
             <Image
@@ -150,6 +160,29 @@ const restoreMessages: Record<Schema<"Save">["restoreReason"], string> = {
   content_changed: "游戏内容已变化，无法恢复。",
   format_unreadable: "当前核心无法读取此存档格式。",
 };
+
+/** Shows only complete lines of the last paragraph; the full text stays in its tooltip. */
+function WholeLines({ children }: { children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const container = box.current;
+    if (!container) { return; }
+    const fit = () => {
+      const last = container.lastElementChild;
+      if (!(last instanceof HTMLElement)) { return; }
+      const lineHeight = Number.parseFloat(getComputedStyle(last).lineHeight) || 1;
+      const lines = Math.floor((container.clientHeight - last.offsetTop) / lineHeight);
+      container.style.setProperty("--description-lines", String(Math.max(lines, 1)));
+      container.dataset.lines = String(Math.max(lines, 0));
+      last.title = last.textContent ?? "";
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+  return <div className={styles.description} ref={box}>{children}</div>;
+}
 
 function GameSynopsis({ entry }: { entry: ImmersiveEntry }) {
   const { game, save } = entry;

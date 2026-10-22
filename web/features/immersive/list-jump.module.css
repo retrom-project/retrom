@@ -1,0 +1,32 @@
+/* Transient position shown while paging or jumping between title groups. */
+.jumpHint {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  gap: var(--space-2);
+  place-content: center;
+  justify-items: center;
+  width: clamp(150px, 13vw, 240px);
+  height: clamp(150px, 13vw, 240px);
+  margin: auto;
+  color: var(--immersive-text);
+  pointer-events: none;
+  background: rgb(12 17 29 / 0.97);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.45);
+}
+
+.jumpHint strong {
+  font-size: var(--text-immersive-mark);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+}
+
+.jumpHint span {
+  color: var(--immersive-muted);
+  font-size: var(--text-immersive-caption);
+  font-variant-numeric: tabular-nums;
+}

@@ -136,7 +136,11 @@
   font-weight: var(--weight-semibold);
   letter-spacing: -0.07em;
   line-height: var(--leading-heading);
+  white-space: nowrap;
 }
+
+.platformCard .platformCodeMedium {font-size: var(--text-immersive-mark-medium);}
+.platformCard .platformCodeLong {font-size: var(--text-immersive-mark-long);}
 
 .platformCard p {
   margin: 0 0 10px;

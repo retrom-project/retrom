@@ -20,7 +20,9 @@ import { useImmersiveSystemMenu } from "./use-immersive-system-menu";
 import { useImmersiveFullscreen } from "./use-immersive-fullscreen";
 import { ImmersiveChoiceDialog } from "./choice-dialog";
 import { ImmersiveChrome } from "./immersive-chrome";
+import { groupTarget, isJumpAction, pageTarget, titleGroup, type JumpAction, type JumpTarget } from "./list-jump";
 import styles from "./immersive.module.css";
+import jumpStyles from "./list-jump.module.css";
 
 export function ImmersiveShell() {
   return <Suspense><ImmersiveAudioProvider><ImmersiveContent /></ImmersiveAudioProvider></Suspense>;
@@ -34,6 +36,8 @@ function ImmersiveContent() {
   function confirmRestore() { setRestoreChoice("cancel"); return restoreConfirmation.request(); }
   const [exitOpen, setExitOpen] = useState(false);
   const [exitChoice, setExitChoice] = useState("continue");
+  const [jumpHint, setJumpHint] = useState<{ group: string; position: string } | null>(null);
+  const jumpHintTimer = useRef(0);
   const router = useRouter();
   const audio = useImmersiveAudio();
   const fullscreen = useImmersiveFullscreen();
@@ -49,8 +53,15 @@ function ImmersiveContent() {
   function launch() { document.querySelector<HTMLButtonElement>(`.${styles.gameDetails} .home-launch-control button`)?.click(); }
   function navigate(action: NavigationAction) {
     if (action === "cancel") { if (view === "platforms") { setExitChoice("continue"); setExitOpen(true); } else { changeView("platforms"); } return; }
+    if (isJumpAction(action)) { if (view === "platforms") { jumpPlatform(action); } else { jump(action); } return; }
     if (view === "platforms") { navigatePlatform(action); return; }
     navigateGames(action);
+  }
+  /** Shoulders skip five entries on the carousel; title groups do not apply to platforms. */
+  function jumpPlatform(action: JumpAction) {
+    const count = destinations.data?.items.length ?? 0;
+    if (!count || action.startsWith("group")) { return; }
+    setDestination((value) => (value + (action === "pagePrevious" ? -5 : 5) % count + count) % count);
   }
   function navigatePlatform(action: NavigationAction) {
     const count = destinations.data?.items.length ?? 0;
@@ -69,6 +80,21 @@ function ImmersiveContent() {
     if (action === "confirm") { launch(); }
     if (action === "favorite") { void favorite(); }
   }
+  function jump(action: JumpAction) {
+    const items = entries.data?.items ?? [];
+    if (!items.length) { return; }
+    const direction = action.endsWith("Previous") ? "previous" : "next";
+    const titles = items.map((item) => item.game.title);
+    const target: JumpTarget = action.startsWith("page")
+      ? pageTarget(selected, visibleRows(), direction, items.length, entries.hasMore)
+      : groupTarget(titles, selected, direction, entries.hasMore);
+    setSelected(target.index);
+    if (target.loadMore && !entries.moreError) { entries.loadMore(); }
+    window.clearTimeout(jumpHintTimer.current);
+    setJumpHint({ group: titleGroup(titles[target.index]) || "#", position: `${target.index + 1} / ${entries.data?.total ?? items.length}` });
+    jumpHintTimer.current = window.setTimeout(() => setJumpHint(null), 900);
+  }
+  useEffect(() => () => window.clearTimeout(jumpHintTimer.current), []);
   const systemMenu = useImmersiveSystemMenu({ commitPreference: audio.commitPreference, enterFullscreen: fullscreen.enterFullscreen, fullscreenActive: fullscreen.active, fullscreenSupported: fullscreen.supported, onBrowseAction: navigate, onExit: leave, preferences: audio.preferences });
   function chooseExit(id: string) { if (id === "exit") { leave(); } else { setExitOpen(false); } }
   const controller = useImmersiveNavigation((action) => {
@@ -106,7 +132,8 @@ function ImmersiveContent() {
                 <option value="">全部收藏</option><option value="unclassified">未分类</option>
                 {folders.data?.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select></label> : null}
-              onLaunch={launch} />
+              onLaunch={launch}
+              overlay={jumpHint ? <div className={jumpStyles.jumpHint} role="status" aria-live="polite"><strong>{jumpHint.group}</strong><span>{jumpHint.position}</span></div> : null} />
           )}</ResourceState>
         )}
       </main>
@@ -119,4 +146,12 @@ function ImmersiveContent() {
       <div className={styles.viewportOverlay}><div><h2>沉浸模式需要横屏大屏</h2><p>请使用至少 960 × 540 的横屏视口。</p><Link className="button" href="/">返回普通首页</Link></div></div>
     </div></RestoreConfirmationContext>
   );
+}
+
+/** One list page is the number of fully visible title rows, minus one row of overlap. */
+function visibleRows() {
+  const list = document.querySelector<HTMLElement>(`.${styles.titleList}`);
+  const row = list?.querySelector<HTMLElement>("button");
+  if (!list || !row || !row.offsetHeight) { return 8; }
+  return Math.max(1, Math.floor(list.clientHeight / row.offsetHeight) - 1);
 }
