@@ -49,7 +49,7 @@ export function PlayerInputDebug({runtimeRef, ready, coreName, version}: Props) 
       <div><dt>核心读取回执</dt><dd>未接入</dd></div>
     </dl>
     <div className="player-input-held" aria-label="当前按住的输入">
-      {snapshot?.held.length ? snapshot.held.slice(0, 8).map((event) => <span key={event.sequence}>{inputLabel(event)}{event.control.startsWith("Axis") ? ` · ${event.value}` : ""}</span>) : <span className="is-neutral">当前未观测到按住的输入</span>}
+      {snapshot?.held.length ? heldInputs(snapshot.held).slice(0, 8).map((event) => <span key={event.sequence}>{inputLabel(event)}{event.control.startsWith("Axis") ? ` · ${event.value}` : ""}</span>) : <span className="is-neutral">当前未观测到按住的输入</span>}
     </div>
     <p className="player-input-latest">{latest ? describeInput(latest) : "按下手柄或键盘，查看输入到达的位置。"}</p>
     <p className="player-debug-note">已投递仅确认画布事件或输入接口调用，不代表游戏执行了动作。手柄仅观察运行时已有的取样；未显示不等于按键未按下。</p>
@@ -63,6 +63,17 @@ export function PlayerInputDebug({runtimeRef, ready, coreName, version}: Props) 
     </ol></details>
     {snapshot && snapshot.dropped > 0 ? <p className="player-debug-note">仅保留最近 64 条变化，已省略 {snapshot.dropped} 条。</p> : null}
   </section>;
+}
+
+/** One held chip per physical input: the browser and runtime stages observe the same button. */
+export function heldInputs(held: readonly RuntimeInputObservationV1[]) {
+  const latest = new Map<string, RuntimeInputObservationV1>();
+  for (const event of held) {
+    const key = `${event.device}\u0000${event.control}`;
+    const current = latest.get(key);
+    if (!current || event.sequence > current.sequence) {latest.set(key, event);}
+  }
+  return [...latest.values()].sort((left, right) => left.sequence - right.sequence);
 }
 
 function focusLabel(snapshot: RuntimeInputDiagnosticsSnapshotV1 | null) {

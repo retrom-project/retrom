@@ -1,6 +1,6 @@
 import {act, cleanup, render, screen} from "@testing-library/react";
 import {afterEach, expect, it, vi} from "vitest";
-import {PlayerInputDebug, describeInput} from "./player-input-debug";
+import {PlayerInputDebug, describeInput, heldInputs} from "./player-input-debug";
 import type {PlayerRuntimeV1, RuntimeInputDiagnosticsSnapshotV1} from "./runtime/contract";
 
 afterEach(() => {cleanup(); vi.useRealTimers();});
@@ -37,3 +37,15 @@ it("keeps delivery and game behavior distinct and renders release durations", ()
   expect(text).toContain("松开 → MouseLeft · 已投递 · 126 ms");
   expect(text).not.toContain("核心已读取");
 });
+
+it("shows one held entry per physical input across observation stages", () => {
+  const press = {atMs: 100, value: 1, target: null, reason: null, heldMs: null} as const;
+  const held = heldInputs([
+    {...press, sequence: 1, device: "gamepad:0", control: "Button 0", stage: "BROWSER"},
+    {...press, sequence: 2, device: "gamepad:0", control: "Button 0", stage: "RUNTIME"},
+    {...press, sequence: 3, device: "player:0", control: "Control 8", stage: "DELIVERED", target: "core-input"},
+  ]);
+  expect(held.map((event) => `${event.device}/${event.control}/${event.stage}`))
+    .toEqual(["gamepad:0/Button 0/RUNTIME", "player:0/Control 8/DELIVERED"]);
+});
+
