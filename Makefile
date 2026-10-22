@@ -32,7 +32,7 @@ NEXT_DEV_HOST ?= 127.0.0.1
 NEXT_DEV_PORT ?= 4000
 NEXT_BACKEND_ORIGIN ?= http://$(RETROM_HTTP_ADDR)
 NEXT_DEV_DIST_DIR ?= .next
-NODE_HOME ?= $(abspath .cache/tools/node-v24.18.0-linux-x64)
+NODE_HOME ?= $(abspath .cache/tools/node-v24.22.1-linux-x64)
 NODE_PREPARE_MODE ?= repository
 NPM := PATH="$(NODE_HOME)/bin:$$PATH" npm
 GO_HOME ?= $(abspath .cache/tools/go$(GO_VERSION)-linux-amd64)
@@ -130,7 +130,7 @@ prepare-go:
 
 prepare-node:
 	@if [[ "$(NODE_PREPARE_MODE)" = system ]]; then \
-		test "$$(node --version)" = "v$$(cat .node-version)" && test "$$(npm --version)" = "11.16.0" || { echo 'system Node/npm version mismatch' >&2; exit 1; }; \
+		test "$$(node --version)" = "v$$(cat .node-version)" && test "$$(npm --version)" = "11.19.1" || { echo 'system Node/npm version mismatch' >&2; exit 1; }; \
 	else \
 		test "$(NODE_PREPARE_MODE)" = repository || { echo 'NODE_PREPARE_MODE must be repository or system' >&2; exit 2; }; \
 		scripts/prepare-node.sh; \

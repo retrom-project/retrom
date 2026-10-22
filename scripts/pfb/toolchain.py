@@ -80,7 +80,7 @@ def _validate_localhost_browser(chrome: Path) -> None:
             "pfb-validation.localhost",
             "0198abcd-1234-7123-8abc-1234567890ab.rpg.pfb-validation.localhost",
         )
-        node = chrome.parent / "node-v24.18.0-linux-x64/bin/node"
+        node = chrome.parent / "node-v24.22.1-linux-x64/bin/node"
         probe_script = Path(__file__).with_name("browser-probe.mjs")
         if not node.is_file() or not os.access(node, os.X_OK):
             raise PFBError("PFB_TOOLCHAIN_MISSING", "node")

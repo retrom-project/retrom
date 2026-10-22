@@ -7,7 +7,7 @@ import {
   request,
   revealPlayerControls,
 } from "./clean-refactor-support";
-import { nesFrame, sendNesInput } from "./nes-playback";
+import { ensurePlayerLandscape, nesFrame, sendNesInput } from "./nes-playback";
 
 export async function newInstantSave(page: Page, existing: Schema<"Save">) {
   await revealPlayerControls(page);
@@ -75,6 +75,10 @@ export async function instantConflict(page: Page, save: Schema<"Save">) {
     const run = await request<Schema<"Run">>(other, `/api/v1/runs/${runId}`);
     expect(run.save?.id).toBe(save.id);
     expect(run.save?.version).toBe(save.version);
+    await ensurePlayerLandscape(other);
+    await expect(
+      other.getByRole("button", { name: /^(创建存档|保存)$/u }),
+    ).toBeEnabled({ timeout: 60_000 });
     const otherFrame = await nesFrame(other);
     await sendNesInput(other, otherFrame);
     const first = await overwrite(page, save);

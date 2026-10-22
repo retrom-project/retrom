@@ -66,7 +66,7 @@ class ToolchainPreparationTests(unittest.TestCase):
             output = pathlib.Path(sys.argv[sys.argv.index("--output") + 1])
             if output.name == "SHASUMS256.txt":
                 output.write_text(
-                    "a" * 64 + "  node-v24.18.0-linux-x64.tar.xz\n",
+                    "a" * 64 + "  node-v24.22.1-linux-x64.tar.xz\n",
                     encoding="utf-8",
                 )
             else:
@@ -99,8 +99,8 @@ class ToolchainPreparationTests(unittest.TestCase):
             destination = pathlib.Path(sys.argv[sys.argv.index("-C") + 1])
             archive = next(value for value in sys.argv if value.endswith((".tar.xz", ".tar.gz")))
             if archive.endswith(".tar.xz"):
-                binary_root = destination / "node-v24.18.0-linux-x64" / "bin"
-                commands = {"node": "v24.18.0", "npm": "11.16.0"}
+                binary_root = destination / "node-v24.22.1-linux-x64" / "bin"
+                commands = {"node": "v24.22.1", "npm": "11.19.1"}
                 for name, version in commands.items():
                     target = binary_root / name
                     target.parent.mkdir(parents=True, exist_ok=True)
@@ -116,7 +116,7 @@ class ToolchainPreparationTests(unittest.TestCase):
 
     def test_invalid_node_cache_is_restored_on_failure_then_rebuilt(self) -> None:
         script = self.copy_script("prepare-node.sh")
-        target = self.root / ".cache/tools/node-v24.18.0-linux-x64"
+        target = self.root / ".cache/tools/node-v24.22.1-linux-x64"
         target.mkdir(parents=True)
         marker = target / "corrupt-marker"
         marker.write_text("preserve until replacement succeeds", encoding="utf-8")
@@ -130,7 +130,7 @@ class ToolchainPreparationTests(unittest.TestCase):
         self.assertFalse(marker.exists())
         self.assertEqual(
             subprocess.check_output([target / "bin/node", "--version"], text=True).strip(),
-            "v24.18.0",
+            "v24.22.1",
         )
 
     def test_invalid_go_cache_is_atomically_rebuilt(self) -> None:
