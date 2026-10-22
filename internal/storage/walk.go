@@ -15,8 +15,9 @@ type (
 		ModifiedAt time.Time
 	}
 	directoryCursor struct {
-		key  string
-		file *os.File
+		key                 string
+		file                *os.File
+		temporaryModifiedAt time.Time
 	}
 )
 
@@ -84,7 +85,19 @@ func (s *Scanner) open(key string) error {
 	if err != nil {
 		return fmt.Errorf("open managed cleanup directory: %w", err)
 	}
-	s.stack = append(s.stack, directoryCursor{key: key, file: file})
+	var temporaryModifiedAt time.Time
+	if len(s.stack) > 0 {
+		temporaryModifiedAt = s.stack[len(s.stack)-1].temporaryModifiedAt
+	}
+	if path.Dir(key) == "temporary" {
+		info, statErr := file.Stat()
+		if statErr != nil {
+			closeFile(file)
+			return fmt.Errorf("stat temporary cleanup directory: %w", statErr)
+		}
+		temporaryModifiedAt = info.ModTime()
+	}
+	s.stack = append(s.stack, directoryCursor{key: key, file: file, temporaryModifiedAt: temporaryModifiedAt})
 	return nil
 }
 
@@ -111,5 +124,11 @@ func (s *Scanner) entry(directory string, entry os.DirEntry) (Entry, error) {
 	if !info.Mode().IsRegular() {
 		return Entry{}, nil
 	}
-	return Entry{Key: key, ModifiedAt: info.ModTime()}, nil
+	modifiedAt := info.ModTime()
+	// A new staging tree may link old immutable inodes. Its lifetime starts with the tree,
+	// without touching the source inode or copying the source bytes.
+	if staged := s.stack[len(s.stack)-1].temporaryModifiedAt; staged.After(modifiedAt) {
+		modifiedAt = staged
+	}
+	return Entry{Key: key, ModifiedAt: modifiedAt}, nil
 }

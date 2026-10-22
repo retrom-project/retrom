@@ -138,11 +138,11 @@ func (s *Service) orphans(ctx context.Context) error {
 			continue
 		}
 		if !unreferenced {
-			referenced, readErr := s.Repository.Referenced(ctx, entry.Key)
+			owned, readErr := s.Repository.OwnsFile(ctx, entry.Key)
 			if readErr != nil {
 				return wrap(readErr)
 			}
-			if referenced {
+			if owned {
 				continue
 			}
 		}

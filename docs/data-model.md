@@ -1,6 +1,6 @@
 # 数据模型
 
-目标 schema 由 migrations 按编号顺序叠加得到：001_schema.sql 为初始建表，002_query_indexes.sql 补查询索引，003_content_packages.sql 增加项目包成员表和活动包唯一索引。新库和既有库执行同一序列，新库不跳过后续 migration。已发布的 migration 文件固化不再修改，schema 变化只能追加新编号文件。迁移不读取或重打包游戏字节。应用数据库包含以下20张业务表和schema_migrations_tab技术账本，没有FK、CHECK、用户TRIGGER、VIEW、materialized VIEW、DOMAIN或业务函数。
+目标 schema 由 migrations 按编号顺序叠加得到：001_schema.sql 为初始建表，002_query_indexes.sql 补查询索引，003_content_packages.sql 增加项目包成员表和活动包唯一索引，004_file_ownership_indexes.sql 将文件归属索引覆盖到 active／deleted。新库和既有库执行同一序列，新库不跳过后续 migration。已发布的 migration 文件固化不再修改，schema 变化只能追加新编号文件。迁移不读取或重打包游戏字节。应用数据库包含以下20张业务表和schema_migrations_tab技术账本，没有FK、CHECK、用户TRIGGER、VIEW、materialized VIEW、DOMAIN或业务函数。
 
 | 表 | 当前事实 |
 | --- | --- |
@@ -31,7 +31,7 @@ Game状态pending_review→published→deleted→purged；拒绝待审直接dele
 
 应用用例承担完整性。IO在事务外完成，Game/文件/媒体/Tag及成功扫描计数在一个短事务提交；BIOS安装与成功计数同事务；保存锁Game并确认published，再执行存档版本CAS。目录删除按普通SELECT判断有无待审/已发布Game，不建立全局目录锁协议。导入提交前普通复查目录；不承诺并行强内容去重。
 
-列表先分页候选行再组装标签/媒体。全局Game索引匹配status,title_initial,title,id；目录索引匹配platform_instance_id,status,title_initial,title,id。active storage_key和save screenshot_key索引服务引用复核，清理不逐文件全表扫描。所有关系查询在SQL中限定当前user_id及可见状态。
+列表先分页候选行再组装标签/媒体。全局Game索引匹配status,title_initial,title,id；目录索引匹配platform_instance_id,status,title_initial,title,id。active／deleted storage_key和save screenshot_key索引服务活动引用与退休归属复核，清理不逐文件全表扫描。所有关系查询在SQL中限定当前user_id及可见状态。
 
 项目包的 game_file_tab.role 为 project_package，size_bytes/sha256 描述整个物理 ZIP。成员表以 (game_file_id, logical_path COLLATE "C") 为复合主键，保存 data_offset、size_bytes、sha256、media_type；没有成员 UUID、role、status、JSON 清单或独立生命周期。原生 ROM/ZIP 仍是普通物理文件，不按扩展名展开成员。一个活动项目包不能与其他活动内容文件混合。
 
