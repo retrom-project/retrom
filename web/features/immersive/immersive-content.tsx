@@ -1,7 +1,6 @@
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { InfiniteScrollFooter } from "@/components/infinite-scroll-footer";
-import type { InfiniteResource } from "@/lib/use-infinite-resource";
 import type { Schema } from "@/lib/api/types";
 import { LaunchButton } from "@/features/player/launch-button";
 import { BrowserTime } from "@/components/browser-time";
@@ -11,7 +10,11 @@ import type { ImmersiveSaveSelection } from "./use-save-selection";
 import libraryStyles from "./library.module.css";
 import { SaveRestoreWarning } from "./save-restore-warning";
 
-import type { ImmersiveEntry, ImmersivePage } from "./immersive-data";
+import type { ImmersiveEntry } from "./immersive-data";
+import type { LetterStart } from "./list-jump";
+import type { EntryWindow } from "./use-entry-window";
+import { EarlierEntries, LetterIndex } from "./list-window-controls";
+import windowStyles from "./list-jump.module.css";
 export function ImmersiveGames({
   returnTo,
   entries,
@@ -25,11 +28,14 @@ export function ImmersiveGames({
   title,
   onLaunch,
   overlay,
+  letters = [],
+  onLetter,
+  jumpId,
 }: {
   returnTo: string;
   entries: ImmersiveEntry[];
   total: number;
-  resource: InfiniteResource<ImmersivePage>;
+  resource: EntryWindow;
   filter?: ReactNode;
   saveView: boolean;
   saves: ImmersiveSaveSelection;
@@ -38,16 +44,23 @@ export function ImmersiveGames({
   title: string;
   onLaunch: () => void;
   overlay?: ReactNode;
+  letters?: readonly LetterStart[];
+  onLetter?: (offset: number) => void;
+  /** Changes with each jump; the jump target is shown at the top so the rest of that page follows it. */
+  jumpId?: number;
 }) {
   const list = useRef<HTMLDivElement>(null);
   const selectedButton = useRef<HTMLButtonElement>(null);
+  const alignedJump = useRef(jumpId);
   useEffect(() => {
     const container = list.current, button = selectedButton.current;
     if (!container || !button) { return; }
     const area = container.getBoundingClientRect(), item = button.getBoundingClientRect();
-    if (item.top < area.top) { container.scrollTop += item.top - area.top; }
+    const jumped = jumpId !== undefined && jumpId !== alignedJump.current;
+    alignedJump.current = jumpId;
+    if (jumped || item.top < area.top) { container.scrollTop += item.top - area.top; }
     else if (item.bottom > area.bottom) { container.scrollTop += item.bottom - area.bottom; }
-  }, [selected]);
+  }, [selected, jumpId, resource.base]);
   const entry = entries[selected];
   return (
     <div className={styles.gameListView}>
@@ -58,7 +71,9 @@ export function ImmersiveGames({
           <span>{total} 款游戏</span>
           {filter}
         </div>
+        <div className={windowStyles.titleListRow}>
         <div className={styles.titleList} ref={list}>
+          <EarlierEntries base={resource.base} loading={resource.loadingBefore} onLoad={() => void resource.loadBefore()} scrollRoot={list} />
           {entries.map((item, index) => (
             <button
               key={item.game.id}
@@ -68,12 +83,14 @@ export function ImmersiveGames({
               onClick={() => onSelect(index)}
               onDoubleClick={onLaunch}
             >
-              <span>{String(index + 1).padStart(2, "0")}</span>
+              <span>{String(resource.base + index + 1).padStart(2, "0")}</span>
               <strong>{item.game.title}</strong>
               {item.game.favorite ? <small className={styles.favoriteIndicator}>♥</small> : null}
             </button>
           ))}
-          <InfiniteScrollFooter count={entries.length} total={total} {...resource} scrollRoot={list} />
+          <InfiniteScrollFooter count={resource.base + entries.length} total={total} {...resource} scrollRoot={list} />
+        </div>
+        {onLetter ? <LetterIndex letters={letters} current={entry?.game.titleLetter ?? ""} onPick={onLetter} /> : null}
         </div>
         {overlay}
       </section>

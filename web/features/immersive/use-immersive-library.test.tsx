@@ -34,13 +34,34 @@ it.each<View>(["games", "favorites", "recent", "saves"])("appends bounded %s pag
   expect(mocks.loadEntries.mock.calls.map((args) => args.slice(3, 5))).toEqual([[0, 24], [24, 24], [48, 24]]);
 });
 
-it("restores a game beyond the first page after returning from play using bounded reads", async () => {
+it("reopens the list at the selected game's page after returning from play with one read", async () => {
   mocks.search = new URLSearchParams("view=games&destination=all&offset=48&entry=game-50");
   const hook = renderHook(useImmersiveLibrary);
-  await waitFor(() => expect(hook.result.current.selected).toBe(50));
-  expect(hook.result.current.entries.data?.items).toHaveLength(55);
-  expect(hook.result.current.returnTo).toContain("entry=game-50");
-  expect(mocks.loadEntries.mock.calls.map((args) => args.slice(3, 5))).toEqual([[0, 24], [24, 24], [48, 24]]);
+  await waitFor(() => expect(hook.result.current.entries.data?.items[hook.result.current.selected]?.game.id).toBe("game-50"));
+  expect(hook.result.current.entries.base).toBe(48);
+  expect(hook.result.current.returnTo).toContain("offset=48");
+  expect(mocks.loadEntries.mock.calls.map((args) => args.slice(3, 5))).toEqual([[48, 24]]);
+});
+
+it("keeps the selected game while earlier pages load before the window", async () => {
+  mocks.search = new URLSearchParams("view=games&destination=all&offset=48&entry=game-50");
+  const hook = renderHook(useImmersiveLibrary);
+  await waitFor(() => expect(hook.result.current.entries.base).toBe(48));
+  act(() => hook.result.current.setListPosition(49));
+  await act(async () => { await hook.result.current.entries.loadBefore(); });
+  expect(hook.result.current.entries.base).toBe(24);
+  expect(hook.result.current.entries.data?.items[hook.result.current.selected]?.game.id).toBe("game-49");
+  expect(mocks.loadEntries.mock.calls.map((args) => args.slice(3, 5))).toEqual([[48, 24], [24, 24]]);
+});
+
+it("opens a far letter with one read instead of every page before it", async () => {
+  const hook = renderHook(useImmersiveLibrary);
+  await waitFor(() => expect(hook.result.current.entries.data?.items).toHaveLength(24));
+  let index: number | null = null;
+  await act(async () => { index = await hook.result.current.entries.moveTo(40); });
+  expect(index).toBe(0);
+  expect(hook.result.current.entries.base).toBe(40);
+  expect(mocks.loadEntries.mock.calls.map((args) => args.slice(3, 5))).toEqual([[0, 24], [40, 24]]);
 });
 
 it("resets the loaded range when the favorite folder changes", async () => {

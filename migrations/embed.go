@@ -21,3 +21,8 @@ var ContentPackages string
 //
 //go:embed 004_file_ownership_indexes.sql
 var FileOwnershipIndexes string
+
+// TitleOrder adds letter groups, pinyin sort keys and admin sort names to games.
+//
+//go:embed 005_title_order.sql
+var TitleOrder string

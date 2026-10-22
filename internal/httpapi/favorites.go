@@ -18,6 +18,18 @@ func (s *Server) favorites(w http.ResponseWriter, r *http.Request, p model.Princ
 	return respond(w, items)
 }
 
+func (s *Server) favoriteLetters(w http.ResponseWriter, r *http.Request, p model.Principal) error {
+	q, err := query(r)
+	if err != nil {
+		return err
+	}
+	items, err := s.Favorites.Letters(r.Context(), p, q)
+	if err != nil {
+		return wrap(err)
+	}
+	return respond(w, model.TitleLetters{Items: items})
+}
+
 func (s *Server) setFavorite(w http.ResponseWriter, r *http.Request, p model.Principal) error {
 	var input struct {
 		FolderIDs []string `json:"folderIds"`

@@ -11,7 +11,7 @@ vi.mock("@/lib/api/client", async (original) => ({ ...await original<typeof ApiC
 vi.mock("@/features/library/api", () => ({ loadGames: calls.games, loadDirectories: async () => ({ items: [] }), loadTags: async () => ({ items: [] }) }));
 const game: Schema<"Game"> = {
   id: "new", platformInstanceId: "directory", directoryName: "NES", platformId: "nes", title: "新扫描的游戏",
-  description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null,
+  titleLetter: "#", sortName: "", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null,
   status: "pending_review", source: "server_import", version: 1, contentHash: "hash",
   tags: [], media: [], favorite: false, lastPlayedAtMs: null, createdAtMs: 1, updatedAtMs: 1,
 };

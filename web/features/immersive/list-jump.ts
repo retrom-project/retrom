@@ -4,15 +4,12 @@ export function isJumpAction(action: string): action is JumpAction {
   return action === "pagePrevious" || action === "pageNext" || action === "groupPrevious" || action === "groupNext";
 }
 
-/** Lists are ordered by the first character of the trimmed title, upper-cased, as the server stores it. */
-export function titleGroup(title: string) {
-  const first = [...title.trim()][0];
-  return first ? first.toUpperCase() : "";
-}
+/** Where a letter group starts in the full, title-ordered list (from the letters API). */
+export type LetterStart = Readonly<{ letter: string; offset: number; count: number }>;
 
 export type JumpTarget = Readonly<{ index: number; loadMore: boolean }>;
 
-/** Move one page; past the loaded end it stops on the last item and asks for the next batch. */
+/** Move one page within the loaded window; past its end it stops on the last item and loads more. */
 export function pageTarget(selected: number, pageSize: number, direction: "previous" | "next", loaded: number, hasMore: boolean): JumpTarget {
   const last = Math.max(0, loaded - 1);
   if (direction === "previous") {
@@ -22,23 +19,21 @@ export function pageTarget(selected: number, pageSize: number, direction: "previ
   return { index, loadMore: hasMore && selected + pageSize >= last };
 }
 
+/** The letter group containing a list position. */
+export function letterAt(letters: readonly LetterStart[], position: number) {
+  return letters.findLast((letter) => letter.offset <= position)?.letter ?? "";
+}
+
 /**
- * Jump to the first title of the neighbouring group. Going back first returns to the start of the
- * current group. A next group that is not loaded yet keeps the last item selected and loads more.
+ * The list offset of the neighbouring letter group. Going back first returns to the start of the
+ * current group; there is no target before the first or after the last group.
  */
-export function groupTarget(titles: readonly string[], selected: number, direction: "previous" | "next", hasMore: boolean): JumpTarget {
-  const current = titleGroup(titles[selected] ?? "");
+export function letterTarget(letters: readonly LetterStart[], position: number, direction: "previous" | "next") {
   if (direction === "next") {
-    for (let index = selected + 1; index < titles.length; index++) {
-      if (titleGroup(titles[index]) !== current) { return { index, loadMore: false }; }
-    }
-    return { index: Math.max(0, titles.length - 1), loadMore: hasMore };
+    return letters.find((letter) => letter.offset > position)?.offset ?? null;
   }
-  let start = selected;
-  while (start > 0 && titleGroup(titles[start - 1]) === current) { start--; }
-  if (start < selected || start === 0) { return { index: start, loadMore: false }; }
-  const previous = titleGroup(titles[start - 1]);
-  let index = start - 1;
-  while (index > 0 && titleGroup(titles[index - 1]) === previous) { index--; }
-  return { index, loadMore: false };
+  const current = letters.findLastIndex((letter) => letter.offset <= position);
+  if (current < 0) { return null; }
+  if (letters[current].offset < position) { return letters[current].offset; }
+  return current > 0 ? letters[current - 1].offset : null;
 }

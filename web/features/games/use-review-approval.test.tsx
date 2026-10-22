@@ -14,7 +14,7 @@ vi.mock("@/lib/api/client", async (importOriginal) => {
 it("captures the current filters and prevents a second approval while the snapshot is loading", async () => {
   const query = { q: "本次范围", platformInstanceId: "directory", tagId: "tag", sort: "title" as const, offset: 24, limit: 24 };
   const game: Game = { id: "pending", title: "匹配的游戏", version: 4, platformInstanceId: "directory", platformId: "nes",
-    directoryName: "目录", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null,
+    directoryName: "目录", titleLetter: "#", sortName: "", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null,
     status: "pending_review", source: "server_import", contentHash: "hash", tags: [], media: [], favorite: false, lastPlayedAtMs: null, createdAtMs: 1, updatedAtMs: 1 };
   const getReviews = api.GET<"/api/v1/admin/reviews", { params: { query: typeof query }; signal: AbortSignal }>;
   let release!: (value: Awaited<ReturnType<typeof getReviews>>) => void;

@@ -30,10 +30,10 @@ func (r *Repository) RecentGames(ctx context.Context, userID string, q model.Que
 	}
 	order, outerOrder := "rg.last_played_at_ms DESC,g.id", "p.last_played_at_ms DESC,p.game_id"
 	if q.Sort == "title" {
-		order, outerOrder = "g.title_initial,g.title,g.id", "p.title_initial,p.title,p.game_id"
+		order, outerOrder = "g.title_sort_key,g.title,g.id", "p.title_sort_key,p.title,p.game_id"
 	}
 	args := []any{userID, q.DirectoryID, q.Search, q.TagID, q.AfterMs, q.BeforeMs}
-	query := `WITH selected AS MATERIALIZED (SELECT rg.game_id,rg.last_played_at_ms,g.title_initial,g.title` +
+	query := `WITH selected AS MATERIALIZED (SELECT rg.game_id,rg.last_played_at_ms,g.title_sort_key,g.title` +
 		recentFilter + ` ORDER BY ` + order + ` LIMIT $7 OFFSET $8)
  SELECT jsonb_build_object('game',` + gameJSON + `,'lastPlayedAtMs',p.last_played_at_ms)
  FROM selected p JOIN game_tab g ON g.id=p.game_id JOIN platform_instance_tab d ON d.id=g.platform_instance_id

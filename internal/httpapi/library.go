@@ -26,6 +26,18 @@ func (s *Server) games(w http.ResponseWriter, r *http.Request, p model.Principal
 	return respond(w, items)
 }
 
+func (s *Server) gameLetters(w http.ResponseWriter, r *http.Request, p model.Principal) error {
+	q, err := query(r)
+	if err != nil {
+		return err
+	}
+	items, err := s.Library.Letters(r.Context(), p, gameStatus(r), q)
+	if err != nil {
+		return wrap(err)
+	}
+	return respond(w, model.TitleLetters{Items: items})
+}
+
 func (s *Server) game(w http.ResponseWriter, r *http.Request, p model.Principal) error {
 	result, err := s.Library.Detail(r.Context(), p, r.PathValue("gameId"), gameStatus(r))
 	if err != nil {

@@ -24,7 +24,8 @@ function helpItems(view: View): readonly { buttons: readonly string[]; label: st
   return [
     { buttons: ["vertical"], label: "选择游戏" },
     { buttons: ["LB", "RB"], label: "翻页" },
-    { buttons: ["LT", "RT"], label: "按首字" },
+    // Recent games and saves are ordered by time, so only title-ordered lists jump by letter.
+    ...(view === "games" || view === "favorites" ? [{ buttons: ["LT", "RT"], label: "按字母" }] : []),
     ...(view === "saves" ? [{ buttons: ["horizontal"], label: "切换存档" }] : []),
     { buttons: ["A"], label: view === "saves" ? "从存档继续" : "开始游戏" },
     { buttons: ["B"], label: "返回平台" },

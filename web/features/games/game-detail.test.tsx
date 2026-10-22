@@ -37,7 +37,7 @@ vi.mock("./game-detail-content", () => ({GameDetailContent: ({onWithdraw, busy}:
 const detail: Schema<"GameDetail"> = {
   game: {
     id: "current", platformInstanceId: "directory", directoryName: "NES", platformId: "nes",
-    title: "当前待审", description: "", developer: "", publisher: "", genre: "", players: null,
+    title: "当前待审", titleLetter: "#", sortName: "", description: "", developer: "", publisher: "", genre: "", players: null,
     releaseYear: null, status: "pending_review", source: "server_import", version: 1,
     contentHash: "hash", tags: [], media: [], favorite: false, lastPlayedAtMs: null,
     createdAtMs: 1, updatedAtMs: 1,

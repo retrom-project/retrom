@@ -8,7 +8,8 @@ import (
 )
 
 const gameJSON = `jsonb_build_object('id',g.id,'platformInstanceId',g.platform_instance_id,'platformId',d.platform_id,
- 'directoryName',d.name,'title',g.title,'description',g.description,'developer',g.developer,'publisher',g.publisher,
+ 'directoryName',d.name,'title',g.title,'titleLetter',g.title_initial,'sortName',g.title_sort_name,
+ 'description',g.description,'developer',g.developer,'publisher',g.publisher,
  'genre',
 g.genre,
 'players',
@@ -52,13 +53,13 @@ func (r *Repository) Games(ctx context.Context, userID, status string, q model.Q
 		}
 	}
 	args := []any{userID, status, q.Search, q.DirectoryID, q.PlatformID, q.TagID, q.Favorite, q.FolderID, q.Unclassified}
-	order, projection, relations := "g.title_initial,g.title,g.id", "g.id,g.title_initial,g.title", gameRelations
-	outerOrder := "p.title_initial,p.title,p.id"
+	order, projection, relations := "g.title_sort_key,g.title,g.id", "g.id,g.title_sort_key,g.title", gameRelations
+	outerOrder := "p.title_sort_key,p.title,p.id"
 	if q.Sort == "recent" {
 		relations += " LEFT JOIN recent_game_tab rg ON rg.game_id=g.id AND rg.user_id=$1"
 		projection += ",rg.last_played_at_ms"
-		order = "rg.last_played_at_ms DESC NULLS LAST,g.title_initial,g.title,g.id"
-		outerOrder = "p.last_played_at_ms DESC NULLS LAST,p.title_initial,p.title,p.id"
+		order = "rg.last_played_at_ms DESC NULLS LAST,g.title_sort_key,g.title,g.id"
+		outerOrder = "p.last_played_at_ms DESC NULLS LAST,p.title_sort_key,p.title,p.id"
 	}
 	query := `WITH selected AS MATERIALIZED (SELECT ` + projection + relations + gameFilter +
 		` ORDER BY ` + order + ` LIMIT $10 OFFSET $11)

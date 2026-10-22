@@ -34,7 +34,7 @@ func assertEmptyApplicationSchema(t *testing.T, repository *persistence.Reposito
 		t.Fatalf("unsuffixed tables=%d err=%v", unsuffixed, err)
 	}
 	ledger, err := repository.Count(ctx, "SELECT count(*) FROM schema_migrations_tab")
-	if err != nil || ledger != 4 {
+	if err != nil || ledger != 5 {
 		t.Fatalf("applied migrations=%d err=%v", ledger, err)
 	}
 	prohibited,

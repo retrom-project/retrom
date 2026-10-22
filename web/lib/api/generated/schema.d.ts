@@ -340,6 +340,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/games/letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Where each title letter group (A-Z, then #) starts in the same filtered, title-ordered list. */
+        get: operations["ListGameLetters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/games/{gameId}": {
         parameters: {
             query?: never;
@@ -508,6 +525,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["ListFavorites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/favorites/letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Where each title letter group (A-Z, then #) starts in the same filtered, title-ordered list. */
+        get: operations["ListFavoriteLetters"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1344,6 +1378,10 @@ export interface components {
             platformId: string;
             directoryName: string;
             title: string;
+            /** @description Letter group of the title-ordered lists: A-Z by Latin letter or pinyin initial, otherwise #. */
+            titleLetter: string;
+            /** @description Administrator sort name used instead of the title for ordering, for example the intended reading of a polyphonic title. Empty uses the title. */
+            sortName: string;
             description: string;
             developer: string;
             publisher: string;
@@ -1383,6 +1421,8 @@ export interface components {
             /** Format: uuid */
             platformInstanceId: string;
             title: string;
+            /** @description Optional sort name; empty orders by the title. */
+            sortName?: string;
             description: string;
             developer: string;
             publisher: string;
@@ -1666,6 +1706,14 @@ export interface components {
             offset: number;
             /** Format: int64 */
             limit: number;
+        };
+        TitleLetter: {
+            letter: string;
+            offset: number;
+            count: number;
+        };
+        TitleLetters: {
+            items: components["schemas"]["TitleLetter"][];
         };
         ReviewReadinessRequest: {
             gameIds: string[];
@@ -3707,6 +3755,86 @@ export interface operations {
             };
         };
     };
+    ListGameLetters: {
+        parameters: {
+            query?: {
+                q?: string;
+                platformInstanceId?: string;
+                tagId?: string;
+                /** @description Matches games in directories belonging to this platform; combines with directory and tag filters. */
+                platformId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleLetters"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     GetGame: {
         parameters: {
             query?: never;
@@ -4846,6 +4974,89 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GamePage"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListFavoriteLetters: {
+        parameters: {
+            query?: {
+                q?: string;
+                platformInstanceId?: string;
+                tagId?: string;
+                folderId?: string;
+                /** @description Return favorites without a folder. Cannot be combined with folderId. */
+                unclassified?: boolean;
+                /** @description Matches games in directories belonging to this platform; combines with directory and tag filters. */
+                platformId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleLetters"];
                 };
             };
             /** @description Request failed */

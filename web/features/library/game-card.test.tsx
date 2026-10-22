@@ -7,7 +7,7 @@ import { GameCard } from "./game-card";
 afterEach(cleanup);
 const game: Game = {
   id: "game", version: 1, title: "Test game", platformId: "nes", platformInstanceId: "directory", directoryName: "NES",
-  description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null, status: "published",
+  titleLetter: "#", sortName: "", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null, status: "published",
   source: "server_import", contentHash: "hash", favorite: false, tags: [], media: [], createdAtMs: 1, updatedAtMs: 2,
   lastPlayedAtMs: null,
 };

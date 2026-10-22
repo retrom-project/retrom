@@ -22,6 +22,16 @@ export async function loadEntries(view: View, directory: string | undefined, fol
   const page = await loadGames(view === "favorites" ? "favorites" : "library", { q: "", offset, limit, platformInstanceId: view === "games" ? directory : undefined, folderId: folder && folder !== "unclassified" ? folder : undefined, unclassified: folder === "unclassified" || undefined }, signal);
   return { ...page, items: page.items.map((game) => ({ game })) };
 }
+export type TitleLetter = Schema<"TitleLetter">;
+/** Letter groups exist only for title-ordered views; recent games and saves are ordered by time. */
+export async function loadLetters(view: View, directory: string | undefined, folder: string, signal?: AbortSignal): Promise<TitleLetter[]> {
+  if (view !== "games" && view !== "favorites") { return []; }
+  const query = { platformInstanceId: view === "games" ? directory : undefined, folderId: folder && folder !== "unclassified" ? folder : undefined, unclassified: folder === "unclassified" || undefined };
+  const page = view === "games"
+    ? result(await api.GET("/api/v1/games/letters", { params: { query }, signal }))
+    : result(await api.GET("/api/v1/favorites/letters", { params: { query }, signal }));
+  return page.items;
+}
 const libraryDestinations = [
   { id: "all", name: "全部游戏", code: "ALL", view: "games" },
   { id: "recent", name: "最近游玩", code: "RECENT", view: "recent" },

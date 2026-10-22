@@ -19,17 +19,35 @@ type Service struct {
 }
 
 func (s *Service) List(ctx context.Context, p model.Principal, q model.Query) (model.Page[model.Game], error) {
+	q, err := s.favoriteQuery(ctx, p, q)
+	if err != nil {
+		return model.Page[model.Game]{}, err
+	}
+	result, err := s.Repository.Games(ctx, p.User.ID, "published", q)
+	return result, wrap(err)
+}
+
+// Letters reports where each title letter group starts in the same favorite list.
+func (s *Service) Letters(ctx context.Context, p model.Principal, q model.Query) ([]model.TitleLetter, error) {
+	q, err := s.favoriteQuery(ctx, p, q)
+	if err != nil {
+		return nil, err
+	}
+	result, err := s.Repository.GameLetters(ctx, p.User.ID, "published", q)
+	return result, wrap(err)
+}
+
+func (s *Service) favoriteQuery(ctx context.Context, p model.Principal, q model.Query) (model.Query, error) {
 	if q.Unclassified && q.FolderID != "" {
-		return model.Page[model.Game]{}, model.ErrInvalid
+		return q, model.ErrInvalid
 	}
 	q.Favorite = true
 	if q.FolderID != "" {
 		if _, err := s.Repository.Folder(ctx, p.User.ID, q.FolderID); err != nil {
-			return model.Page[model.Game]{}, wrap(err)
+			return q, wrap(err)
 		}
 	}
-	result, err := s.Repository.Games(ctx, p.User.ID, "published", q)
-	return result, wrap(err)
+	return q, nil
 }
 
 func (s *Service) Folders(ctx context.Context, p model.Principal) ([]model.Folder, error) {

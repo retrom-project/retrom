@@ -80,6 +80,9 @@ func (r *Repository) Migrate(ctx context.Context) error {
 	if err = applyMigration(ctx, tx, "004_file_ownership_indexes", migrations.FileOwnershipIndexes); err != nil {
 		return err
 	}
+	if err = applyMigration(ctx, tx, "005_title_order", migrations.TitleOrder); err != nil {
+		return err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit migration: %w", err)
 	}
