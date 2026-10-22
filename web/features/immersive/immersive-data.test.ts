@@ -1,5 +1,5 @@
-import { afterEach, expect, it, vi } from "vitest";
-import { entryId, loadDestinations, loadEntries } from "./immersive-data";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { entryId, loadDestinations, loadEntries, platformCode } from "./immersive-data";
 import { saveFixture } from "./test-fixtures";
 
 const requests = vi.hoisted(() => ({ GET: vi.fn(), loadGames: vi.fn(), loadDirectories: vi.fn() }));
@@ -27,4 +27,18 @@ it("uses grouped games for the save destination count and featured covers", asyn
   expect(destination?.count).toBe(25);
   expect(destination?.featured.map((game) => game.id)).toEqual(["first", "second", "third"]);
   expect(requests.GET).toHaveBeenCalledWith("/api/v1/saves", { params: { query: { offset: 0, limit: 3, groupByGame: true } }, signal: undefined });
+});
+
+describe("immersive platform codes", () => {
+  it("names the base model of a shared platform family and otherwise keeps the platform ID", () => {
+    expect(platformCode("Game Boy 游戏", "gbc")).toBe("GB");
+    expect(platformCode("Game Boy Color 游戏", "gbc")).toBe("GBC");
+    expect(platformCode("GBC 游戏", "gbc")).toBe("GBC");
+    expect(platformCode("掌机", "gbc")).toBe("GBC");
+    expect(platformCode("GBA 游戏", "gba")).toBe("GBA");
+    expect(platformCode("Neo Geo Pocket 游戏", "ngpc")).toBe("NGP");
+    expect(platformCode("Game Gear 游戏", "gamegear")).toBe("GAMEGEAR");
+    expect(platformCode("RPG Maker 游戏", "rpgmaker")).toBe("RPGMAKER");
+    expect(platformCode("FC 红白机", "nes")).toBe("NES");
+  });
 });

@@ -37,5 +37,18 @@ export async function loadDestinations(): Promise<{ items: Destination[] }> {
     })),
   ]);
   if (libraries[0].count === 0) { return { items: [] }; }
-  return { items: [...libraries, ...directories.items.map((item): Destination => ({ id: item.id, name: item.name, code: item.platformId.toUpperCase(), view: "games", directoryId: item.id, count: item.gameCount, featured: [] }))] };
+  return { items: [...libraries, ...directories.items.map((item): Destination => ({ id: item.id, name: item.name, code: platformCode(item.name, item.platformId), view: "games", directoryId: item.id, count: item.gameCount, featured: [] }))] };
+}
+
+/**
+ * A directory may name the base model of a platform family, e.g. "Game Boy" on the shared
+ * Game Boy / Color platform. Its abbreviation is used only when the platform ID adds exactly one
+ * trailing letter to it (GB/GBC, NGP/NGPC); every other directory keeps its platform ID.
+ */
+export function platformCode(name: string, platformId: string) {
+  const id = platformId.toUpperCase();
+  const words = name.replace(/游戏$/u, "").match(/[A-Za-z0-9][A-Za-z0-9-]*/gu) ?? [];
+  const short = words.length === 1 ? words[0].toUpperCase()
+    : words.map((word) => /^[A-Z0-9-]{2,}$/u.test(word) || /^\d/u.test(word) ? word.toUpperCase() : word[0].toUpperCase()).join("");
+  return short.length >= 2 && id.length === short.length + 1 && id.startsWith(short) ? short : id;
 }
