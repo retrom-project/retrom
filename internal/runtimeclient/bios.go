@@ -36,7 +36,7 @@ func (c *Client) Bios(ctx context.Context,
 	provider,
 	target string,
 	config json.RawMessage,
-	files []model.GameFile) ([]BiosRequirement,
+	files []model.ContentFile) ([]BiosRequirement,
 	error,
 ) {
 	var result []BiosRequirement

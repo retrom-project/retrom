@@ -50,7 +50,7 @@ func (s *Service) List(ctx context.Context,
 }
 
 func (s *Service) availability(ctx context.Context, p model.Principal, save *model.Save) error {
-	game, err := s.Repository.GameDetail(ctx, p.User.ID, save.Game.ID, "published")
+	game, err := s.Repository.GameRuntimeDetail(ctx, p.User.ID, save.Game.ID, "published")
 	if errors.Is(err, model.ErrNotFound) {
 		save.RestoreReason = "game_unavailable"
 		return nil
@@ -62,7 +62,7 @@ func (s *Service) availability(ctx context.Context, p model.Principal, save *mod
 	if err != nil {
 		return wrap(err)
 	}
-	prepared, err := s.Runs.Runtime.Identity(ctx, directory, game.RuntimeConfig, game.Files, save.Extinfo.CoreID)
+	prepared, err := s.Runs.Runtime.Identity(ctx, directory, game.RuntimeConfig, game.ContentFiles, save.Extinfo.CoreID)
 	if errors.Is(err, model.ErrInvalid) {
 		save.RestoreReason = "core_unavailable"
 		return nil

@@ -25,7 +25,7 @@ func assertEmptyApplicationSchema(t *testing.T, repository *persistence.Reposito
 	tableCount, err := repository.Count(ctx, `SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='public' AND c.relkind='r' AND c.relname LIKE '%\_tab' ESCAPE '\'
  AND c.relname <> 'schema_migrations_tab'`)
-	if err != nil || tableCount != 19 {
+	if err != nil || tableCount != 20 {
 		t.Fatalf("tables=%d err=%v", tableCount, err)
 	}
 	unsuffixed, err := repository.Count(ctx, `SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -34,7 +34,7 @@ func assertEmptyApplicationSchema(t *testing.T, repository *persistence.Reposito
 		t.Fatalf("unsuffixed tables=%d err=%v", unsuffixed, err)
 	}
 	ledger, err := repository.Count(ctx, "SELECT count(*) FROM schema_migrations_tab")
-	if err != nil || ledger != 2 {
+	if err != nil || ledger != 3 {
 		t.Fatalf("applied migrations=%d err=%v", ledger, err)
 	}
 	prohibited,

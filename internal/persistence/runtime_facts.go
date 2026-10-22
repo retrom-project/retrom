@@ -8,10 +8,10 @@ import (
 )
 
 type RuntimeFacts struct {
-	GameID    string           `json:"gameId"`
-	Directory model.Directory  `json:"directory"`
-	Config    json.RawMessage  `json:"config"`
-	Files     []model.GameFile `json:"files"`
+	GameID    string              `json:"gameId"`
+	Directory model.Directory     `json:"directory"`
+	Config    json.RawMessage     `json:"config"`
+	Files     []model.ContentFile `json:"files"`
 }
 
 func (r *Repository) RuntimeFacts(ctx context.Context, ids []string) ([]RuntimeFacts, error) {
@@ -21,7 +21,12 @@ func (r *Repository) RuntimeFacts(ctx context.Context, ids []string) ([]RuntimeF
  WHERE pc.platform_instance_id=d.id),'[]'::jsonb)),
  'files',COALESCE((SELECT jsonb_agg(jsonb_build_object('logicalKey',f.logical_key,'sha256',f.sha256,
  'sizeBytes',
-f.size_bytes) ORDER BY f.logical_key) FROM game_file_tab f WHERE f.game_id=g.id AND f.status='active'),
+f.size_bytes) ORDER BY f.logical_key) FROM (
+ SELECT f.logical_key,f.sha256,f.size_bytes
+ FROM game_file_tab f WHERE f.game_id=g.id AND f.status='active' AND f.role<>'project_package'
+ UNION ALL SELECT m.logical_path,m.sha256,m.size_bytes
+ FROM game_file_tab f JOIN game_file_member_tab m ON m.game_file_id=f.id WHERE f.game_id=g.id AND f.status='active'
+ AND f.role='project_package') f),
 '[]'::jsonb))
  FROM game_tab g JOIN platform_instance_tab d ON d.id=g.platform_instance_id
  WHERE g.id=ANY($1::text[]) AND g.status='published' AND d.enabled`, ids)

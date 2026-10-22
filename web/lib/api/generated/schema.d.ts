@@ -1129,6 +1129,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/games/{gameId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Administrator-only entry candidates for pending or published RPG Maker games. Runtime filters current file facts for the selected engine, preserving full logical paths. An invalid saved entry does not prevent listing replacements. */
+        get: operations["ListGameContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1314,7 +1331,7 @@ export interface components {
             id: string;
             logicalKey: string;
             /** @enum {string} */
-            role: "content" | "parent";
+            role: "content" | "parent" | "project_package";
             /** Format: int64 */
             sizeBytes: number;
             sha256: string;
@@ -1904,6 +1921,17 @@ export interface components {
             matchedMembers: number;
             expectedMembers: number;
             missingMembers: string[];
+        };
+        ContentFile: {
+            logicalKey: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            sha256: string;
+            mediaType: string;
+        };
+        ContentPage: {
+            items: components["schemas"]["ContentFile"][];
+            nextCursor: string | null;
         };
     };
     responses: never;
@@ -8653,6 +8681,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RPGEntryCandidates"];
+                };
+            };
+            /** @description Request failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Request failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ListGameContent: {
+        parameters: {
+            query?: {
+                after?: string;
+                prefix?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                gameId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentPage"];
                 };
             };
             /** @description Request failed */

@@ -24,7 +24,7 @@
 | --- | --- |
 | [PFB 开发](pfb-development.md) | 源码准备、初始化、Provider 导入、构建、启动及日常迭代 |
 | [产品与模块](retrom-product-architecture.md) | 八模块、职责与依赖方向 |
-| [数据模型](data-model.md) | 19 张业务表、状态、索引与应用完整性 |
+| [数据模型](data-model.md) | 20 张业务表、状态、索引与应用完整性 |
 | [HTTP 契约](http-api-contract.md) / [OpenAPI](../api/openapi.yaml) | 权限、请求、错误和字段定义 |
 | [界面与产品行为](ui-specification.md) | 普通／移动／沉浸界面与共享控件规则 |
 | [存储与数据库](storage-and-database.md) | 受管目录、文件发布、清理与持久化 |

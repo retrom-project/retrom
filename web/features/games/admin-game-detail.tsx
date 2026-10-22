@@ -32,7 +32,7 @@ export function AdminGameDetail({ detail, mode, busy, onReview, onChange, onWith
         <section className="admin-game-hero">
           <AdminGameCover game={game} />
           <div className="admin-game-hero-copy"><h2>{game.title}</h2><p>{game.platformId} · {game.directoryName}{game.developer ? ` · ${game.developer}` : ""}</p><div><span className="status good">用户可见</span><span className="status neutral">{game.media.some((media) => media.kind === "cover") ? "已设置封面" : "暂无封面"}</span></div></div>
-          <div className="admin-game-hero-update"><span>最近更新</span><strong><BrowserTime value={game.updatedAtMs} /></strong><small>{detail.files.length} 个内容文件 · {detail.coreIds.length} 种运行方式</small></div>
+          <div className="admin-game-hero-update"><span>最近更新</span><strong><BrowserTime value={game.updatedAtMs} /></strong><small>{detail.files.length} 个受管文件 · {detail.coreIds.length} 种运行方式</small></div>
         </section>
         <section className="admin-game-overview" aria-label="游戏概览">
           <div><span>所属目录</span><strong>{game.directoryName}</strong></div>

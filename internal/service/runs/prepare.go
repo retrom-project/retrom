@@ -26,6 +26,7 @@ func (s *Service) prepare(ctx context.Context, p model.Principal, input model.Ru
 		save, savedContext = &stored, &stored.Extinfo
 		input.CoreID = stored.Extinfo.CoreID
 	}
-	prepared, err := s.Runtime.Prepare(ctx, directory, detail.RuntimeConfig, detail.Files, input.CoreID, savedContext)
+	prepared, err := s.Runtime.Prepare(ctx, directory, detail.RuntimeConfig, detail.ContentFiles,
+		input.CoreID, savedContext)
 	return prepared, save, wrap(err)
 }

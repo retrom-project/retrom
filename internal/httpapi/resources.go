@@ -58,9 +58,7 @@ func (s *Server) runResource(w http.ResponseWriter, r *http.Request, p model.Pri
 	if index != nil || r.PathValue("filename") != blob.Filename {
 		return model.ErrNotFound
 	}
-	w.Header().Set("Content-Type", blob.MediaType)
-	w.Header().Set("ETag", "\"sha256-"+blob.SHA256+"\"")
-	return s.serveManaged(w, r, blob.Key)
+	return s.serveRunBlob(w, r, blob)
 }
 
 func (s *Server) runIndex(w http.ResponseWriter, r *http.Request, p model.Principal) error {

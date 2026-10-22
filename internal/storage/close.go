@@ -1,11 +1,12 @@
 package storage
 
 import (
+	"io"
 	"log/slog"
 	"os"
 )
 
-func closeFile(file *os.File) {
+func closeFile(file io.Closer) {
 	if err := file.Close(); err != nil {
 		slog.Error("close source file", "error", err)
 	}

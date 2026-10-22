@@ -21,14 +21,14 @@ func (s *Service) ROMSetOptions(ctx context.Context, p model.Principal, id strin
 	if err != nil {
 		return model.ROMSetOptions{}, wrap(err)
 	}
-	result, err := s.Runtime.ROMSets(ctx, directory, detail.RuntimeConfig, detail.Files, query)
+	result, err := s.Runtime.ROMSets(ctx, directory, detail.RuntimeConfig, detail.ContentFiles, query)
 	return result, wrap(err)
 }
 
 // Runtime projects references; host manages the existing file lifecycle and transaction.
 func (s *Service) reconcileConfig(ctx context.Context, directory model.Directory, config, previous json.RawMessage,
-	files []model.GameFile,
-) (json.RawMessage, []model.GameFile, []string, error) {
+	files []model.ContentFile,
+) (json.RawMessage, []model.ContentFile, []string, error) {
 	if s.Runtime == nil {
 		return config, files, nil, nil
 	}
@@ -40,16 +40,27 @@ func (s *Service) reconcileConfig(ctx context.Context, directory model.Directory
 	for _, key := range projection.RemovedParentFiles {
 		removed[key] = true
 	}
-	retained := make([]model.GameFile, 0, len(files))
+	retained, retired, err := pruneContent(files, removed)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return projection.Config, retained, retired, nil
+}
+
+func pruneContent(files []model.ContentFile, removed map[string]bool) ([]model.ContentFile, []string, error) {
+	retained := make([]model.ContentFile, 0, len(files))
 	retired := make([]string, 0, len(removed))
 	for _, file := range files {
 		if removed[file.LogicalKey] {
+			if file.Package != nil {
+				return nil, nil, model.ErrInvalid
+			}
 			retired = append(retired, file.ID)
 		} else {
 			retained = append(retained, file)
 		}
 	}
-	return projection.Config, retained, retired, nil
+	return retained, retired, nil
 }
 
 func (s *Service) updateFileIdentity(ctx context.Context, r *persistence.Repository,

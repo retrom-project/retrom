@@ -100,7 +100,7 @@ func (c *Client) Call(ctx context.Context, command string, input, output any) er
 	return c.pool.Call(ctx, command, input, output)
 }
 
-func Files(files []model.GameFile) []File {
+func Files(files []model.ContentFile) []File {
 	result := make([]File, 0, len(files))
 	for _, file := range files {
 		result = append(result,
@@ -117,7 +117,7 @@ func Files(files []model.GameFile) []File {
 func (c *Client) Prepare(ctx context.Context,
 	directory model.Directory,
 	config json.RawMessage,
-	files []model.GameFile,
+	files []model.ContentFile,
 	core string,
 	saved *model.Extinfo) (Prepared,
 	error,
@@ -133,14 +133,14 @@ func (c *Client) Prepare(ctx context.Context,
 		"files":        Files(files),
 		"fingerprints": c.Fingerprints,
 	}
-	locators := make(map[string]string, len(files))
+	locators := make(map[string]Locator, len(files))
 	if c.Locate != nil {
 		for _, file := range files {
 			absolute, locateErr := c.Locate(file.StorageKey)
 			if locateErr != nil {
 				return result, fmt.Errorf("runtime file locator: %w", locateErr)
 			}
-			locators[file.LogicalKey] = absolute
+			locators[file.LogicalKey] = Locator{Path: absolute, Offset: file.Offset, SizeBytes: file.SizeBytes}
 		}
 	}
 	input["locators"] = locators
@@ -159,7 +159,9 @@ func (c *Client) Prepare(ctx context.Context,
 	return result, err
 }
 
-func (c *Client) Validate(ctx context.Context, platform string, config json.RawMessage, files []model.GameFile) error {
+func (c *Client) Validate(ctx context.Context, platform string, config json.RawMessage,
+	files []model.ContentFile,
+) error {
 	cores := make([]string, 0)
 	for _, binding := range c.Bindings {
 		for _, id := range binding.PlatformIDs {
@@ -265,7 +267,7 @@ type Identity struct {
 }
 
 func (c *Client) Identity(ctx context.Context, directory model.Directory, config json.RawMessage,
-	files []model.GameFile, core string,
+	files []model.ContentFile, core string,
 ) (Identity, error) {
 	input := map[string]any{
 		"directory": map[string]any{

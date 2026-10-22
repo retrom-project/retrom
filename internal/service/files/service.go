@@ -12,6 +12,9 @@ import (
 	"retrom/internal/storage"
 )
 
+// runResourceGrace matches the Run context's idle lifetime; import staging keeps the normal grace.
+const runResourceGrace = 2 * time.Hour
+
 type Service struct {
 	Repository *persistence.Repository
 	Storage    *storage.Store
@@ -71,6 +74,9 @@ func (s *Service) Sweep(ctx context.Context) error {
 			slog.Error("purge retired file", "id", file.ID, "error", err)
 		}
 	}
+	if err = s.Repository.PurgePackageMembers(ctx); err != nil {
+		return wrap(err)
+	}
 	return s.orphans(ctx)
 }
 
@@ -123,10 +129,15 @@ func (s *Service) orphans(ctx context.Context) error {
 		return wrap(err)
 	}
 	for _, entry := range entries {
-		if entry.ModifiedAt.After(s.Now().Add(-s.Grace)) {
+		grace, unreferenced := s.Grace, strings.HasPrefix(entry.Key, "temporary/")
+		if strings.HasPrefix(entry.Key, "runs/") {
+			// Run resources are renewed on each Run read and share the Run context lifetime.
+			grace, unreferenced = runResourceGrace, true
+		}
+		if entry.ModifiedAt.After(s.Now().Add(-grace)) {
 			continue
 		}
-		if !strings.HasPrefix(entry.Key, "temporary/") {
+		if !unreferenced {
 			referenced, readErr := s.Repository.Referenced(ctx, entry.Key)
 			if readErr != nil {
 				return wrap(readErr)

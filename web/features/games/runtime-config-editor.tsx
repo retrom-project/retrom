@@ -3,6 +3,7 @@ import { ArcadeParentFiles } from "./arcade-parent-files";
 import { ScummvmSelection } from "./scummvm-selection";
 import { DOSEntrySelector } from "./dos-entry-selector";
 import { RPGEntrySelector } from "./rpg-entry-selector";
+import { ContentEntrySelector } from "./content-entry-selector";
 import { ROMSetSelector } from "./rom-set-selector";
 import { api, result } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
@@ -169,6 +170,9 @@ function ContentFields({
       {value.content.kind === "RPG_MAKER_PROJECT" ? <RPGEntrySelector
         key={`${gameId}:${files.map(file => `${file.id}:${file.sha256}`).join(",")}`}
         gameId={gameId} engine={value.content.engine} value={value.content.entryFile ?? ""}
+        onSelect={path => onEdit("entryFile", path)}
+      /> : files.some(file => file.role === "project_package") && value.content.kind !== "SCUMMVM_PROJECT" ? <ContentEntrySelector
+        key={`${gameId}:${files[0]?.id}`} gameId={gameId} value={value.content.entryFile ?? ""}
         onSelect={path => onEdit("entryFile", path)}
       /> : value.content.kind !== "SCUMMVM_PROJECT" ? (
         <label className="field">

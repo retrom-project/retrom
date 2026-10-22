@@ -23,7 +23,7 @@ func runtimeDirectory(directory model.Directory) map[string]any {
 }
 
 func (c *Client) ROMSets(ctx context.Context, directory model.Directory, config json.RawMessage,
-	files []model.GameFile, query model.ROMSetQuery,
+	files []model.ContentFile, query model.ROMSetQuery,
 ) (model.ROMSetOptions, error) {
 	var result model.ROMSetOptions
 	input := map[string]any{
@@ -44,7 +44,7 @@ func (c *Client) ROMSets(ctx context.Context, directory model.Directory, config 
 }
 
 func (c *Client) ReconcileConfig(ctx context.Context, directory model.Directory, config, previous json.RawMessage,
-	files []model.GameFile,
+	files []model.ContentFile,
 ) (ReconciledConfig, error) {
 	var result ReconciledConfig
 	err := c.Call(ctx, "reconcile-config", map[string]any{

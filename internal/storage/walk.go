@@ -28,7 +28,7 @@ type Scanner struct {
 }
 
 func (s *Store) Scanner() *Scanner {
-	return &Scanner{store: s, pending: []string{"games", "saves", "bios", "temporary"}}
+	return &Scanner{store: s, pending: []string{"games", "saves", "bios", "runs", "temporary"}}
 }
 
 func (s *Scanner) Close() {

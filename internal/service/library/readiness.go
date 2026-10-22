@@ -100,14 +100,14 @@ func (s *Service) readinessInput(ctx context.Context, p model.Principal, id stri
 		ID: id, MissingBIOS: []model.ReviewMissingBIOS{}, CRCWarnings: []model.ReviewCRCWarning{},
 		MissingROMMembers: []model.ReviewMissingROMMember{},
 	}
-	detail, err := s.Repository.GameDetail(ctx, p.User.ID, id, "pending_review")
+	detail, err := s.Repository.GameRuntimeDetail(ctx, p.User.ID, id, "pending_review")
 	if err != nil {
 		item.Error = readinessFailure(errors.Is(err, model.ErrNotFound))
 		return item, nil
 	}
 	item.Version = &detail.Game.Version
-	locators := make(map[string]string, len(detail.Files))
-	for _, file := range detail.Files {
+	locators := make(map[string]runtimeclient.Locator, len(detail.ContentFiles))
+	for _, file := range detail.ContentFiles {
 		if s.Runtime.Locate == nil {
 			item.Error = readinessFailure(false)
 			return item, nil
@@ -117,13 +117,13 @@ func (s *Service) readinessInput(ctx context.Context, p model.Principal, id stri
 			item.Error = readinessFailure(false)
 			return item, nil
 		}
-		locators[file.LogicalKey] = location
+		locators[file.LogicalKey] = runtimeclient.Locator{Path: location, Offset: file.Offset, SizeBytes: file.SizeBytes}
 	}
 	return item, map[string]any{
 		"directory": map[string]any{
 			"platformId": detail.Game.PlatformID, "defaultCoreId": detail.DefaultCoreID, "allowedCoreIds": detail.CoreIDs,
 		},
-		"config": detail.RuntimeConfig, "files": runtimeclient.Files(detail.Files),
+		"config": detail.RuntimeConfig, "files": runtimeclient.Files(detail.ContentFiles),
 		"locators": locators,
 	}
 }

@@ -12,10 +12,10 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Service) resources(ctx context.Context, run *Context, files []model.GameFile,
+func (s *Service) resources(ctx context.Context, run *Context, files []model.ContentFile,
 	prepared runtimeclient.Prepared,
 ) ([]map[string]any, error) {
-	byKey := make(map[string]model.GameFile, len(files))
+	byKey := make(map[string]model.ContentFile, len(files))
 	for _, file := range files {
 		byKey[file.LogicalKey] = file
 	}
@@ -39,7 +39,7 @@ func (s *Service) resources(ctx context.Context, run *Context, files []model.Gam
 	return append(result, bios...), nil
 }
 
-func selectPlanFiles(byKey map[string]model.GameFile, plan runtimeclient.Resource) ([]Blob, error) {
+func selectPlanFiles(byKey map[string]model.ContentFile, plan runtimeclient.Resource) ([]Blob, error) {
 	selected, err := selectFiles(byKey, plan.Files)
 	if err != nil {
 		return nil, err
@@ -58,7 +58,7 @@ func selectPlanFiles(byKey map[string]model.GameFile, plan runtimeclient.Resourc
 	return selected, nil
 }
 
-func selectFiles(byKey map[string]model.GameFile, keys []string) ([]Blob, error) {
+func selectFiles(byKey map[string]model.ContentFile, keys []string) ([]Blob, error) {
 	selected := make([]Blob, 0, len(keys))
 	for _, key := range keys {
 		file, exists := byKey[key]
