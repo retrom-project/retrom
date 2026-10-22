@@ -89,6 +89,19 @@ func (r *Repository) Referenced(ctx context.Context, key string) (bool, error) {
 	return count > 0, err
 }
 
+// OwnsFile keeps database-owned bytes out of orphan cleanup. Deleted rows retain ownership until
+// the bounded retirement cleanup succeeds; their physical mtime does not start the retirement grace.
+func (r *Repository) OwnsFile(ctx context.Context, key string) (bool, error) {
+	var owned bool
+	err := r.db.QueryRow(ctx, `SELECT EXISTS(
+ SELECT 1 FROM game_file_tab WHERE storage_key=$1 AND status IN ('active','deleted')
+ UNION ALL SELECT 1 FROM game_media_tab WHERE storage_key=$1 AND status IN ('active','deleted')
+ UNION ALL SELECT 1 FROM bios_file_tab WHERE storage_key=$1 AND status IN ('active','deleted')
+ UNION ALL SELECT 1 FROM save_tab WHERE storage_key=$1 AND status IN ('active','deleted')
+ UNION ALL SELECT 1 FROM save_tab WHERE screenshot_key=$1 AND status IN ('active','deleted'))`, key).Scan(&owned)
+	return owned, failure("read managed file ownership", err)
+}
+
 func (r *Repository) DeletedUsers(ctx context.Context) ([]string, error) {
 	return listJSON[string](ctx, r, `SELECT to_jsonb(u.id) FROM user_tab u WHERE u.status='deleted' AND (
  EXISTS(SELECT 1 FROM save_tab WHERE user_id=u.id AND status='active') OR

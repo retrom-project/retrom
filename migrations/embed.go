@@ -16,3 +16,8 @@ var QueryIndexes string
 //
 //go:embed 003_content_packages.sql
 var ContentPackages string
+
+// FileOwnershipIndexes supports active and retired file ownership checks.
+//
+//go:embed 004_file_ownership_indexes.sql
+var FileOwnershipIndexes string

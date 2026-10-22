@@ -3,6 +3,7 @@ package files
 import (
 	"errors"
 	"os"
+	"path"
 	"strings"
 	"testing"
 	"time"
@@ -42,6 +43,7 @@ func TestRunResourcesExpireBeforeImportStaging(t *testing.T) {
 		t.Fatal("a long import lost staging, or an idle Run resource survived its lifetime")
 	}
 	age(t, store, staged.Key, now.Add(-25*time.Hour))
+	age(t, store, path.Dir(staged.Key), now.Add(-25*time.Hour))
 	sweepOrphans(t, service)
 	if exists(t, store, staged.Key) {
 		t.Fatal("abandoned staging survived the normal grace")
