@@ -111,6 +111,8 @@ func (s *Store) BuildPackage(ctx context.Context, id string, files []model.Conte
 	return s.buildPackage(ctx, id, files, false)
 }
 
+// BuildTemporaryPackage owns a Run resource below runs/<run-id>. Source bytes are hashed while
+// copied; the disposable copy skips the durable read-back and fsync of Game packages.
 func (s *Store) BuildTemporaryPackage(ctx context.Context, id string, files []model.ContentFile,
 ) (model.GameFile, error) {
 	return s.buildPackage(ctx, id, files, true)
@@ -125,12 +127,13 @@ func (s *Store) buildPackage(ctx context.Context, id string, files []model.Conte
 	if err := s.packageCapacity(files); err != nil {
 		return model.GameFile{}, err
 	}
-	owner, err := OwnerKey("games", id)
+	kind := "games"
+	if temporary {
+		kind = "runs"
+	}
+	owner, err := OwnerKey(kind, id)
 	if err != nil {
 		return model.GameFile{}, err
-	}
-	if temporary {
-		owner = "temporary/" + id
 	}
 	key, _, err := s.TemporaryPath()
 	if err != nil {
@@ -144,27 +147,18 @@ func (s *Store) buildPackage(ctx context.Context, id string, files []model.Conte
 	defer closeFile(f)
 	files = append([]model.ContentFile(nil), files...)
 	sort.Slice(files, func(i, j int) bool { return files[i].LogicalKey < files[j].LogicalKey })
-	writer := zip.NewWriter(f)
-	for _, source := range files {
-		if err = s.writeMember(ctx, writer, source); err != nil {
-			return model.GameFile{}, err
+	written, err := s.writePackage(ctx, f, files)
+	if err != nil {
+		return model.GameFile{}, err
+	}
+	members, err := verifyPackage(ctx, f, files, written.SizeBytes, !temporary)
+	if err != nil {
+		return model.GameFile{}, err
+	}
+	if !temporary {
+		if err = f.Sync(); err != nil {
+			return model.GameFile{}, diskFailure("sync package", err)
 		}
-	}
-	if err = writer.Close(); err != nil {
-		return model.GameFile{}, diskFailure("close package", err)
-	}
-	var members []model.GameFileMember
-	members, err = verifyPackage(ctx, f, files)
-	if err != nil {
-		return model.GameFile{}, err
-	}
-	var digest Digest
-	digest, err = Measure(ctx, s.root, key, MaximumPackageSize)
-	if err != nil {
-		return model.GameFile{}, err
-	}
-	if err = f.Sync(); err != nil {
-		return model.GameFile{}, diskFailure("sync package", err)
 	}
 	destination := owner + "/" + uuid.NewString()
 	if err = s.publish(key, destination, owner); err != nil {
@@ -172,8 +166,33 @@ func (s *Store) buildPackage(ctx context.Context, id string, files []model.Conte
 	}
 	return model.GameFile{
 		ID: uuid.NewString(), LogicalKey: "game.zip", Role: "project_package", StorageKey: destination,
-		SizeBytes: digest.SizeBytes, SHA256: digest.SHA256, Members: members, MemberCount: len(members),
+		SizeBytes: written.SizeBytes, SHA256: written.SHA256, Members: members, MemberCount: len(members),
 	}, nil
+}
+
+// writePackage measures the physical object in the same pass that writes it.
+func (s *Store) writePackage(ctx context.Context, f *os.File, files []model.ContentFile) (Digest, error) {
+	hash, counter := sha256.New(), &byteCounter{}
+	writer := zip.NewWriter(io.MultiWriter(f, hash, counter))
+	for _, source := range files {
+		if err := s.writeMember(ctx, writer, source); err != nil {
+			return Digest{}, err
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return Digest{}, diskFailure("close package", err)
+	}
+	if counter.size > MaximumPackageSize {
+		return Digest{}, errTooLarge
+	}
+	return Digest{SizeBytes: counter.size, SHA256: hex.EncodeToString(hash.Sum(nil))}, nil
+}
+
+type byteCounter struct{ size int64 }
+
+func (c *byteCounter) Write(buffer []byte) (int, error) {
+	c.size += int64(len(buffer))
+	return len(buffer), nil
 }
 
 func (s *Store) packageCapacity(files []model.ContentFile) error {
@@ -216,21 +235,27 @@ func (s *Store) writeMember(ctx context.Context, writer *zip.Writer, source mode
 	return nil
 }
 
-func verifyPackage(ctx context.Context, file *os.File, sources []model.ContentFile) ([]model.GameFileMember, error) {
+// verifyPackage always checks the persisted directory; readBack also rehashes every member.
+func verifyPackage(ctx context.Context, file *os.File, sources []model.ContentFile, written int64,
+	readBack bool,
+) ([]model.GameFileMember, error) {
 	info, err := file.Stat()
 	if err != nil {
 		return nil, fmt.Errorf("stat package: %w", err)
+	}
+	if info.Size() != written {
+		return nil, fmt.Errorf("package size changed: %w", model.ErrInvalid)
 	}
 	archive, err := zip.NewReader(file, info.Size())
 	if err != nil {
 		return nil, fmt.Errorf("read package: %w", err)
 	}
-	if len(archive.File) != len(sources) || info.Size() > MaximumPackageSize {
+	if len(archive.File) != len(sources) {
 		return nil, model.ErrInvalid
 	}
 	result := make([]model.GameFileMember, 0, len(sources))
 	for i, member := range archive.File {
-		m, verifyErr := verifyMember(ctx, member, sources[i], info.Size())
+		m, verifyErr := verifyMember(ctx, member, sources[i], info.Size(), readBack)
 		if verifyErr != nil {
 			return nil, verifyErr
 		}
@@ -240,7 +265,7 @@ func verifyPackage(ctx context.Context, file *os.File, sources []model.ContentFi
 }
 
 func verifyMember(ctx context.Context, member *zip.File, source model.ContentFile,
-	objectSize int64,
+	objectSize int64, readBack bool,
 ) (model.GameFileMember, error) {
 	offset, err := member.DataOffset()
 	if err != nil || member.Method != zip.Store || member.Name != source.LogicalKey ||
@@ -250,8 +275,10 @@ func verifyMember(ctx context.Context, member *zip.File, source model.ContentFil
 	if offset < 0 || offset > objectSize || source.SizeBytes > objectSize-offset {
 		return model.GameFileMember{}, model.ErrInvalid
 	}
-	if err = verifyMemberBytes(ctx, member, source); err != nil {
-		return model.GameFileMember{}, err
+	if readBack {
+		if err = verifyMemberBytes(ctx, member, source); err != nil {
+			return model.GameFileMember{}, err
+		}
 	}
 	media := mime.TypeByExtension(path.Ext(source.LogicalKey))
 	if media == "" {

@@ -10,9 +10,8 @@ import (
 	"retrom/internal/model"
 )
 
-// Content is a logical view with an independent descriptor for each request.
-// SyscallConn preserves net/http's sendfile path. ServeContent must bound copies
-// with its LimitedReader: sendfile bypasses Read and the descriptor sees the ZIP.
+// Content is a logical view with an independent descriptor for each request. It deliberately has
+// no SyscallConn: an unbounded io.Copy to a socket would otherwise sendfile past the member.
 type Content struct {
 	file *os.File
 	base int64
@@ -95,7 +94,15 @@ func (f *Content) Close() error {
 	return nil
 }
 
-func (f *Content) SyscallConn() (syscall.RawConn, error) {
+// ServeContentReader is only for http.ServeContent, which wraps every copy in an
+// io.LimitedReader. That bound is what keeps sendfile inside the logical file.
+func (f *Content) ServeContentReader() io.ReadSeeker {
+	return servedContent{f}
+}
+
+type servedContent struct{ *Content }
+
+func (f servedContent) SyscallConn() (syscall.RawConn, error) {
 	conn, err := f.file.SyscallConn()
 	if err != nil {
 		return nil, fmt.Errorf("content descriptor: %w", err)

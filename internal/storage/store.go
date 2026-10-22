@@ -63,7 +63,7 @@ func SafeRelative(value string) bool {
 }
 
 func OwnerKey(kind, id string) (string, error) {
-	if !model.OneOf(kind, "games", "saves", "bios") {
+	if !model.OneOf(kind, "games", "saves", "bios", "runs") {
 		return "", model.ErrInvalid
 	}
 	parsed, err := uuid.Parse(id)

@@ -9,7 +9,8 @@ PostgreSQL保存事实，Redis保存TTL临时run与原子作用域限流，本�
 | 游戏内容及媒体 | `games/<game-id>/<file-uuid>` |
 | 存档 payload 及截图 | `saves/<save-id>/<file-uuid>` |
 | BIOS／运行依赖 | `bios/<bios-file-id>/<file-uuid>` |
-| 尚未发布的临时文件 | `temporary/<uuid>` |
+| Run 临时资源（mkxp 子集 ZIP） | `runs/<run-id>/<file-uuid>` |
+| 尚未发布的临时文件、导入暂存 | `temporary/<uuid>` |
 
 例如存档实际位于 `RETROM_DATA_DIR/managed/saves/`，不在 `RETROM_DATA_DIR/saves/`。账号链接密钥另存于 `RETROM_DATA_DIR/account-link.key`。浏览器上传暂存于 `RETROM_DATA_DIR/uploads/<upload-id>/`（`files/` 为完成的来源树，`parts/` 为接收中的文件），它是临时来源而非受管内容，扫描结束或会话失效后删除，可不纳入备份。备份应包含整个数据根和对应的 PostgreSQL 备份，步骤及停写要求见[Docker 部署指南](docker-deployment.md#数据备份与版本升级)。
 
@@ -19,11 +20,13 @@ PostgreSQL保存事实，Redis保存TTL临时run与原子作用域限流，本�
 
 runtime 声明 ZIP_STORE 布局的项目在导入/替换的内容准备阶段写为一个 STORE ZIP；当前包含 RPG Maker 七种版本、Siglus、TyranoScript、洞窟物语、GameMaker、KRKR、ONS 和 ScummVM。原生 ZIP、单 ROM 及范围外文件集合使用 FILES 布局。输入仍接受目录、ZIP、7z；ASAR/EXE 等项目转换由 runtime 解释，不新增 gzip/RAR 导入能力。浏览器上传只是可选来源，不是打包依赖。
 
-准备过程只在 temporary 下暂存逻辑内容，规范化后构建并逐成员回读校验、计算整包摘要，fsync/rename 后短事务发布一条物理包记录及成员索引。完成、失败及取消清理本次暂存；事务结果不明先按分配 ID 核实。STORE 不压缩正文，活动受管内容长期只保留一份包；只读来源原包不由系统删除。空间检查以当前可用空间、实际展开量和新包预算计算，并保留 1 GiB 余量；不按压缩输入大小乘二估算。
+准备过程只在 temporary 下暂存逻辑内容，规范化后构建包：写入的同一遍计算整包大小和摘要，随后逐成员回读校验，再 fsync/rename，然后短事务发布一条物理包记录及成员索引。完成、失败及取消清理本次暂存；事务结果不明先按分配 ID 核实。STORE 不压缩正文，活动受管内容长期只保留一份包；只读来源原包不由系统删除。空间检查以当前可用空间、实际展开量和新包预算计算，并保留 1 GiB 余量；不按压缩输入大小乘二估算。
 
 运行资源冻结具体 key、包记录、成员偏移、长度和 SHA。浏览器继续使用普通单文件 URL/Range，服务端返回逻辑成员的长度、强 ETag 和 MIME，不暴露物理偏移。Linux 保留可用的 sendfile 路径；每次请求使用独立描述符，有界 Read/Seek 及 ServeContent 的受限复制防止跨成员读取。Tyrano/ScummVM 等宿主工具也通过同一有界 locator 读取。
 
-mkxp 所需 ZIP 的成员集合和路径完全一致时复用物理包；子集或路径不同则生成 Run 临时 ZIP。关闭时释放，活跃读取续期，过期或进程中断残留按两小时空闲宽限有界回收；不会每次启动都新增永久游戏 ZIP。
+mkxp 所需 ZIP 的成员集合和路径完全一致时复用物理包；子集或路径不同则在 `runs/<run-id>/` 生成 Run 临时 ZIP。成员正文在复制时已核对 SHA，临时 ZIP 只校验目录与偏移，不逐成员回读、不 fsync。关闭时释放，每次读取 Run 续期，过期或进程中断残留按与 Run 相同的两小时空闲宽限有界回收；`temporary/` 下的导入暂存及其他未发布文件仍按 24 小时宽限回收，长时间导入不会被提前清理。不会每次启动都新增永久游戏 ZIP。
+
+宿主工具需要真实目录树时（如 ScummVM 检测），独立受管文件以硬链接暂存，不复制字节；只有项目包成员需要复制，复制前按所需字节加 1 GiB 余量检查可用空间。
 
 文件替换写新路径，再短事务活动切换；退休文件24小时宽限。单维护worker每分钟处理≤50个deleted Game、每类≤100退休文件、≤50个仍有私人资源的deleted User，以及≤1000个文件系统遍历步骤。扫描器保留目录偏移，空ReadDir批次和并发消失目录安全处理，不全量walk/sort。终态scan进度超过24小时分批删除≤200。
 

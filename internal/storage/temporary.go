@@ -12,12 +12,14 @@ import (
 	"retrom/internal/model"
 )
 
-func (s *Store) TouchTemporary(key string, now time.Time) error {
-	if !SafeRelative(key) || !strings.HasPrefix(key, "temporary/") {
+// TouchRunResource renews the idle time of a Run-owned resource below runs/<run-id>.
+func (s *Store) TouchRunResource(key string, now time.Time) error {
+	parts := strings.Split(key, "/")
+	if !SafeRelative(key) || len(parts) != 3 || parts[0] != "runs" || !model.UUID(parts[1]) {
 		return model.ErrInvalid
 	}
 	if err := s.root.Chtimes(key, now, now); err != nil {
-		return fmt.Errorf("touch temporary resource: %w", err)
+		return fmt.Errorf("touch run resource: %w", err)
 	}
 	return nil
 }
@@ -33,7 +35,12 @@ func (s *Store) RemoveTemporary(key string) error {
 	return nil
 }
 
+// StageTree exposes logical files to tools that need a real tree. Standalone immutable files are
+// hard-linked; only package members are copied, after checking the space they need.
 func (s *Store) StageTree(ctx context.Context, files []model.ContentFile) (string, string, error) {
+	if err := s.stageCapacity(files); err != nil {
+		return "", "", err
+	}
 	key, absolute, err := s.TemporaryPath()
 	if err != nil {
 		return "", "", err
@@ -59,7 +66,33 @@ func (s *Store) StageTree(ctx context.Context, files []model.ContentFile) (strin
 	return key, absolute, nil
 }
 
+func (s *Store) stageCapacity(files []model.ContentFile) error {
+	var copied int64
+	for _, file := range files {
+		if file.Package != nil {
+			copied += file.SizeBytes
+		}
+	}
+	if copied == 0 {
+		return nil
+	}
+	free, err := s.FreeBytes()
+	if err != nil {
+		return err
+	}
+	if free < copied+1024*1024*1024 {
+		return model.ErrStorageFull
+	}
+	return nil
+}
+
 func (s *Store) stageLogicalFile(ctx context.Context, file model.ContentFile, target string) error {
+	if file.Package == nil && file.Offset == 0 {
+		if err := s.root.Link(file.StorageKey, target); err != nil {
+			return fmt.Errorf("stage immutable file: %w", err)
+		}
+		return nil
+	}
 	source, err := s.OpenContent(file.StorageKey, file.Offset, file.SizeBytes)
 	if err != nil {
 		return err
@@ -71,7 +104,7 @@ func (s *Store) stageLogicalFile(ctx context.Context, file model.ContentFile, ta
 	}
 	defer closeFile(destination)
 	if _, err = io.Copy(destination, &contextReader{ctx: ctx, reader: source}); err != nil {
-		return fmt.Errorf("stage member: %w", err)
+		return diskFailure("stage member", err)
 	}
 	return nil
 }

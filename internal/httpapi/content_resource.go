@@ -22,6 +22,6 @@ func (s *Server) serveRunBlob(w http.ResponseWriter, r *http.Request, blob runs.
 	}
 	defer closeFile(file)
 	w.Header().Set("Cache-Control", "private, no-store, no-transform")
-	http.ServeContent(w, r, "", time.Time{}, file)
+	http.ServeContent(w, r, "", time.Time{}, file.ServeContentReader())
 	return nil
 }

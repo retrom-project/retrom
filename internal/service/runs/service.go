@@ -136,7 +136,7 @@ func (s *Service) Get(ctx context.Context, p model.Principal, id string) (Contex
 	}
 	result.Run.ExpiresAtMs = s.Now().Add(lifetime).UnixMilli()
 	for _, key := range result.TemporaryKeys {
-		if err = s.Storage.TouchTemporary(key, s.Now()); err != nil {
+		if err = s.Storage.TouchRunResource(key, s.Now()); err != nil {
 			return Context{}, wrap(err)
 		}
 	}

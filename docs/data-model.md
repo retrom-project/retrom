@@ -1,6 +1,6 @@
 # 数据模型
 
-新库 DDL 位于 migrations/001_schema.sql；002_query_indexes.sql 补查询索引，003_content_packages.sql 为既有数据库增加项目包成员表和活动包唯一索引。迁移不读取或重打包游戏字节。应用数据库包含以下20张业务表和schema_migrations_tab技术账本，没有FK、CHECK、用户TRIGGER、VIEW、materialized VIEW、DOMAIN或业务函数。
+目标 schema 由 migrations 按编号顺序叠加得到：001_schema.sql 为初始建表，002_query_indexes.sql 补查询索引，003_content_packages.sql 增加项目包成员表和活动包唯一索引。新库和既有库执行同一序列，新库不跳过后续 migration。已发布的 migration 文件固化不再修改，schema 变化只能追加新编号文件。迁移不读取或重打包游戏字节。应用数据库包含以下20张业务表和schema_migrations_tab技术账本，没有FK、CHECK、用户TRIGGER、VIEW、materialized VIEW、DOMAIN或业务函数。
 
 | 表 | 当前事实 |
 | --- | --- |

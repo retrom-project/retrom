@@ -34,7 +34,7 @@ func TestNativeZIPReuseAndMappedRunTemporary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if path.Dir(assembled.Key) != "temporary/"+run.Run.ID || len(run.TemporaryKeys) != 1 {
+	if path.Dir(assembled.Key) != "runs/"+run.Run.ID || len(run.TemporaryKeys) != 1 {
 		t.Fatalf("assembly is not owned by Run: %+v", assembled)
 	}
 	assertMappedZIP(t, s, assembled)
