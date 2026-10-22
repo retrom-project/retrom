@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-node="$repository_root/.cache/tools/node-v24.18.0-linux-x64/bin/node"
+node="$repository_root/.cache/tools/node-v24.22.1-linux-x64/bin/node"
 playwright_cli="$repository_root/web/node_modules/playwright/cli.js"
 playwright_manifest="$repository_root/web/node_modules/playwright-core/browsers.json"
 tools_directory="$repository_root/.cache/tools"

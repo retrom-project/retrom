@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-node_version="24.18.0"
+node_version="24.22.1"
 node_directory="node-v${node_version}-linux-x64"
 tools_directory="$repository_root/.cache/tools"
 target="$tools_directory/$node_directory"
@@ -11,7 +11,7 @@ toolchain_is_valid() {
   local root="$1"
   [[ -x "$root/bin/node" && -x "$root/bin/npm" ]] || return 1
   [[ "$("$root/bin/node" --version 2>/dev/null)" == "v${node_version}" ]] || return 1
-  [[ "$(PATH="$root/bin:$PATH" "$root/bin/npm" --version 2>/dev/null)" == "11.16.0" ]]
+  [[ "$(PATH="$root/bin:$PATH" "$root/bin/npm" --version 2>/dev/null)" == "11.19.1" ]]
 }
 
 mkdir -p "$tools_directory"

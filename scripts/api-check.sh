@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export PATH="$repository_root/.cache/tools/node-v24.18.0-linux-x64/bin:$PATH"
+export PATH="$repository_root/.cache/tools/node-v24.22.1-linux-x64/bin:$PATH"
 
 tmp_dir="$(mktemp -d)"
 cleanup() { rm -rf -- "$tmp_dir"; }

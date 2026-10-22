@@ -77,7 +77,7 @@ def prepare() -> dict[str, str]:
         raise ValueError("acceptance requires " + ", ".join(required))
     tool = Path(os.environ["RETROM_RUNTIME_TOOL_INPUT"]).resolve()
     providers = Path(os.environ["RETROM_PROVIDER_INPUT"]).resolve()
-    node = str(Path(os.environ.get("NODE_HOME", ROOT / ".cache/tools/node-v24.18.0-linux-x64")) / "bin/node")
+    node = str(Path(os.environ.get("NODE_HOME", ROOT / ".cache/tools/node-v24.22.1-linux-x64")) / "bin/node")
     if not Path(node).is_file():
         raise ValueError("the pinned Node.js toolchain must be prepared")
     environment = {**os.environ, "RETROM_NODE": node}

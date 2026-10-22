@@ -53,7 +53,7 @@ jobs:
       - name: Cache the repository Node.js toolchain
         uses: actions/cache@v5
         with:
-          path: .cache/tools/node-v24.18.0-linux-x64
+          path: .cache/tools/node-v24.22.1-linux-x64
           key: retrom-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node-version', 'scripts/prepare-node.sh') }}
       - name: Prepare native PostgreSQL build prerequisites
         run: sudo apt-get update && sudo apt-get install -y bison flex zlib1g-dev
@@ -193,7 +193,7 @@ jobs:
       - name: Restore the repository Node.js toolchain
         uses: actions/cache/restore@v5
         with:
-          path: .cache/tools/node-v24.18.0-linux-x64
+          path: .cache/tools/node-v24.22.1-linux-x64
           key: retrom-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node-version', 'scripts/prepare-node.sh') }}
       - name: Check Web styles, lint, types, tests and build
         run: make web-check
@@ -246,7 +246,7 @@ jobs:
       - name: Restore the repository Node.js toolchain
         uses: actions/cache/restore@v5
         with:
-          path: .cache/tools/node-v24.18.0-linux-x64
+          path: .cache/tools/node-v24.22.1-linux-x64
           key: retrom-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node-version', 'scripts/prepare-node.sh') }}
       - name: Restore materialized runtime dependencies
         uses: actions/cache/restore@v5
