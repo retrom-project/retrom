@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"mime"
 	"net/url"
 	"path"
@@ -135,12 +136,18 @@ func (s *Service) Get(ctx context.Context, p model.Principal, id string) (Contex
 		return Context{}, wrap(err)
 	}
 	result.Run.ExpiresAtMs = s.Now().Add(lifetime).UnixMilli()
-	for _, key := range result.TemporaryKeys {
-		if err = s.Storage.TouchRunResource(key, s.Now()); err != nil {
-			return Context{}, wrap(err)
+	s.renewResources(result.TemporaryKeys)
+	return result, nil
+}
+
+// renewResources never blocks reading or closing a Run: a resource already reclaimed is
+// reported by its own request as not found, and Close still releases the context.
+func (s *Service) renewResources(keys []string) {
+	for _, key := range keys {
+		if err := s.Storage.TouchRunResource(key, s.Now()); err != nil {
+			slog.Warn("renew run resource", "key", key, "error", err)
 		}
 	}
-	return result, nil
 }
 
 func (s *Service) store(ctx context.Context, value Context) error {

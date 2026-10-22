@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 
 	"retrom/internal/model"
 	"retrom/internal/runtimeclient"
@@ -114,5 +115,27 @@ func assertMappedZIP(t *testing.T, s *storage.Store, assembled Blob) {
 	closeErr := reader.Close()
 	if readErr != nil || closeErr != nil || string(bytes) != "one.txt" {
 		t.Fatalf("assembled member differs: %q, %v, %v", bytes, readErr, closeErr)
+	}
+}
+
+func TestRunResourceRenewalSkipsReclaimedFiles(t *testing.T) {
+	s, selected := resourcePackage(t)
+	now := time.Now().Add(time.Hour).Truncate(time.Second)
+	service := &Service{Storage: s, Now: func() time.Time { return now }}
+	run := &Context{Run: model.Run{ID: uuid.NewString()}}
+	assembled, err := service.assembled(t.Context(), run, selected[:1],
+		runtimeclient.Resource{Kind: "ASSEMBLED_ZIP", Paths: map[string]string{"one.txt": "mapped/one.txt"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	missing := "runs/" + run.Run.ID + "/" + uuid.NewString()
+	service.renewResources([]string{missing, assembled.Key})
+	absolute, err := s.Absolute(assembled.Key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(absolute)
+	if err != nil || !info.ModTime().Equal(now) {
+		t.Fatalf("a reclaimed resource stopped renewal of the rest: %v %v", info, err)
 	}
 }

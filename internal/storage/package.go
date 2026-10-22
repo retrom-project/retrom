@@ -46,6 +46,7 @@ func (s *Store) StageLimit(ctx context.Context, operation string, reader io.Read
 	if free < 1024*1024*1024 {
 		return File{}, model.ErrStorageFull
 	}
+	spaceBound := free-1024*1024*1024 < maximum
 	maximum = min(maximum, free-1024*1024*1024)
 	dir := "temporary/" + operation
 	if err := s.root.MkdirAll(dir, 0o700); err != nil {
@@ -54,6 +55,10 @@ func (s *Store) StageLimit(ctx context.Context, operation string, reader io.Read
 	key := dir + "/" + uuid.NewString()
 	f, err := s.copyPayload(ctx, key, reader, maximum, false)
 	f.Key = key
+	if spaceBound && errors.Is(err, errTooLarge) {
+		// The free-space reserve, not the file size limit, stopped this copy.
+		return f, fmt.Errorf("staged file exceeds free space: %w", model.ErrStorageFull)
+	}
 	return f, err
 }
 
