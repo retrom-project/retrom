@@ -131,7 +131,7 @@ function PlayerContent({
     },
     [commit],
   );
-  const { mount, runtime, state, error, availability, step, tasks } = usePlayerSession(
+  const { mount, runtime, state, error, availability, step, tasks, networkWaiting } = usePlayerSession(
     run,
     saves.nativeChanged,
     requestExit,
@@ -226,6 +226,7 @@ function PlayerContent({
     <div className={`player-shell${immersive ? " is-immersive" : ""}`}>
       <div className="player-stage" inert={orientation.blocked}>
         <div className="player-runtime-mount" ref={mount} />
+        <PlayerNetworkNotice waiting={networkWaiting} state={state} />
       </div>
       {!orientation.blocked ? <PlayerToolbar immersive={immersive}
         envelope={envelope}
@@ -314,6 +315,14 @@ function readyRuntime(instance: PlayerRuntimeV1 | null) {
 
 function playerHudPinned(desktopPointer: boolean, overlays: {dialogOpen: boolean; pinned: boolean}, settingsOpen: boolean) {
   return desktopPointer ? overlays.dialogOpen || settingsOpen : overlays.pinned;
+}
+
+/** Non-blocking: input still reaches the game, which continues once the network returns. */
+function PlayerNetworkNotice({ waiting, state }: { waiting: boolean; state: string }) {
+  const visible = waiting && ["RUNNING", "PAUSED", "CHECKPOINTING"].includes(state);
+  return <div className="player-network-notice" role="status" aria-live="polite">
+    {visible ? <span className="player-network-pill"><AppIcon name="warning" /><strong>网络连接中断，正在重新连接…</strong><small>恢复后会从这里继续，也可以退出游戏。</small></span> : null}
+  </div>;
 }
 
 function PlayerPauseOverlay({ state, immersive, settingsOpen, onResume }: { state: string; immersive: boolean; settingsOpen: boolean; onResume: () => void }) {
