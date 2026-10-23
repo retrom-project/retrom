@@ -7,7 +7,7 @@ export function saveFixture(id: string, gameId = "game"): Save {
     restorable: true, restoreReason: "", restoreWarning: "",
     game: {
       id: gameId, platformInstanceId: "directory", platformId: "nes", directoryName: "NES",
-      title: `游戏 ${gameId}`, description: "", developer: "", publisher: "", genre: "", players: null,
+      title: `游戏 ${gameId}`, titleLetter: "#", sortName: "", description: "", developer: "", publisher: "", genre: "", players: null,
       releaseYear: null, status: "published", source: "server_import", version: 1,
       contentHash: "a".repeat(64), tags: [], media: [], favorite: false, lastPlayedAtMs: null, createdAtMs: 0, updatedAtMs: 0,
     },

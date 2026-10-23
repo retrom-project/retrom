@@ -94,9 +94,3 @@ export function ImmersiveSystemMenu({ announcement, fullscreenActive, fullscreen
   </div>;
 }
 
-export function ImmersiveBgmPrompt({ onRetry }: { onRetry: () => void }) {
-  return <div className={styles.audioPrompt} role="status" aria-live="polite">
-    <span>背景音乐等待播放</span>
-    <button type="button" onClick={onRetry}>启用背景音乐</button>
-  </div>;
-}

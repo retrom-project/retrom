@@ -11,7 +11,7 @@ vi.mock("@/components/toast-provider", () => ({ useToast: () => ({ notify: mocks
 vi.mock("@/lib/api/client", async (original) => ({ ...await original<object>(), api: { GET: mocks.GET, POST: mocks.POST } }));
 const scrollDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, "scrollIntoView");
 afterEach(() => { cleanup(); vi.resetAllMocks(); if (scrollDescriptor) { Object.defineProperty(Element.prototype, "scrollIntoView", scrollDescriptor); } else { Reflect.deleteProperty(Element.prototype, "scrollIntoView"); } });
-const idle = { data: null, loading: false, error: "", reload: () => {}, loadingMore: false, moreError: "", hasMore: false, loadMore: () => {} };
+const idle = { data: null, loading: false, error: "", reload: () => {}, loadingMore: false, moreError: "", hasMore: false, loadMore: () => {}, base: 0, hasBefore: false, loadingBefore: false, loadBefore: async () => 0, moveTo: async () => 0 };
 function Harness({ save }: { save: Save }) {
   const entry = { game: save.game, save };
   const selection = useSaveSelection(entry, true, { entryId: "", saveId: "" });

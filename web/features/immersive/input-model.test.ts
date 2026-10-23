@@ -49,6 +49,19 @@ describe("immersive navigation input model", () => {
     ).toBe(false);
   });
 
+  it("maps shoulders to pages and triggers to title groups, repeating while held", () => {
+    const model = new NavigationInputModel();
+    arm(model);
+    expect(model.update(gamepad({ buttons: [5] }), 200).actions).toEqual(["pageNext"]);
+    expect(model.update(gamepad({ buttons: [5] }), 400).actions).toEqual([]);
+    expect(model.update(gamepad({ buttons: [5] }), 550).actions).toEqual(["pageNext"]);
+    expect(model.update(gamepad({ buttons: [5] }), 670).actions).toEqual(["pageNext"]);
+    expect(model.update(gamepad(), 700).actions).toEqual([]);
+    expect(model.update(gamepad({ buttons: [4] }), 710).actions).toEqual(["pagePrevious"]);
+    expect(model.update(gamepad({ buttons: [6] }), 720).actions).toEqual(["groupPrevious"]);
+    expect(model.update(gamepad({ buttons: [7] }), 730).actions).toEqual(["groupNext"]);
+  });
+
   it("arms after 120 ms neutral and then emits confirm on A", () => {
     const model = new NavigationInputModel();
     expect(model.update(gamepad(), 0).neutralReady).toBe(false);

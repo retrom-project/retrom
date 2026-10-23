@@ -35,6 +35,19 @@ func (s *Service) List(ctx context.Context,
 	return items, wrap(err)
 }
 
+// Letters reports where each title letter group starts in the same filtered list.
+func (s *Service) Letters(ctx context.Context, p model.Principal, status string,
+	q model.Query,
+) ([]model.TitleLetter, error) {
+	if status != "published" {
+		if err := p.Admin(); err != nil {
+			return nil, wrap(err)
+		}
+	}
+	items, err := s.Repository.GameLetters(ctx, p.User.ID, status, q)
+	return items, wrap(err)
+}
+
 func (s *Service) Detail(ctx context.Context, p model.Principal, id, status string) (model.GameDetail, error) {
 	if status != "published" {
 		if err := p.Admin(); err != nil {

@@ -11,7 +11,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: calls.replace }
 vi.mock("@/lib/api/client", async original => ({ ...await original<typeof ApiClient>(), api: { POST: calls.post } }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 const detail: Schema<"GameDetail"> = {
-  game: { id: "game", version: 1, title: "测试游戏", platformId: "arcade", platformInstanceId: "dir", directoryName: "Arcade", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null, status: "pending_review", source: "server_import", contentHash: "hash", favorite: false, lastPlayedAtMs: null, tags: [], media: [], createdAtMs: 1, updatedAtMs: 1 },
+  game: { id: "game", version: 1, title: "测试游戏", platformId: "arcade", platformInstanceId: "dir", directoryName: "Arcade", titleLetter: "#", sortName: "", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null, status: "pending_review", source: "server_import", contentHash: "hash", favorite: false, lastPlayedAtMs: null, tags: [], media: [], createdAtMs: 1, updatedAtMs: 1 },
   files: [], coreIds: ["fbneo", "mame2003"], defaultCoreId: "fbneo", runtimeConfig: { content: { kind: "ARCADE", entryFile: "game.zip" } }, saves: [], favoriteFolderIds: [],
 };
 const warning: Schema<"ReviewReadiness">["crcWarnings"][number] = { role: "ROM", file: "game.zip", member: "rom.bin", expectedCRC32: "11111111", actualCRC32: "22222222" };

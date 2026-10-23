@@ -2,25 +2,27 @@ package persistence
 
 import (
 	"context"
-	"strings"
 
+	"retrom/internal/format/titleorder"
 	"retrom/internal/model"
 )
 
 func (r *Repository) CreateGame(ctx context.Context, userID string, game model.PreparedGame, now int64) error {
 	input := game.Input
+	order := titleorder.Of(input.Title, input.SortName)
 	if err := r.Execute(ctx, `INSERT INTO game_tab
  (id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- content_hash,runtime_config_json,source,status,version,created_at_ms,updated_at_ms)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'server_import','pending_review',1,$13,$13)`,
-		game.ID, input.PlatformInstanceID, input.Title, initial(input.Title), input.Description, input.Developer,
+ content_hash,runtime_config_json,source,status,version,created_at_ms,updated_at_ms,
+ title_sort_name,title_sort_key,title_order_version)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'server_import','pending_review',1,$13,$13,$14,$15,$16)`,
+		game.ID, input.PlatformInstanceID, input.Title, order.Letter, input.Description, input.Developer,
 		input.Publisher,
 		input.Genre,
 		nullablePlayers(input.Players),
 		input.ReleaseYear,
 		game.ContentHash,
 		input.RuntimeConfig,
-		now); err != nil {
+		now, input.SortName, order.Key, titleorder.Version); err != nil {
 		return err
 	}
 	if err := r.InsertFiles(ctx, game.ID, game.Files, now); err != nil {
@@ -63,11 +65,14 @@ func (r *Repository) UpdateGame(ctx context.Context,
 	input model.GameInput,
 	now int64,
 ) error {
+	order := titleorder.Of(input.Title, input.SortName)
 	tag, err := r.db.Exec(ctx, `UPDATE game_tab SET platform_instance_id=$2,title=$3,title_initial=$4,
  description=$5,developer=$6,publisher=$7,genre=$8,players=$9,release_year=$10,runtime_config_json=$11,
- version=version+1,updated_at_ms=$12 WHERE id=$1 AND version=$13 AND status=$14`,
-		id, input.PlatformInstanceID, input.Title, initial(input.Title), input.Description, input.Developer, input.Publisher,
-		input.Genre, nullablePlayers(input.Players), input.ReleaseYear, input.RuntimeConfig, now, input.Version, status)
+ version=version+1,updated_at_ms=$12,title_sort_name=$15,title_sort_key=$16,title_order_version=$17
+ WHERE id=$1 AND version=$13 AND status=$14`,
+		id, input.PlatformInstanceID, input.Title, order.Letter, input.Description, input.Developer, input.Publisher,
+		input.Genre, nullablePlayers(input.Players), input.ReleaseYear, input.RuntimeConfig, now, input.Version, status,
+		input.SortName, order.Key, titleorder.Version)
 	if err != nil {
 		return failure("update game", err)
 	}
@@ -123,14 +128,6 @@ func (r *Repository) DeleteMedia(ctx context.Context, gameID, mediaID string, no
 		return model.ErrNotFound
 	}
 	return nil
-}
-
-func initial(value string) string {
-	runes := []rune(strings.TrimSpace(value))
-	if len(runes) == 0 {
-		return ""
-	}
-	return strings.ToUpper(string(runes[0]))
 }
 
 func nullablePlayers(value *string) string {

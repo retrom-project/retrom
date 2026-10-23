@@ -1,0 +1,88 @@
+/* Transient position shown while paging or jumping between title groups. */
+/* Jumps place their target at the top of the list, so the hint sits low to keep it visible. */
+.jumpHint {
+  position: absolute;
+  inset: auto 0 clamp(16px, 5dvh, 64px);
+  z-index: 6;
+  display: grid;
+  gap: var(--space-2);
+  place-content: center;
+  justify-items: center;
+  width: clamp(150px, 13vw, 240px);
+  height: clamp(150px, 13vw, 240px);
+  margin: auto;
+  color: var(--immersive-text);
+  pointer-events: none;
+  background: rgb(12 17 29 / 0.97);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.45);
+}
+
+.jumpHint strong {
+  font-size: var(--text-immersive-mark);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+}
+
+.jumpHint span {
+  color: var(--immersive-muted);
+  font-size: var(--text-immersive-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The title list and its letter index share the list row; both keep the list's top spacing. */
+.titleListRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 0;
+}
+
+.earlier {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2) 0;
+}
+
+.letterIndex {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+  margin-top: clamp(14px, 2dvh, 32px);
+  overflow: hidden;
+}
+
+.letterIndex button {
+  flex: 1 1 0;
+  width: 30px;
+  min-height: 0;
+  max-height: 34px;
+  padding: 0;
+  color: var(--immersive-muted);
+  font-size: var(--text-immersive-caption);
+  font-weight: var(--weight-semibold);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.letterIndex button[aria-current="true"] {
+  color: var(--immersive-cyan);
+  background: rgb(80 214 202 / 0.14);
+}
+
+.letterIndex button:focus-visible {
+  outline: 3px solid var(--immersive-cyan);
+  outline-offset: 1px;
+}
+
+/* Below this height 27 letters would be too small to read or press; triggers still jump. */
+@media (height < 720px) {
+  .letterIndex {display: none;}
+  .jumpHint {width: 112px; height: 112px;}
+  .jumpHint strong {font-size: var(--text-immersive-title);}
+}

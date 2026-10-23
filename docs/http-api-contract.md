@@ -8,6 +8,8 @@
 
 库、收藏与管理列表的platformId和platformInstanceId按AND过滤；sort=recent使用当前用户最后游玩时间降序，未游玩排后，名称/ID提供稳定次序。最近页只含当前用户已游玩游戏，sort=recent按最后时间、title按名称；q、active标签和afterMs/beforeMs闭区间与总数使用相同过滤条件。
 
+按名称排序的列表（游戏库、目录、收藏、最近与存档的 title 排序）统一按标题字母序：先字母分组 A–Z、最后 #，同一字母内中文按拼音、拉丁按字母，再以名称和 ID 稳定。Game 返回 titleLetter（所属分组）与 sortName（管理员排序名，空串表示按标题）；管理员保存 Game 时可提交 sortName（≤300 字符），非空时代替标题参与分组和排序。GET `/api/v1/games/letters` 与 GET `/api/v1/favorites/letters` 接受与对应列表相同的筛选参数（不含分页和 sort），返回 TitleLetters `{items: [{letter, offset, count}]}`：只含实际存在的分组，按列表顺序排列，offset 是该分组第一项在同一筛选列表中的位置，可直接用作列表 offset。
+
 业务读写使用当前登录会话。管理员只扩展共享管理权限；存档、收藏、最近仍限定本人。写入要求一个精确匹配的Origin，已登录写入还要求当前CSRF。代理链默认只在RemoteAddr属于内网或回环地址时解析，公网直接伪造X-Forwarded-For不会改变限流主体。内网代理必须覆盖转发头，客户端IP解析及边界见[账号与部署](backend-api-and-operations.md)。无凭据的隔离origin仅提供静态桥壳，不提供业务API。
 
 GET资源的HEAD按同份GET读契约验证，保留参数与授权门禁且不返回body。当前Go1.26.5中，匹配If-Match的HEAD带有效单段Range返回206、选中段Content-Length与Content-Range；未带Range返回200和完整长度。GET与HEAD的If-Match不匹配均先返回412空body，保留实际强ETag，不能将它声明为业务错误JSON。存档payload同一次持久查询投影immutable路径和hash，响应强ETag；准备恢复到实际下载之间若存档并发覆盖，旧If-Match明确412，不把新bytes标为旧身份。既有Run的ROM/resources仍按启动冻结。

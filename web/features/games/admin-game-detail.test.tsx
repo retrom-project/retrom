@@ -12,7 +12,7 @@ vi.mock("@/lib/api/client", async (original) => ({ ...await original<typeof ApiC
 vi.mock("@/features/library/api", () => ({ loadDirectories: async () => ({ items: [] }), loadTags: async () => ({ items: [] }) }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 const original: Schema<"GameDetail"> = {
-  game: { id: "child", version: 1, title: "Child", platformId: "arcade", platformInstanceId: "directory", directoryName: "Arcade", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null, status: "pending_review", source: "server_import", contentHash: "hash", favorite: false, lastPlayedAtMs: null, tags: [], media: [], createdAtMs: 1, updatedAtMs: 1 },
+  game: { id: "child", version: 1, title: "Child", platformId: "arcade", platformInstanceId: "directory", directoryName: "Arcade", titleLetter: "#", sortName: "", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null, status: "pending_review", source: "server_import", contentHash: "hash", favorite: false, lastPlayedAtMs: null, tags: [], media: [], createdAtMs: 1, updatedAtMs: 1 },
   files: [{ id: "entry", logicalKey: "1941j.zip", role: "content", sizeBytes: 1, sha256: "hash" }],
   coreIds: ["fbneo", "mame2003_plus"], defaultCoreId: "fbneo",
   runtimeConfig: { content: { kind: "ARCADE", entryFile: "1941j.zip" }, cores: { fbneo: { options: { existing: true } }, mame2003_plus: {} } },

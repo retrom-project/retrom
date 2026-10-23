@@ -737,6 +737,8 @@
           "platformId",
           "directoryName",
           "title",
+          "titleLetter",
+          "sortName",
           "description",
           "developer",
           "publisher",
@@ -771,6 +773,16 @@
           },
           "title": {
             "type": "string"
+          },
+          "titleLetter": {
+            "type": "string",
+            "pattern": "^([A-Z]|#)$",
+            "description": "Letter group of the title-ordered lists: A-Z by Latin letter or pinyin initial, otherwise #."
+          },
+          "sortName": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Administrator sort name used instead of the title for ordering, for example the intended reading of a polyphonic title. Empty uses the title."
           },
           "description": {
             "type": "string"
@@ -926,6 +938,11 @@
           },
           "title": {
             "type": "string"
+          },
+          "sortName": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Optional sort name; empty orders by the title."
           },
           "description": {
             "type": "string"
@@ -1829,6 +1846,45 @@
             "format": "int64",
             "minimum": 1,
             "maximum": 100
+          }
+        }
+      },
+      "TitleLetter": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "letter",
+          "offset",
+          "count"
+        ],
+        "properties": {
+          "letter": {
+            "type": "string",
+            "pattern": "^([A-Z]|#)$"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "TitleLetters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 27,
+            "items": {
+              "$ref": "#/components/schemas/TitleLetter"
+            }
           }
         }
       },

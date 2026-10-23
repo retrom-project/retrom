@@ -21,7 +21,7 @@ function save(id: string): Save {
     restorable: false, restoreReason: "content_changed", restoreWarning: "",
     game: {
       id: "game", platformInstanceId: "directory", platformId: "nes", directoryName: "NES",
-      title: "测试游戏", description: "", developer: "", publisher: "", genre: "", players: null,
+      title: "测试游戏", titleLetter: "#", sortName: "", description: "", developer: "", publisher: "", genre: "", players: null,
       releaseYear: null, status: "published", source: "server_import", version: 1,
       contentHash: "a".repeat(64), tags: [], media: [], favorite: false, lastPlayedAtMs: null, createdAtMs: 0, updatedAtMs: 0,
     },

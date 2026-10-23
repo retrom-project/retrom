@@ -20,14 +20,18 @@ import { useImmersiveSystemMenu } from "./use-immersive-system-menu";
 import { useImmersiveFullscreen } from "./use-immersive-fullscreen";
 import { ImmersiveChoiceDialog } from "./choice-dialog";
 import { ImmersiveChrome } from "./immersive-chrome";
+import { isJumpAction, type JumpAction } from "./list-jump";
+import { useListNavigation } from "./use-list-navigation";
 import styles from "./immersive.module.css";
+import jumpStyles from "./list-jump.module.css";
 
 export function ImmersiveShell() {
   return <Suspense><ImmersiveAudioProvider><ImmersiveContent /></ImmersiveAudioProvider></Suspense>;
 }
 function ImmersiveContent() {
   const shell = useRef<HTMLDivElement>(null);
-  const { destinations, view, setView, selected, setSelected, destination, setDestination, current, entries, folder, setFolder, folders, returnTo, saves } = useImmersiveLibrary();
+  const { destinations, view, setView, selected, setSelected, setListPosition, destination, setDestination, current, entries, letters, folder, setFolder, folders, returnTo, saves } = useImmersiveLibrary();
+  const list = useListNavigation({ entries, letters, selected, setPosition: setListPosition, visibleRows });
   const { notify } = useToast();
   const restoreConfirmation = useRestoreConfirmation();
   const [restoreChoice, setRestoreChoice] = useState("cancel");
@@ -49,8 +53,15 @@ function ImmersiveContent() {
   function launch() { document.querySelector<HTMLButtonElement>(`.${styles.gameDetails} .home-launch-control button`)?.click(); }
   function navigate(action: NavigationAction) {
     if (action === "cancel") { if (view === "platforms") { setExitChoice("continue"); setExitOpen(true); } else { changeView("platforms"); } return; }
+    if (isJumpAction(action)) { if (view === "platforms") { jumpPlatform(action); } else { void list.jump(action); } return; }
     if (view === "platforms") { navigatePlatform(action); return; }
     navigateGames(action);
+  }
+  /** Shoulders skip five entries on the carousel; title groups do not apply to platforms. */
+  function jumpPlatform(action: JumpAction) {
+    const count = destinations.data?.items.length ?? 0;
+    if (!count || action.startsWith("group")) { return; }
+    setDestination((value) => (value + (action === "pagePrevious" ? -5 : 5) % count + count) % count);
   }
   function navigatePlatform(action: NavigationAction) {
     const count = destinations.data?.items.length ?? 0;
@@ -59,12 +70,7 @@ function ImmersiveContent() {
     if (action === "confirm" && current) { changeView(current.view); }
   }
   function navigateGames(action: NavigationAction) {
-    if (action === "up" || action === "down") {
-      const last = Math.max(0, (entries.data?.items.length ?? 1) - 1);
-      const next = Math.max(0, selected + (action === "up" ? -1 : 1));
-      setSelected(Math.min(next, last + (entries.hasMore ? 1 : 0)));
-      if (next >= last && entries.hasMore && !entries.moreError) { entries.loadMore(); }
-    }
+    if (action === "up" || action === "down") { void list.step(action); }
     if (view === "saves" && (action === "left" || action === "right")) { saves.move(action); }
     if (action === "confirm") { launch(); }
     if (action === "favorite") { void favorite(); }
@@ -106,7 +112,9 @@ function ImmersiveContent() {
                 <option value="">全部收藏</option><option value="unclassified">未分类</option>
                 {folders.data?.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select></label> : null}
-              onLaunch={launch} />
+              onLaunch={launch}
+              letters={letters.data ?? []} onLetter={(offset) => void list.moveTo(offset)} jumpId={list.hint?.id}
+              overlay={list.hint ? <div className={jumpStyles.jumpHint} role="status" aria-live="polite"><strong>{list.hint.letter}</strong><span>{list.hint.position}</span></div> : null} />
           )}</ResourceState>
         )}
       </main>
@@ -119,4 +127,12 @@ function ImmersiveContent() {
       <div className={styles.viewportOverlay}><div><h2>沉浸模式需要横屏大屏</h2><p>请使用至少 960 × 540 的横屏视口。</p><Link className="button" href="/">返回普通首页</Link></div></div>
     </div></RestoreConfirmationContext>
   );
+}
+
+/** One list page is the number of fully visible title rows, minus one row of overlap. */
+function visibleRows() {
+  const list = document.querySelector<HTMLElement>(`.${styles.titleList}`);
+  const row = list?.querySelector<HTMLElement>("button");
+  if (!list || !row || !row.offsetHeight) { return 8; }
+  return Math.max(1, Math.floor(list.clientHeight / row.offsetHeight) - 1);
 }

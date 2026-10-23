@@ -14,7 +14,7 @@ afterEach(cleanup);
 
 const game: Game = {
   id: "latest", platformInstanceId: "directory", platformId: "nes", directoryName: "NES 游戏",
-  title: "最近实际玩过的游戏", description: "", developer: "", publisher: "", genre: "", players: null,
+  title: "最近实际玩过的游戏", titleLetter: "#", sortName: "", description: "", developer: "", publisher: "", genre: "", players: null,
   releaseYear: null, status: "published", source: "server_import", version: 1,
   contentHash: "a".repeat(64), tags: [], media: [], favorite: false, lastPlayedAtMs: 1000,
   createdAtMs: 0, updatedAtMs: 0,

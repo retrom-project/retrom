@@ -37,6 +37,8 @@ type Game struct {
 	PlatformID         string  `json:"platformId"`
 	DirectoryName      string  `json:"directoryName"`
 	Title              string  `json:"title"`
+	TitleLetter        string  `json:"titleLetter"`
+	SortName           string  `json:"sortName"`
 	Description        string  `json:"description"`
 	Developer          string  `json:"developer"`
 	Publisher          string  `json:"publisher"`
@@ -54,6 +56,18 @@ type Game struct {
 	CreatedAtMs        int64   `json:"createdAtMs"`
 	UpdatedAtMs        int64   `json:"updatedAtMs"`
 }
+
+// TitleLetter is one letter group of a title-ordered game list and where it starts.
+type TitleLetter struct {
+	Letter string `json:"letter"`
+	Offset int    `json:"offset"`
+	Count  int    `json:"count"`
+}
+
+type TitleLetters struct {
+	Items []TitleLetter `json:"items"`
+}
+
 type GameDetail struct {
 	ContentFiles      []ContentFile   `json:"-"`
 	Game              Game            `json:"game"`
@@ -68,6 +82,7 @@ type GameInput struct {
 	Version            int64           `json:"version"`
 	PlatformInstanceID string          `json:"platformInstanceId"`
 	Title              string          `json:"title"`
+	SortName           string          `json:"sortName"`
 	Description        string          `json:"description"`
 	Developer          string          `json:"developer"`
 	Publisher          string          `json:"publisher"`

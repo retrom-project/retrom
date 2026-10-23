@@ -50,7 +50,7 @@ export function ImmersiveSaveCarousel({ gameTitle, selection, returnTo }: {
               <SaveRestoreWarning save={item} thumbnail />
               <span className={styles.saveSize} aria-label={`存档大小 ${size}`} title={`${item.sizeBytes.toLocaleString("zh-CN")} bytes`}>{size}</span>
             </span>
-            <BrowserTime value={item.updatedAtMs} />
+            <BrowserTime value={item.updatedAtMs} format="compact" />
           </button>;
         })}
       </div>

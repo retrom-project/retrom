@@ -31,11 +31,11 @@ func (r *Repository) Saves(ctx context.Context, userID, gameID string, q model.Q
  AND ($3='' OR g.title ILIKE '%'||$3||'%' OR s.name ILIKE '%'||$3||'%') AND ($4='' OR s.save_type=$4)`
 	outerOrder := "p.updated_at_ms DESC,p.id"
 	if q.Sort == "title" {
-		outerOrder = "p.title_initial,p.title,p.name,p.id"
+		outerOrder = "p.title_sort_key,p.title,p.name,p.id"
 	}
-	candidates := `SELECT s.id,s.updated_at_ms,g.title_initial,g.title,s.name` + filter
+	candidates := `SELECT s.id,s.updated_at_ms,g.title_sort_key,g.title,s.name` + filter
 	if q.GroupByGame {
-		candidates = `SELECT DISTINCT ON (s.game_id) s.id,s.updated_at_ms,g.title_initial,g.title,s.name` + filter +
+		candidates = `SELECT DISTINCT ON (s.game_id) s.id,s.updated_at_ms,g.title_sort_key,g.title,s.name` + filter +
 			` ORDER BY s.game_id,s.updated_at_ms DESC,s.id`
 	}
 	query := `WITH candidates AS (` + candidates + `),

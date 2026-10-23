@@ -42,6 +42,7 @@ export function GameEditor({
       version: detail.game.version,
       platformInstanceId: String(form.get("directory")),
       title: String(form.get("title")),
+      sortName: String(form.get("sortName") ?? "").trim(),
       description: String(form.get("description")),
       developer: String(form.get("developer")),
       publisher: String(form.get("publisher")),
@@ -85,6 +86,10 @@ export function GameEditor({
           <div className="panel-head"><h2>发布信息</h2></div>
           <div className="panel-body admin-game-publish-form">
             <Field label="标题" name="title" value={detail.game.title} full />
+            <label className="field full">排序名
+              <input name="sortName" defaultValue={detail.game.sortName} placeholder="留空时按标题排序" />
+              <small>列表按字母 A–Z 排序，中文取拼音首字母，当前归入“{detail.game.titleLetter}”。多音字分错时可填写拼音，例如“重装机兵”填 chong zhuang ji bing。</small>
+            </label>
             <label className="field full">简介<textarea name="description" defaultValue={detail.game.description} /></label>
             <Field label="开发商" name="developer" value={detail.game.developer} />
             <Field label="发行商" name="publisher" value={detail.game.publisher} />

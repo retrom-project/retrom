@@ -39,6 +39,7 @@ export type AppIconName =
   | "log-out"
   | "keyboard"
   | "ban"
+  | "music"
   | "warning";
 
 const paths: Record<AppIconName, ReactNode> = {
@@ -178,6 +179,13 @@ const paths: Record<AppIconName, ReactNode> = {
   play: (
     <>
       <path d="m8 5 11 7-11 7Z" />
+    </>
+  ),
+  music: (
+    <>
+      <path d="M9 18V5l11-2v13" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="17" cy="16" r="3" />
     </>
   ),
   "eye-off": (

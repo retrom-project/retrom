@@ -28,7 +28,7 @@ const detail: Schema<"GameDetail"> = {
     directoryName: "原目录",
     platformId: "nes",
     title: "游戏",
-    description: "",
+    titleLetter: "#", sortName: "", description: "",
     developer: "",
     publisher: "",
     genre: "",

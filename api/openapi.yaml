@@ -79,6 +79,9 @@
     "/api/v1/games": {
       "$ref": "./domains/library.yaml#/paths/~1api~1v1~1games"
     },
+    "/api/v1/games/letters": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1games~1letters"
+    },
     "/api/v1/games/{gameId}": {
       "$ref": "./domains/library.yaml#/paths/~1api~1v1~1games~1{gameId}"
     },
@@ -111,6 +114,9 @@
     },
     "/api/v1/favorites": {
       "$ref": "./domains/favorites.yaml#/paths/~1api~1v1~1favorites"
+    },
+    "/api/v1/favorites/letters": {
+      "$ref": "./domains/favorites.yaml#/paths/~1api~1v1~1favorites~1letters"
     },
     "/api/v1/favorites/{gameId}": {
       "$ref": "./domains/favorites.yaml#/paths/~1api~1v1~1favorites~1{gameId}"
@@ -412,6 +418,12 @@
       },
       "GamePage": {
         "$ref": "./components/common.yaml#/components/schemas/GamePage"
+      },
+      "TitleLetter": {
+        "$ref": "./components/common.yaml#/components/schemas/TitleLetter"
+      },
+      "TitleLetters": {
+        "$ref": "./components/common.yaml#/components/schemas/TitleLetters"
       },
       "ReviewReadinessRequest": {
         "$ref": "./components/common.yaml#/components/schemas/ReviewReadinessRequest"

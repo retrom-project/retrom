@@ -200,5 +200,14 @@ func openRepository(ctx context.Context) (*persistence.Repository, error) {
 		repository.Close()
 		return nil, fmt.Errorf("initialize schema: %w", err)
 	}
+	// Writes keep title order current; this only finds games after an upgrade or a restored backup.
+	refreshed, err := repository.RefreshTitleOrder(ctx)
+	if err != nil {
+		repository.Close()
+		return nil, fmt.Errorf("refresh title order: %w", err)
+	}
+	if refreshed > 0 {
+		slog.Info("Title order refreshed", "games", refreshed)
+	}
 	return repository, nil
 }

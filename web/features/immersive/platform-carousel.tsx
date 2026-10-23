@@ -35,7 +35,7 @@ export function PlatformCarousel({ destinations, selected, onSelect, onOpen }: {
                 onClick={() => shift === 0 ? onOpen() : onSelect(index)}>
                 <div className={platform.platformCopy}>
                   <div className={platform.platformMark} aria-hidden="true">
-                    <span className={platform.platformCode}>{destination.code.slice(0, 4)}</span>
+                    <span className={`${platform.platformCode} ${codeSize(destination.code)}`}>{destination.code.slice(0, 10)}</span>
                   </div>
                   <p>{shift === 0 ? destination.directoryId ? "当前平台" : "当前入口" : "相邻入口"}</p>
                   <h2 title={destination.name}>{destination.name}</h2>
@@ -55,4 +55,9 @@ export function PlatformCarousel({ destinations, selected, onSelect, onOpen }: {
       </div>
     </section>
   );
+}
+
+/** Decorative codes are shown whole; longer codes use a smaller step that still fits the card. */
+function codeSize(code: string) {
+  return code.length > 6 ? platform.platformCodeLong : code.length > 4 ? platform.platformCodeMedium : "";
 }

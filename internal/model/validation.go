@@ -44,7 +44,11 @@ func ValidateGameFields(input GameInput) error {
 		value   string
 		maximum int
 	}{
-		{input.Description, 20000}, {input.Developer, 300}, {input.Publisher, 300}, {input.Genre, 200},
+		{input.SortName, 300},
+		{input.Description, 20000},
+		{input.Developer, 300},
+		{input.Publisher, 300},
+		{input.Genre, 200},
 	} {
 		if !BoundedText(field.value, field.maximum) {
 			return ErrInvalid

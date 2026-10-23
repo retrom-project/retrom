@@ -6,17 +6,18 @@ import {
   saveImmersiveAudioPreferences,
   type ImmersiveAudioPreferences,
 } from "./immersive-audio-preferences";
-import { ImmersiveBgmPrompt } from "./immersive-system-menu";
 import {
   adjustSystemMenuPreference,
   type ImmersiveSystemMenuItem,
   type MenuAdjustment,
 } from "./system-menu-model";
-import { useImmersiveBackgroundAudio } from "./use-immersive-background-audio";
+import { useImmersiveBackgroundAudio, type ImmersiveBgmState } from "./use-immersive-background-audio";
 
 type ImmersiveAudioContextValue = Readonly<{
+  bgmState: ImmersiveBgmState;
   commitPreference: (item: ImmersiveSystemMenuItem, adjustment: MenuAdjustment) => void;
   preferences: ImmersiveAudioPreferences;
+  retryBgm: () => void;
 }>;
 
 const ImmersiveAudioContext = createContext<ImmersiveAudioContextValue | null>(null);
@@ -31,7 +32,8 @@ export function ImmersiveAudioProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
-  const value = useMemo(() => ({ commitPreference, preferences }), [commitPreference, preferences]);
+  const retryBgm = useCallback(() => void retry(), [retry]);
+  const value = useMemo(() => ({ bgmState: state, commitPreference, preferences, retryBgm }), [commitPreference, preferences, retryBgm, state]);
 
   return <ImmersiveAudioContext value={value}>
     {children}
@@ -44,7 +46,6 @@ export function ImmersiveAudioProvider({ children }: { children: ReactNode }) {
       aria-hidden="true"
       onError={markBlocked}
     />
-    {state === "blocked" ? <ImmersiveBgmPrompt onRetry={() => void retry()} /> : null}
   </ImmersiveAudioContext>;
 }
 

@@ -19,7 +19,18 @@ export type NavigationAction =
   | "confirm"
   | "cancel"
   | "menu"
-  | "favorite";
+  | "favorite"
+  | "pagePrevious"
+  | "pageNext"
+  | "groupPrevious"
+  | "groupNext";
+
+type JumpAction = Extract<NavigationAction, "pagePrevious" | "pageNext" | "groupPrevious" | "groupNext">;
+
+/** Standard mapping shoulders (LB/RB) page through a list; triggers (LT/RT) jump between title groups. */
+const jumpButtons: readonly (readonly [number, JumpAction])[] = [
+  [4, "pagePrevious"], [5, "pageNext"], [6, "groupPrevious"], [7, "groupNext"],
+];
 
 export type NavigationUpdate = Readonly<{
   actions: readonly NavigationAction[];
@@ -150,6 +161,8 @@ export class NavigationInputModel {
   private previousButtons: boolean[] = [];
   private direction: Direction | null = null;
   private nextRepeatAtMs = 0;
+  private jump: JumpAction | null = null;
+  private nextJumpAtMs = 0;
   private neutralSinceMs: number | null = null;
   private neutralDelayMs = 120;
   private armed = false;
@@ -163,6 +176,8 @@ export class NavigationInputModel {
     this.previousButtons = [];
     this.direction = null;
     this.nextRepeatAtMs = 0;
+    this.jump = null;
+    this.nextJumpAtMs = 0;
     this.neutralSinceMs = null;
     this.neutralDelayMs = neutralDelayMs;
     this.armed = false;
@@ -223,7 +238,30 @@ export class NavigationInputModel {
     if (buttonAction) {
       actions.push(buttonAction);
     }
+    const jump = buttonsAllowed ? this.heldJump(pressed, nowMs) : null;
+    if (jump) {
+      actions.push(jump);
+    }
     return actions;
+  }
+
+  /** A held shoulder or trigger repeats like a held direction. */
+  private heldJump(pressed: readonly boolean[], nowMs: number) {
+    const next = jumpButtons.find(([index]) => pressed[index])?.[1] ?? null;
+    if (!next) {
+      this.jump = null;
+      return null;
+    }
+    if (next !== this.jump) {
+      this.jump = next;
+      this.nextJumpAtMs = nowMs + INITIAL_REPEAT_MS;
+      return next;
+    }
+    if (nowMs < this.nextJumpAtMs) {
+      return null;
+    }
+    this.nextJumpAtMs = nowMs + REPEAT_MS;
+    return next;
   }
 }
 

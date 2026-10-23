@@ -59,6 +59,18 @@ export function useImmersiveBackgroundAudio(preferences: ImmersiveAudioPreferenc
     return () => document.removeEventListener("visibilitychange", visibilityChanged);
   }, [invalidateAttempts, retry]);
 
+  // Keyboard and pointer input grant playback; a gamepad does not, so its users keep the header button.
+  useEffect(() => {
+    if (state !== "blocked") {return;}
+    const resume = () => void retry();
+    window.addEventListener("keydown", resume, { capture: true, once: true });
+    window.addEventListener("pointerdown", resume, { capture: true, once: true });
+    return () => {
+      window.removeEventListener("keydown", resume, { capture: true });
+      window.removeEventListener("pointerdown", resume, { capture: true });
+    };
+  }, [retry, state]);
+
   useEffect(() => {
     const audio = audioRef.current;
     return () => {

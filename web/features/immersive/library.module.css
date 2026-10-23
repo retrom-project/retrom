@@ -84,7 +84,7 @@
 .saveCard {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  flex: 0 0 clamp(72px, calc((100cqh - 160px) * 0.72), 170px);
+  flex: 0 0 clamp(96px, calc((100cqh - 160px) * 1.05), 280px);
   gap: 4px;
   min-width: 0;
   max-height: 100%;
@@ -145,6 +145,13 @@
   white-space: nowrap;
   background: #4435a7;
   border-radius: var(--radius-cover);
+}
+
+.saveCard:not(.selectedSaveCard) .saveSize {
+  right: 5px;
+  bottom: 5px;
+  height: 18px;
+  padding: 1px 5px 0;
 }
 
 .saveCard time {
