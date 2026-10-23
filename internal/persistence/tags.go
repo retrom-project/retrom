@@ -38,8 +38,8 @@ func (r *Repository) Tag(ctx context.Context, id string) (model.Tag, error) {
 func (r *Repository) WriteTag(ctx context.Context, id, userID, name string, version, now int64) error {
 	if version == 0 {
 		_, err := r.db.Exec(ctx, `INSERT INTO tag_tab
- (id,name,name_key,status,version,created_by_user_id,updated_by_user_id,created_at_ms,updated_at_ms)
- VALUES($1,$2,$3,'active',1,$4,$4,$5,$5)`, id, name, model.NameKey(name), userID, now)
+ (id,name,name_key,status,active_slot,version,created_by_user_id,updated_by_user_id,created_at_ms,updated_at_ms)
+ VALUES($1,$2,$3,'active',1,1,$4,$4,$5,$5)`, id, name, model.NameKey(name), userID, now)
 		return tagWriteFailure("create tag", err)
 	}
 	tag, err := r.db.Exec(ctx, `UPDATE tag_tab SET name=$2,name_key=$3,version=version+1,updated_by_user_id=$4,
@@ -62,8 +62,8 @@ func tagWriteFailure(action string, err error) error {
 }
 
 func (r *Repository) DeleteTag(ctx context.Context, id, userID string, version, now int64) error {
-	tag, err := r.db.Exec(ctx, `UPDATE tag_tab SET status='deleted',version=version+1,updated_by_user_id=$2,
- updated_at_ms=$3 WHERE id=$1 AND version=$4 AND status='active'`, id, userID, now, version)
+	tag, err := r.db.Exec(ctx, `UPDATE tag_tab SET status='deleted',active_slot=NULL,version=version+1,
+ updated_by_user_id=$2,updated_at_ms=$3 WHERE id=$1 AND version=$4 AND status='active'`, id, userID, now, version)
 	if err != nil {
 		return failure("delete tag", err)
 	}

@@ -12,8 +12,8 @@ func (r *Repository) RetireParentFiles(ctx context.Context, id, hash string, ret
 		return err
 	}
 	for _, fileID := range retired {
-		tag, err := r.db.Exec(ctx, `UPDATE game_file_tab SET status='deleted',updated_at_ms=$3
- WHERE game_id=$1 AND id=$2 AND status='active'`, id, fileID, now)
+		tag, err := r.db.Exec(ctx, `UPDATE game_file_tab SET status='deleted',active_slot=NULL,package_slot=NULL,
+ updated_at_ms=$3 WHERE game_id=$1 AND id=$2 AND status='active'`, id, fileID, now)
 		if err != nil {
 			return failure("retire parent file", err)
 		}

@@ -59,7 +59,7 @@ func (r *Repository) SwitchContentStorage(ctx context.Context, snapshot ContentS
 	if !reflect.DeepEqual(files, snapshot.Files) {
 		return model.ErrConflict
 	}
-	if err = r.Execute(ctx, `UPDATE game_file_tab SET status='deleted',updated_at_ms=$2
+	if err = r.Execute(ctx, `UPDATE game_file_tab SET status='deleted',active_slot=NULL,package_slot=NULL,updated_at_ms=$2
  WHERE game_id=$1 AND status='active'`, snapshot.ID, now); err != nil {
 		return err
 	}
