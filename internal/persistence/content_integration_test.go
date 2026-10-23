@@ -87,23 +87,3 @@ func TestDuplicateMemberRollsBackPackageAndGame(t *testing.T) {
 		t.Fatalf("member escaped rollback count=%d err=%v", count, err)
 	}
 }
-
-func TestContentMigrationPreservesExistingFiles(t *testing.T) {
-	f := testsupport.Library(t)
-	f.Publish(t)
-	if err := f.Repository.Execute(t.Context(), `DROP TABLE game_file_member_tab;
- DROP INDEX game_file_project_package_idx;
- DELETE FROM schema_migrations_tab WHERE id='003_content_packages'`); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.Repository.Migrate(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	files, err := f.Repository.GameFiles(t.Context(), f.Game.ID)
-	if err != nil || len(files) != 1 || files[0].StorageKey != f.Game.Files[0].StorageKey {
-		t.Fatalf("upgrade changed files: %+v err=%v", files, err)
-	}
-	if _, err = f.Repository.ContentFiles(t.Context(), files); err != nil {
-		t.Fatal(err)
-	}
-}

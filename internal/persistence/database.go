@@ -58,27 +58,12 @@ func (r *Repository) Migrate(ctx context.Context) error {
 	if _, err = tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS schema_migrations_tab (id TEXT PRIMARY KEY)"); err != nil {
 		return fmt.Errorf("create migration bookkeeping: %w", err)
 	}
-	var applied bool
-	query := "SELECT EXISTS(SELECT 1 FROM schema_migrations_tab WHERE id='001_schema')"
-	if err = tx.QueryRow(ctx, query).Scan(&applied); err != nil {
-		return fmt.Errorf("read migration: %w", err)
-	}
-	if !applied {
-		if _, err = tx.Exec(ctx, migrations.Schema); err != nil {
-			return fmt.Errorf("apply schema: %w", err)
+	for _, migration := range []struct{ id, schema string }{
+		{"001_schema", migrations.Schema},
+	} {
+		if err = applyMigration(ctx, tx, migration.id, migration.schema); err != nil {
+			return err
 		}
-		if _, err = tx.Exec(ctx, "INSERT INTO schema_migrations_tab(id) VALUES('001_schema')"); err != nil {
-			return fmt.Errorf("record migration: %w", err)
-		}
-	}
-	if err = applyMigration(ctx, tx, "002_query_indexes", migrations.QueryIndexes); err != nil {
-		return err
-	}
-	if err = applyMigration(ctx, tx, "003_content_packages", migrations.ContentPackages); err != nil {
-		return err
-	}
-	if err = applyMigration(ctx, tx, "004_title_order", migrations.TitleOrder); err != nil {
-		return err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit migration: %w", err)
