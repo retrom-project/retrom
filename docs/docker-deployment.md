@@ -48,7 +48,7 @@ curl --fail --location \
 mkdir -p data certs
 ```
 
-两张应用镜像分别为 `xxxsen/retrom:<版本标签>` 和 `xxxsen/retrom-web:<版本标签>`。镜像已包含配套 runtime 工具及经过验证的 Provider，服务器无需另行克隆或构建核心。
+两张应用镜像分别为 `xxxsen/retrom:<版本标签>` 和 `xxxsen/retrom-web:<版本标签>`。后端镜像包含配套 runtime 工具，但不含 Provider（各平台核心）。后端首次启动时按镜像固定的版本，从 runtime 的 GitHub Release 下载全部 Provider 分块，逐块校验后安装到数据目录的 `providers/`（解包后约 1.2 GiB），日志显示进度，安装完成后才对外服务；之后重启不再下载，升级镜像只下载内容变化的分块，runtime 版本不变时下载量为 0。服务器需能访问 GitHub，或用 `RETROM_RUNTIME_INPUT_BASE_URL` 指向镜像源或本地目录。服务器无需另行克隆或构建核心。
 
 后续命令均在 `~/retrom-deploy` 中执行。
 
@@ -161,8 +161,6 @@ docker compose --env-file .env exec -T retrom node -e \
 
 ## 数据备份与版本升级
 
-从 v0.0.112 升级到 v0.0.113 没有数据库表、索引或迁移变更，沿用现有数据库和持久目录，无需重新初始化。存档可恢复状态按升级后的实际核心和游戏内容身份展示。
-
 备份应同时包含 PostgreSQL 数据和 `data/` 目录，以及恢复部署所需的 `.env`、Compose、代理配置；`data/uploads/` 与 `data/providers/` 可再生或可丢弃，可排除。暂停应用写入后，在同一备份窗口保存数据库与文件；恢复时使用这两部分对应的备份。
 
 Redis 保存带有效期的运行上下文和限流状态，示例不启用持久化；重启会影响正在进行的运行会话。业务备份以 PostgreSQL 和受管目录为准。
@@ -177,6 +175,25 @@ docker compose --env-file .env ps
 ```
 
 前后端始终使用同一发行标签。应用会在启动时执行该版本的数据库迁移，回退前需核对数据库和文件是否仍与旧版本兼容。
+
+### 升级到 v0.0.146 及之后版本
+
+v0.0.146 把此前的 001–005 数据库迁移合并为单一的 `001_schema` 基线，并去掉 partial index。已有数据库不会在启动时自动转换，必须在启动新镜像前执行一次 [`docker/upgrade/v0.0.146-schema-rebase.sql`](../docker/upgrade/v0.0.146-schema-rebase.sql)；否则新版本会跳过建表，写入时因缺少新列失败。新部署无需此步骤。
+
+1. 先升级到 v0.0.145 并正常启动一次，使数据库完成该版本的迁移（更早的版本不能直接执行脚本）。
+2. 停止 `retrom` 与 `retrom-web`，按上文完成数据库与 `data/` 备份。
+3. 执行脚本。它在一个事务内先核对迁移账本，不符合预期时中止且不做任何修改：
+
+   ```bash
+   curl --fail --location \
+     "https://raw.githubusercontent.com/retrom-project/retrom/${RETROM_RELEASE}/docker/upgrade/v0.0.146-schema-rebase.sql" \
+     --output v0.0.146-schema-rebase.sql
+   docker compose --env-file .env exec -T postgres psql -U retrom -d retrom -q < v0.0.146-schema-rebase.sql
+   docker compose --env-file .env exec -T postgres psql -U retrom -d retrom -Atc 'SELECT id FROM schema_migrations_tab'
+   ```
+
+   最后一条命令应只输出 `001_schema`。`RETROM_RELEASE` 使用包含该脚本的目标发行标签。
+4. 将 `RETROM_VERSION` 改为目标版本，按上文 `pull` 与 `up -d` 启动。
 
 停止服务可使用 `docker compose --env-file .env stop`；`down` 默认保留命名卷，而 `down --volumes` 会删除数据库卷，具体行为见 [Compose down 说明](https://docs.docker.com/reference/cli/docker/compose/down/)。
 
