@@ -18,9 +18,11 @@ services:
       - postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U retrom -d retrom"]
-      interval: 5s
+      interval: 60s
       timeout: 3s
-      retries: 30
+      retries: 3
+      start_period: 60s
+      start_interval: 2s
     networks:
       - retrom-network
 
@@ -30,9 +32,11 @@ services:
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 60s
       timeout: 3s
-      retries: 30
+      retries: 3
+      start_period: 60s
+      start_interval: 2s
     networks:
       - retrom-network
 

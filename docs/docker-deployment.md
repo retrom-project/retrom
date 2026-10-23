@@ -8,7 +8,7 @@
 
 ## 1. 准备环境
 
-准备一台使用 Linux 本地持久文件系统的服务器，并安装 Docker Engine、Compose 插件、curl 和 OpenSSL。Docker 安装方式见[官方安装文档](https://docs.docker.com/engine/install/)及 [Compose 插件安装说明](https://docs.docker.com/compose/install/linux/)。
+准备一台使用 Linux 本地持久文件系统的服务器，并安装 Docker Engine（25 或更新版本，健康检查使用 `start_interval`）、Compose 插件、curl 和 OpenSSL。Docker 安装方式见[官方安装文档](https://docs.docker.com/engine/install/)及 [Compose 插件安装说明](https://docs.docker.com/compose/install/linux/)。
 
 ```bash
 docker version
@@ -138,7 +138,7 @@ docker compose --env-file .env logs --tail=100 retrom retrom-web nginx
 
 `config --quiet` 校验配置且不输出展开后的数据库凭据，行为见 [Compose 配置命令说明](https://docs.docker.com/reference/cli/docker/compose/config/)。
 
-PostgreSQL 和 Redis 的健康检查通过后，后端才会启动。检查 Nginx 配置及后端依赖就绪状态：
+PostgreSQL 和 Redis 的健康检查通过后，后端才会启动。健康检查平时每 60 秒一次；启动阶段在 `start_period` 内每 2 秒检查，首次通过即视为健康，因此不会拖慢启动。检查 Nginx 配置及后端依赖就绪状态：
 
 ```bash
 docker compose --env-file .env exec -T nginx nginx -t
