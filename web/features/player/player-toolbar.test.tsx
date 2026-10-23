@@ -137,6 +137,20 @@ it("describes GAME_SAVE as written game data, never an instant capture", () => {
   expect(screen.getByRole("status")).toHaveTextContent("有待同步的游戏数据");
 });
 
+it.each([
+  ["FAILED", "游戏运行失败"],
+  ["EXITING", "正在退出…"],
+  ["EXITED", "游戏已结束"],
+] as const)("shows %s in both toolbar and menu instead of stale save status", (state, label) => {
+  const props = toolbarProps();
+  render(<PlayerToolbar {...props} state={state} availability={{available: false, reason: "CORE_NOT_READY"}} busy status="存档已同步" />);
+  expect(screen.getByRole("status")).toHaveTextContent(label);
+  expect(screen.getByRole("status")).not.toHaveClass("is-busy");
+  expect(screen.getByRole("menu")).toHaveTextContent(label);
+  expect(screen.queryByText("存档已同步")).not.toBeInTheDocument();
+  expect(screen.queryByText("游戏运行中")).not.toBeInTheDocument();
+});
+
 it("reveals the whole desktop top edge on hover and pauses clicks in toolbar whitespace and controls", () => {
   const props = toolbarProps();
   const view = render(<PlayerToolbar {...props} menu={false} desktopPointer visible={false} state="RUNNING" />);

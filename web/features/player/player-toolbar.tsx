@@ -66,7 +66,7 @@ function PlayerMenu(props: Props & { controls: ReturnType<typeof controlState> }
     <button className="player-menu-backdrop" tabIndex={-1} aria-label="关闭更多操作" onClick={props.onSurfaceClick ?? onMenu} />
     <div className="player-menu" role="menu" aria-label="Player 更多操作">
       <header className="player-menu-head"><div><small>Retrom Player</small><strong>更多操作</strong></div><button aria-label="关闭更多操作" onClick={onMenu}><AppIcon name="x" /></button></header>
-      <div className="player-menu-runtime"><i /><span><strong>{props.status || checkpointStatus(props.envelope, props.availability)}</strong><small>{props.state === "PAUSED" ? "当前已暂停" : props.envelope.session.coreName}</small></span></div>
+      <div className="player-menu-runtime"><i /><span><strong>{playerStatus(props).label}</strong><small>{props.state === "PAUSED" ? "当前已暂停" : props.envelope.session.coreName}</small></span></div>
       {onUseCover ? <button role="menuitem" aria-label="选用当前截图为封面" disabled={controls.coverDisabled} onClick={onUseCover}><AppIcon name="library" /><span>选用当前截图为封面</span></button> : null}
       {props.onGameEditor ? <button role="menuitem" aria-label="游戏修改" disabled={!controls.ready} onClick={props.onGameEditor}><AppIcon name="settings" /><span>游戏修改</span></button> : null}
       {controls.settingsAvailable ? <button role="menuitem" aria-label="模拟器设置" disabled={!controls.ready} onClick={onSettings}><AppIcon name="settings" /><span>模拟器设置</span></button> : null}
@@ -86,10 +86,21 @@ function controlState(capabilities: LaunchEnvelopeV1["runtime"]["capabilities"],
     settingsAvailable: capabilities.nativeSettings || capabilities.volume || capabilities.videoModes.length > 0,
   };
 }
-function PlayerSyncStatus({ busy, status, state, availability, envelope }: Pick<Props, "busy" | "status" | "state" | "availability" | "envelope">) {
+function PlayerSyncStatus(props: StatusProps) {
+  const {label, pending} = playerStatus(props);
+  return <div className={`player-sync-status${pending ? " is-busy" : ""}`} role="status" aria-label={label}><i /><span>{label}</span></div>;
+}
+
+type StatusProps = Pick<Props, "busy" | "status" | "state" | "availability" | "envelope">;
+function playerStatus({ busy, status, state, availability, envelope }: StatusProps) {
+  switch (state) {
+    case "FAILED": return {label: "游戏运行失败", pending: false};
+    case "EXITING": return {label: "正在退出…", pending: false};
+    case "EXITED": return {label: "游戏已结束", pending: false};
+  }
   const starting = state === "CREATED" || state === "MOUNTING";
   const label = busy ? "正在同步…" : status || (starting ? "正在连接…" : checkpointStatus(envelope, availability));
-  return <div className={`player-sync-status${busy || starting ? " is-busy" : ""}`} role="status" aria-label={label}><i /><span>{label}</span></div>;
+  return {label, pending: busy || starting};
 }
 
 function checkpointStatus(envelope: LaunchEnvelopeV1, availability: RuntimeCheckpointAvailabilityV1) {
