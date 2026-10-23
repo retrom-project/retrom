@@ -3,3 +3,8 @@
 .pwa-description { color: var(--muted); }
 .pwa-notice { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
 .pwa-notice > span { flex: 1; min-width: min(100%, 220px); }
+/* A zero-height sticky anchor: notices overlay the content column without taking layout space. */
+.pwa-floating { position: sticky; z-index: var(--layer-notice); top: calc(var(--space-4) + env(safe-area-inset-top)); height: 0; }
+.pwa-floating > .feedback-banner { position: absolute; top: 0; left: 50%; width: min(560px, 100%); transform: translateX(-50%); box-shadow: var(--shadow); }
+@media (max-width: 1279px) { .pwa-floating { top: calc(52px + env(safe-area-inset-top) + var(--space-3)); } }
+.phone-content .pwa-floating { top: calc(var(--space-3) + env(safe-area-inset-top)); }

@@ -2,17 +2,18 @@
 import { FeedbackBanner, StatusBadge } from "@/components/ui";
 import { usePwa } from "./pwa-provider";
 
+/** Connection and update notices float above the page so they never push its layout down. */
 export function PwaNotice() {
   const pwa = usePwa();
   if (!pwa) { return null; }
   if (!pwa.online) {
-    return <FeedbackBanner tone="info">当前网络已断开。启动游戏和同步存档需要恢复连接。</FeedbackBanner>;
+    return <div className="pwa-floating"><FeedbackBanner tone="info">当前网络已断开。启动游戏和同步存档需要恢复连接。</FeedbackBanner></div>;
   }
   if (!pwa.update) { return null; }
-  return <FeedbackBanner tone="info"><div className="pwa-notice">
+  return <div className="pwa-floating"><FeedbackBanner tone="info"><div className="pwa-notice">
     <span>{pwa.updateMessage || "Retrom 有新版本，可在结束游玩后刷新更新。"}</span>
     <button className="button secondary" disabled={pwa.updating} onClick={() => void pwa.applyUpdate()}>{pwa.updating ? "正在更新…" : "刷新更新"}</button>
-  </div></FeedbackBanner>;
+  </div></FeedbackBanner></div>;
 }
 
 export function PwaSettings() {

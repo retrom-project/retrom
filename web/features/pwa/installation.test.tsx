@@ -50,7 +50,8 @@ test("standalone launch is recognized and a disconnected connection is visible",
   view();
   expect(await screen.findByText("已安装")).toBeInTheDocument();
   act(() => { browser.onLine = false; window.dispatchEvent(new Event("offline")); });
-  expect(screen.getByText(/当前网络已断开/u)).toBeInTheDocument();
+  // The notice floats in its own layer instead of pushing the page down.
+  expect(screen.getByText(/当前网络已断开/u).closest(".pwa-floating")).not.toBeNull();
   act(() => { browser.onLine = true; window.dispatchEvent(new Event("online")); });
   await waitFor(() => expect(screen.queryByText(/当前网络已断开/u)).not.toBeInTheDocument());
 });
