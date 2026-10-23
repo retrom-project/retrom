@@ -34,7 +34,7 @@ func assertEmptyApplicationSchema(t *testing.T, repository *persistence.Reposito
 		t.Fatalf("unsuffixed tables=%d err=%v", unsuffixed, err)
 	}
 	ledger, err := repository.Count(ctx, "SELECT count(*) FROM schema_migrations_tab")
-	if err != nil || ledger != 5 {
+	if err != nil || ledger != 4 {
 		t.Fatalf("applied migrations=%d err=%v", ledger, err)
 	}
 	prohibited,
@@ -43,6 +43,12 @@ func assertEmptyApplicationSchema(t *testing.T, repository *persistence.Reposito
  WHERE n.nspname='public' AND k.contype IN ('c','f')`)
 	if err != nil || prohibited != 0 {
 		t.Fatalf("constraints=%d err=%v", prohibited, err)
+	}
+	// Partial indexes bake a status list into the schema; one-active rules use active_slot columns instead.
+	partial, err := repository.Count(ctx, `SELECT count(*) FROM pg_index x JOIN pg_class c ON c.oid=x.indexrelid
+ JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND x.indpred IS NOT NULL`)
+	if err != nil || partial != 0 {
+		t.Fatalf("partial indexes=%d err=%v", partial, err)
 	}
 	views, err := repository.Count(ctx, `SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
  WHERE n.nspname='public' AND c.relkind IN ('v','m')`)

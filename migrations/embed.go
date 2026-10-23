@@ -17,12 +17,7 @@ var QueryIndexes string
 //go:embed 003_content_packages.sql
 var ContentPackages string
 
-// FileOwnershipIndexes supports active and retired file ownership checks.
-//
-//go:embed 004_file_ownership_indexes.sql
-var FileOwnershipIndexes string
-
 // TitleOrder adds letter groups, pinyin sort keys and admin sort names to games.
 //
-//go:embed 005_title_order.sql
+//go:embed 004_title_order.sql
 var TitleOrder string

@@ -32,7 +32,7 @@ mkxp 所需 ZIP 的成员集合和路径完全一致时复用物理包；子集�
 
 删除Game先收回Game及Save owner字节，再短事务清关系和从属行、标记purged。移除失败保留deleted和从属路径，下轮重试；退休单文件先复查当前active引用，引用存在保留字节。孤立扫描保护所有 active／deleted 文件记录所拥有的 payload、媒体及存档截图；deleted 文件只走按数据库 updated_at_ms 计算宽限的有界退休清理，不能因物理 mtime 很旧而绕过宽限、失败重试或每批数量限制。没有数据库归属的残留才按物理时间宽限回收；purged 行不继续占有字节。清理失败记录错误，不建立持久工作流事件或恢复计划。
 
-数据库迁移没有业务 seed；002/003 就地增加索引/成员表，004 将文件引用索引的覆盖范围扩大到 active／deleted，以支持活动引用及退休归属复核，005 为 game_tab 增加标题字母序列并在启动时按版本回填排序键，均不清空数据。新版本通过统一内容目录读取 FILES 和 ZIP_STORE 两种合法布局，既有散文件无需在启动时重打包。破坏性开发 reset 必须停止 exact PFB 并归档 data 与 postgres，保留 Provider/缓存/ID/URL。
+数据库迁移没有业务 seed；002/003 就地增加索引/成员表（文件引用索引按 (storage_key,status) 覆盖全部状态，支持活动引用及退休归属复核），004 为 game_tab 增加标题字母序列并在启动时按版本回填排序键，均不清空数据。新版本通过统一内容目录读取 FILES 和 ZIP_STORE 两种合法布局，既有散文件无需在启动时重打包。破坏性开发 reset 必须停止 exact PFB 并归档 data 与 postgres，保留 Provider/缓存/ID/URL。
 
 升级后，管理员可在相同数据库、受管根及配套 runtime/Provider 环境执行：
 

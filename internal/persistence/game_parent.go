@@ -20,7 +20,7 @@ func (r *Repository) ChangeParent(ctx context.Context, id, status string, versio
 	if tag.RowsAffected() != 1 {
 		return model.ErrConflict
 	}
-	if err = r.Execute(ctx, `UPDATE game_file_tab SET status='deleted',updated_at_ms=$3
+	if err = r.Execute(ctx, `UPDATE game_file_tab SET status='deleted',active_slot=NULL,package_slot=NULL,updated_at_ms=$3
  WHERE game_id=$1 AND logical_key=$2 AND status='active'`, id, file.LogicalKey, now); err != nil {
 		return err
 	}

@@ -55,7 +55,7 @@ func TestLargePackageIndexPagingAndBoundedRetirement(t *testing.T) {
 		t.Fatalf("logical=%d err=%v", len(logical), err)
 	}
 	t.Logf("50000 member full projection: %s", time.Since(started))
-	if err = f.Repository.Execute(t.Context(), "UPDATE game_file_tab SET status='purged' WHERE id=$1", file.ID); err != nil {
+	if err = f.Repository.Execute(t.Context(), "UPDATE game_file_tab SET status='purged',active_slot=NULL,package_slot=NULL WHERE id=$1", file.ID); err != nil {
 		t.Fatal(err)
 	}
 	if err = f.Repository.PurgePackageMembers(t.Context()); err != nil {

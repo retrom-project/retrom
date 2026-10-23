@@ -53,18 +53,18 @@ CREATE INDEX game_content_idx ON game_tab(platform_instance_id,content_hash,stat
 CREATE TABLE game_file_tab (
  id TEXT PRIMARY KEY, game_id TEXT NOT NULL, logical_key TEXT NOT NULL, role TEXT NOT NULL,
  storage_key TEXT NOT NULL, size_bytes BIGINT NOT NULL, sha256 TEXT NOT NULL, status TEXT NOT NULL,
- created_at_ms BIGINT NOT NULL, updated_at_ms BIGINT NOT NULL
+ created_at_ms BIGINT NOT NULL, updated_at_ms BIGINT NOT NULL, active_slot SMALLINT
 );
-CREATE UNIQUE INDEX game_file_active_idx ON game_file_tab(game_id,logical_key) WHERE status='active';
+CREATE UNIQUE INDEX game_file_active_idx ON game_file_tab(game_id,logical_key,active_slot);
 CREATE INDEX game_file_game_idx ON game_file_tab(game_id,status);
 CREATE INDEX game_file_cleanup_idx ON game_file_tab(status,updated_at_ms,id);
 CREATE TABLE game_media_tab (
  id TEXT PRIMARY KEY, game_id TEXT NOT NULL, kind TEXT NOT NULL, ordinal BIGINT NOT NULL,
  storage_key TEXT NOT NULL, media_type TEXT NOT NULL, width_px BIGINT, height_px BIGINT,
  size_bytes BIGINT NOT NULL, sha256 TEXT NOT NULL, status TEXT NOT NULL,
- created_at_ms BIGINT NOT NULL, updated_at_ms BIGINT NOT NULL
+ created_at_ms BIGINT NOT NULL, updated_at_ms BIGINT NOT NULL, active_slot SMALLINT
 );
-CREATE UNIQUE INDEX game_media_active_idx ON game_media_tab(game_id,kind,ordinal) WHERE status='active';
+CREATE UNIQUE INDEX game_media_active_idx ON game_media_tab(game_id,kind,ordinal,active_slot);
 CREATE INDEX game_media_game_idx ON game_media_tab(game_id,status);
 CREATE INDEX game_media_cleanup_idx ON game_media_tab(status,updated_at_ms,id);
 CREATE TABLE save_tab (
@@ -86,9 +86,9 @@ CREATE INDEX recent_game_idx ON recent_game_tab(game_id);
 CREATE TABLE bios_file_tab (
  id TEXT PRIMARY KEY, requirement_key TEXT NOT NULL, original_filename TEXT NOT NULL,
  storage_key TEXT NOT NULL, size_bytes BIGINT NOT NULL, sha256 TEXT NOT NULL, status TEXT NOT NULL,
- created_at_ms BIGINT NOT NULL, updated_at_ms BIGINT NOT NULL
+ created_at_ms BIGINT NOT NULL, updated_at_ms BIGINT NOT NULL, active_slot SMALLINT
 );
-CREATE UNIQUE INDEX bios_file_active_idx ON bios_file_tab(requirement_key) WHERE status='active';
+CREATE UNIQUE INDEX bios_file_active_idx ON bios_file_tab(requirement_key,active_slot);
 CREATE INDEX bios_file_cleanup_idx ON bios_file_tab(status,updated_at_ms,id);
 CREATE TABLE scan_progress_tab (
  id TEXT PRIMARY KEY, scan_type TEXT NOT NULL, status TEXT NOT NULL, total_count BIGINT,
@@ -100,9 +100,9 @@ CREATE INDEX scan_progress_status_idx ON scan_progress_tab(status,updated_at_ms,
 CREATE TABLE tag_tab (
  id TEXT PRIMARY KEY, name TEXT NOT NULL, name_key TEXT NOT NULL, status TEXT NOT NULL, version BIGINT NOT NULL,
  created_by_user_id TEXT NOT NULL, updated_by_user_id TEXT NOT NULL,
- created_at_ms BIGINT NOT NULL, updated_at_ms BIGINT NOT NULL
+ created_at_ms BIGINT NOT NULL, updated_at_ms BIGINT NOT NULL, active_slot SMALLINT
 );
-CREATE UNIQUE INDEX tag_active_name_idx ON tag_tab(name_key) WHERE status='active';
+CREATE UNIQUE INDEX tag_active_name_idx ON tag_tab(name_key,active_slot);
 CREATE TABLE game_tag_tab (
  game_id TEXT NOT NULL, tag_id TEXT NOT NULL, assigned_by_user_id TEXT NOT NULL, created_at_ms BIGINT NOT NULL,
  PRIMARY KEY(game_id,tag_id)

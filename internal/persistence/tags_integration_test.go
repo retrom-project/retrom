@@ -48,6 +48,13 @@ func TestTagNameConflictIsDistinctFromVersionConflict(t *testing.T) {
 	if err != nil || replacement.Version != 1 || replacement.GameCount != 0 {
 		t.Fatalf("new tag=%+v error=%v", replacement, err)
 	}
+	// Retired rows leave active_slot empty, so any number of deleted tags may share a name.
+	if err = repository.DeleteTag(ctx, replacementID, userID, 1, 7000); err != nil {
+		t.Fatal(err)
+	}
+	if err = repository.WriteTag(ctx, uuid.NewString(), userID, "Action Games", 0, 8000); err != nil {
+		t.Fatalf("name with two deleted tags was not reusable: %v", err)
+	}
 }
 
 func TestConcurrentTagNameCreatesHaveOneWinner(t *testing.T) {

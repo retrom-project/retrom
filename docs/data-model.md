@@ -1,6 +1,8 @@
 # 数据模型
 
-目标 schema 由 migrations 按编号顺序叠加得到：001_schema.sql 为初始建表，002_query_indexes.sql 补查询索引，003_content_packages.sql 增加项目包成员表和活动包唯一索引，004_file_ownership_indexes.sql 将文件归属索引覆盖到 active／deleted，005_title_order.sql 为 game_tab 增加标题字母序列并重建列表索引。新库和既有库执行同一序列，新库不跳过后续 migration。已发布的 migration 文件固化不再修改，schema 变化只能追加新编号文件。迁移不读取或重打包游戏字节。应用数据库包含以下20张业务表和schema_migrations_tab技术账本，没有FK、CHECK、用户TRIGGER、VIEW、materialized VIEW、DOMAIN或业务函数。
+目标 schema 由 migrations 按编号顺序叠加得到：001_schema.sql 为初始建表，002_query_indexes.sql 补查询索引，003_content_packages.sql 增加项目包成员表、package_slot 和活动包唯一索引，004_title_order.sql 为 game_tab 增加标题字母序列并重建列表索引。新库和既有库执行同一序列，新库不跳过后续 migration。已发布的 migration 文件固化不再修改，schema 变化只能追加新编号文件。迁移不读取或重打包游戏字节。应用数据库包含以下20张业务表和schema_migrations_tab技术账本，没有FK、CHECK、用户TRIGGER、VIEW、materialized VIEW、DOMAIN或业务函数，也没有 partial index（索引不带 WHERE 谓词，新增状态值不需要重建索引）。
+
+“同一键只有一条活动记录”由可空槽列加普通唯一索引表达：活动行的 active_slot 为 1，退休行为 NULL；PostgreSQL 唯一索引中 NULL 互不相等，因此退休行可以任意多条。唯一索引为 game_file_tab(game_id,logical_key,active_slot)、game_media_tab(game_id,kind,ordinal,active_slot)、bios_file_tab(requirement_key,active_slot)、tag_tab(name_key,active_slot)；项目包的 package_slot 仅在活动 project_package 行为 1，唯一索引为 game_file_tab(game_id,package_slot)。插入活动行和改为 deleted 的同一条语句同步写入槽列，BIOS 扫描安装以 ON CONFLICT(requirement_key,active_slot) 保持手工安装不被覆盖。
 
 | 表 | 当前事实 |
 | --- | --- |
@@ -33,7 +35,7 @@ Game状态pending_review→published→deleted→purged；拒绝待审直接dele
 
 列表先分页候选行再组装标签/媒体。按标题排序的列表以 title_sort_key,title,id 排序；全局Game索引匹配status,title_sort_key,title,id，目录索引匹配platform_instance_id,status,title_sort_key,title,id。
 
-标题字母序：title_initial 是字母分组 A–Z 或 #（拉丁字母取基础字母，忽略大小写、重音和全角；汉字取 CLDR 中文排序的拼音首字母；数字、符号、假名等归 #）。title_sort_key（COLLATE "C"）为“分组序号 + 中文排序键”，A–Z 依次在前、# 最后，同一字母内拉丁与汉字标题相邻。title_sort_name 是管理员可选的排序名，非空时代替标题参与分组和排序，用于修正多音字。title_order_version 记录计算规则版本：新增和修改 Game 在同一写入中算好三列；后端启动、对外服务前只把版本不一致的行分批重算（升级、回滚后再升级、从旧备份恢复或直接改库时才会命中），不递增 Game 版本。active／deleted storage_key和save screenshot_key索引服务活动引用与退休归属复核，清理不逐文件全表扫描。所有关系查询在SQL中限定当前user_id及可见状态。
+标题字母序：title_initial 是字母分组 A–Z 或 #（拉丁字母取基础字母，忽略大小写、重音和全角；汉字取 CLDR 中文排序的拼音首字母；数字、符号、假名等归 #）。title_sort_key（COLLATE "C"）为“分组序号 + 中文排序键”，A–Z 依次在前、# 最后，同一字母内拉丁与汉字标题相邻。title_sort_name 是管理员可选的排序名，非空时代替标题参与分组和排序，用于修正多音字。title_order_version 记录计算规则版本：新增和修改 Game 在同一写入中算好三列；后端启动、对外服务前只把版本不一致的行分批重算（升级、回滚后再升级、从旧备份恢复或直接改库时才会命中），不递增 Game 版本。storage_key和save screenshot_key的(key,status)普通索引服务活动引用与退休归属复核，清理不逐文件全表扫描。所有关系查询在SQL中限定当前user_id及可见状态。
 
 项目包的 game_file_tab.role 为 project_package，size_bytes/sha256 描述整个物理 ZIP。成员表以 (game_file_id, logical_path COLLATE "C") 为复合主键，保存 data_offset、size_bytes、sha256、media_type；没有成员 UUID、role、status、JSON 清单或独立生命周期。原生 ROM/ZIP 仍是普通物理文件，不按扩展名展开成员。一个活动项目包不能与其他活动内容文件混合。
 

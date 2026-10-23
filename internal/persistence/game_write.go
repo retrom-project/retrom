@@ -39,9 +39,9 @@ func (r *Repository) CreateGame(ctx context.Context, userID string, game model.P
 func (r *Repository) InsertFiles(ctx context.Context, gameID string, files []model.GameFile, now int64) error {
 	for _, file := range files {
 		if err := r.Execute(ctx, `INSERT INTO game_file_tab
- (id,game_id,logical_key,role,storage_key,size_bytes,sha256,status,created_at_ms,updated_at_ms)
- VALUES($1,$2,$3,$4,$5,$6,$7,'active',$8,$8)`, file.ID, gameID, file.LogicalKey, file.Role, file.StorageKey,
-			file.SizeBytes, file.SHA256, now); err != nil {
+ (id,game_id,logical_key,role,storage_key,size_bytes,sha256,status,active_slot,package_slot,created_at_ms,updated_at_ms)
+ VALUES($1,$2,$3,$4,$5,$6,$7,'active',1,CASE WHEN $4='project_package' THEN 1 END,$8,$8)`,
+			file.ID, gameID, file.LogicalKey, file.Role, file.StorageKey, file.SizeBytes, file.SHA256, now); err != nil {
 			return err
 		}
 		if err := r.insertMembers(ctx, file); err != nil {
@@ -53,8 +53,8 @@ func (r *Repository) InsertFiles(ctx context.Context, gameID string, files []mod
 
 func (r *Repository) InsertMedia(ctx context.Context, gameID string, media model.Media, now int64) error {
 	return r.Execute(ctx, `INSERT INTO game_media_tab
- (id,game_id,kind,ordinal,storage_key,media_type,size_bytes,sha256,status,created_at_ms,updated_at_ms)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,'active',$9,$9)`, media.ID, gameID, media.Kind, media.Ordinal, media.StorageKey,
+ (id,game_id,kind,ordinal,storage_key,media_type,size_bytes,sha256,status,active_slot,created_at_ms,updated_at_ms)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,'active',1,$9,$9)`, media.ID, gameID, media.Kind, media.Ordinal, media.StorageKey,
 		media.MediaType, media.SizeBytes, media.SHA256, now)
 }
 
@@ -111,7 +111,7 @@ func (r *Repository) ReplaceFiles(ctx context.Context, id string, game model.Pre
 	if tag.RowsAffected() != 1 {
 		return model.ErrConflict
 	}
-	if err = r.Execute(ctx, `UPDATE game_file_tab SET status='deleted',updated_at_ms=$2
+	if err = r.Execute(ctx, `UPDATE game_file_tab SET status='deleted',active_slot=NULL,package_slot=NULL,updated_at_ms=$2
  WHERE game_id=$1 AND status='active'`, id, now); err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (r *Repository) ReplaceFiles(ctx context.Context, id string, game model.Pre
 }
 
 func (r *Repository) DeleteMedia(ctx context.Context, gameID, mediaID string, now int64) error {
-	tag, err := r.db.Exec(ctx, `UPDATE game_media_tab SET status='deleted',updated_at_ms=$3
+	tag, err := r.db.Exec(ctx, `UPDATE game_media_tab SET status='deleted',active_slot=NULL,updated_at_ms=$3
  WHERE game_id=$1 AND id=$2 AND status='active'`, gameID, mediaID, now)
 	if err != nil {
 		return failure("delete game media", err)
@@ -156,7 +156,7 @@ func (r *Repository) ChangeMedia(ctx context.Context, id string, media model.Med
 			return err
 		}
 		media.Ordinal = ordinal
-	} else if err := r.Execute(ctx, `UPDATE game_media_tab SET status='deleted',updated_at_ms=$3
+	} else if err := r.Execute(ctx, `UPDATE game_media_tab SET status='deleted',active_slot=NULL,updated_at_ms=$3
  WHERE game_id=$1 AND kind=$2 AND status='active'`, id, media.Kind, now); err != nil {
 		return err
 	}

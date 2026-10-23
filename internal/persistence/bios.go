@@ -21,7 +21,7 @@ func (r *Repository) Bios(ctx context.Context, key string) (model.BiosFile, erro
 
 func (r *Repository) WriteBios(ctx context.Context, file model.BiosFile, now int64) error {
 	if err := r.Execute(ctx,
-		`UPDATE bios_file_tab SET status='deleted',
+		`UPDATE bios_file_tab SET status='deleted',active_slot=NULL,
 updated_at_ms=$2 WHERE requirement_key=$1 AND status='active'`,
 		file.RequirementKey,
 		now); err != nil {
@@ -35,6 +35,7 @@ storage_key,
 size_bytes,
 sha256,
 status,
+active_slot,
 created_at_ms,
 updated_at_ms)
  VALUES($1,
@@ -44,6 +45,7 @@ $4,
 $5,
 $6,
 'active',
+1,
 $7,
 $7)`,
 		file.ID,
@@ -57,7 +59,7 @@ $7)`,
 
 func (r *Repository) DeleteBios(ctx context.Context, key string, now int64) error {
 	return r.Execute(ctx,
-		`UPDATE bios_file_tab SET status='deleted',
+		`UPDATE bios_file_tab SET status='deleted',active_slot=NULL,
 updated_at_ms=$2 WHERE requirement_key=$1 AND status='active'`,
 		key,
 		now)
@@ -73,8 +75,8 @@ func (r *Repository) BiosFiles(ctx context.Context) ([]model.BiosFile, error) {
 func (r *Repository) InstallBios(ctx context.Context, file model.BiosFile, now int64) (bool, error) {
 	tag, err := r.db.Exec(ctx,
 		`INSERT INTO bios_file_tab(id,requirement_key,original_filename,storage_key,size_bytes,sha256,status,
- created_at_ms,updated_at_ms)
- VALUES($1,$2,$3,$4,$5,$6,'active',$7,$7) ON CONFLICT(requirement_key) WHERE status='active' DO NOTHING`,
+ active_slot,created_at_ms,updated_at_ms)
+ VALUES($1,$2,$3,$4,$5,$6,'active',1,$7,$7) ON CONFLICT(requirement_key,active_slot) DO NOTHING`,
 		file.ID, file.RequirementKey, file.Filename, file.StorageKey, file.SizeBytes, file.SHA256, now)
 	if err != nil {
 		return false, failure("install scanned BIOS", err)

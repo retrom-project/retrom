@@ -7,5 +7,5 @@ CREATE TABLE IF NOT EXISTS game_file_member_tab (
  media_type TEXT NOT NULL,
  PRIMARY KEY(game_file_id,logical_path)
 );
-CREATE UNIQUE INDEX IF NOT EXISTS game_file_project_package_idx ON game_file_tab(game_id)
- WHERE status='active' AND role='project_package';
+ALTER TABLE game_file_tab ADD COLUMN IF NOT EXISTS package_slot SMALLINT;
+CREATE UNIQUE INDEX IF NOT EXISTS game_file_project_package_idx ON game_file_tab(game_id,package_slot);
