@@ -333,5 +333,5 @@ while true; do
       exit "$status"
     fi
   done
-  sleep 0.1
+  sleep 10
 done
