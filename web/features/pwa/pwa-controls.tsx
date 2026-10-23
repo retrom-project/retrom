@@ -11,8 +11,8 @@ export function PwaNotice() {
   }
   if (!pwa.update) { return null; }
   return <div className="pwa-floating"><FeedbackBanner tone="info"><div className="pwa-notice">
-    <span>{pwa.updateMessage || "Retrom 有新版本，可在结束游玩后刷新更新。"}</span>
-    <button className="button secondary" disabled={pwa.updating} onClick={() => void pwa.applyUpdate()}>{pwa.updating ? "正在更新…" : "刷新更新"}</button>
+    <span>{pwa.updateMessage || "Retrom 有新版本，可在结束游玩后点击更新。"}</span>
+    <button className="button secondary" disabled={pwa.updating} onClick={() => void pwa.applyUpdate()}>{pwa.updating ? "正在更新…" : "点击更新"}</button>
   </div></FeedbackBanner></div>;
 }
 
