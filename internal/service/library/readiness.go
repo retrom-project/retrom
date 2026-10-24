@@ -67,16 +67,56 @@ func (s *Service) Readiness(ctx context.Context, p model.Principal, ids []string
 	var projections []biosProjection
 	err = s.Runtime.Call(ctx, "batch-content-bios-requirements", map[string]any{"items": inputs}, &projections)
 	if err != nil {
-		if ctx.Err() != nil {
-			return result, wrap(ctx.Err())
-		}
-		for _, position := range positions {
-			result.Items[position].Error = readinessFailure(false)
-		}
-		return result, nil
+		return readinessUnavailable(ctx, result, positions)
 	}
-	applyBIOSProjections(result.Items, positions, projections, installed)
+	unusable, err := s.unusableBIOS(ctx, projections, installed)
+	if err != nil {
+		return readinessUnavailable(ctx, result, positions)
+	}
+	applyBIOSProjections(result.Items, positions, projections, installed, unusable)
 	return result, nil
+}
+
+// readinessUnavailable reports a failed runtime inspection on every inspected item, unless the caller left.
+func readinessUnavailable(ctx context.Context, result model.List[model.ReviewReadiness], positions []int) (
+	model.List[model.ReviewReadiness], error,
+) {
+	if ctx.Err() != nil {
+		return result, wrap(ctx.Err())
+	}
+	for _, position := range positions {
+		result.Items[position].Error = readinessFailure(false)
+	}
+	return result, nil
+}
+
+// unusableBIOS verifies each installed required archive whose layout the runtime declares, once per call.
+func (s *Service) unusableBIOS(ctx context.Context, projections []biosProjection, installed []model.BiosFile,
+) (map[string]bool, error) {
+	files := make(map[string]model.BiosFile, len(installed))
+	for _, file := range installed {
+		files[file.RequirementKey] = file
+	}
+	unusable := make(map[string]bool)
+	for _, projection := range projections {
+		for _, requirement := range projection.Requirements {
+			file, exists := files[requirement.RequirementKey]
+			if _, checked := unusable[requirement.RequirementKey]; checked || !exists || !requirement.Required ||
+				len(requirement.ArchiveRoot) == 0 {
+				continue
+			}
+			location, err := s.Runtime.Locate(file.StorageKey)
+			if err != nil {
+				return nil, wrap(err)
+			}
+			verification, err := s.Runtime.VerifyBios(ctx, requirement, location)
+			if err != nil {
+				return nil, wrap(err)
+			}
+			unusable[requirement.RequirementKey] = verification.Status != "valid"
+		}
+	}
+	return unusable, nil
 }
 
 func readinessIDs(ids []string) error {
@@ -129,7 +169,7 @@ func (s *Service) readinessInput(ctx context.Context, p model.Principal, id stri
 }
 
 func applyBIOSProjections(items []model.ReviewReadiness, positions []int,
-	projections []biosProjection, installed []model.BiosFile,
+	projections []biosProjection, installed []model.BiosFile, unusable map[string]bool,
 ) {
 	keys := make(map[string]bool, len(installed))
 	for _, file := range installed {
@@ -166,7 +206,7 @@ func applyBIOSProjections(items []model.ReviewReadiness, positions []int,
 			}
 		}
 		for _, requirement := range projections[index].Requirements {
-			if requirement.Required && !keys[requirement.RequirementKey] {
+			if requirement.Required && (!keys[requirement.RequirementKey] || unusable[requirement.RequirementKey]) {
 				satisfied = false
 				item.MissingBIOS = append(item.MissingBIOS, model.ReviewMissingBIOS{
 					Key: requirement.RequirementKey, Name: requirement.LogicalName, CoreID: requirement.CoreID,

@@ -1839,6 +1839,8 @@ export interface components {
             entryPath?: string;
             /** @enum {string} */
             engine?: "RPG2000" | "RPG2003" | "RPGXP" | "RPGVX" | "RPGVXACE" | "RPGMV" | "RPGMZ";
+            /** @description Run time package the RPG Maker project's Game.ini declares, as recorded by runtime configure; runtime validates it. */
+            rtp?: string;
         };
         RuntimeCoreOptions: {
             parentFiles?: string[];
