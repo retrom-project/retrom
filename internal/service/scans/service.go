@@ -35,7 +35,8 @@ type Service struct {
 	cancel     map[string]context.CancelFunc
 	workers    sync.WaitGroup
 
-	uploadState uploads
+	uploadState  uploads
+	replacements replacements
 }
 
 func (s *Service) Inspect(ctx context.Context,
@@ -165,7 +166,7 @@ func (s *Service) run(ctx context.Context,
 				}
 				scan.ProcessedCount++
 				scan.FailedCount++
-				code := "IMPORT_FAILED"
+				code := importFailureCode(importErr)
 				scan.Error = &code
 				slog.Warn("game scan candidate failed", "scanId", scan.ID, "error", importErr)
 				s.progress(ctx, &scan)

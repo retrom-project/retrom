@@ -17,3 +17,11 @@ scripts/verify-backend-image.sh <backend-image> <web-image>验证实际两张部
 来源浏览回归覆盖未配置的绝对目录、正常目录符号链接和超过1000个子目录，扫描保留管理员认证与受管复制。正式浏览器fixture通过 `RETROM_BROWSER_SOURCE_PATH` 提供服务进程可见的绝对目录；inspect/game/bios/replace不再传来源根ID或相对选择目录。
 
 PFB候选浏览器验收可显式设置 `RETROM_ACCEPTANCE_PFB=<当前名称>`，并将 `RETROM_RUNTIME_TOOL_INPUT`、`RETROM_PROVIDER_INPUT` 指向同一PFB已构建的不可变工具快照与已验证基座。入口校验spec、分支、工具内容摘要和完整Provider基座；仍创建独立PG数据库与Redis、经正常导入和审核运行全部视口，不改变正式镜像的配套输入门禁。
+
+## 内容替换的异步验收
+
+`ACC-RF-BROWSER` 的 clean-refactor 流程通过真实合法NES来源执行内容替换：提交必须为202操作响应，按精确操作ID查询终态，刷新管理详情后仍显示当前结果，确认Game版本仅递增一次、相同内容身份不变且物理文件已切换。每个规定视口保留 `content-replacement-accepted.png`、`content-replacement-completed.png` 与操作JSON；小fixture允许接收截图已处于完成态，不能伪造排队或转换状态。
+
+大项目的补充产品验收须同时创建扫描与不同游戏的内容替换，以真实服务进度观察queued/running、取消中及terminal；记录每项操作ID、Game版本、canCancel、旧新内容身份和实际画面。截图清单使用actualScreenshots字段指向真实页面文件，至少覆盖390×844手机与2560×1440/DPR1.5，并同时完成ACC-RF-BROWSER全部四视口。发布阶段应无取消入口；失败、取消、过期和重启中断应可核对结果，不能仅检查202或标题画面。
+
+服务测试使用独立PostgreSQL验证请求结束后继续准备、版本/CAS冲突、一次发布、COMMIT未知复核、原挂载来源不变及本次受管暂存清理；排队容量、即时取消释放、公平顺序和服务停止由确定性调度测试覆盖。组件测试覆盖接收不报成功、刷新恢复、完成才刷新资料、取消等待清理、publishing禁取消、终态停止轮询、读失败重试与过期提示。最终门禁仍包括backend-check、独立PG integration-test、web-check、api-check、web-ui-check及真实浏览器验收，聚焦测试不能替代最终门禁。

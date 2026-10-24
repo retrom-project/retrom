@@ -24,15 +24,8 @@ test("retains the development indicator during ordinary development", async () =
 });
 
 describe("backend rewrite proxy limits", () => {
-  test("allows content replacement to finish within the backend's ninety-minute budget", async () => {
-    const contentReplacementBudgetMs = 90 * 60_000;
-
-    expect(nextConfig.experimental?.proxyTimeout).toBeGreaterThan(
-      contentReplacementBudgetMs,
-    );
-    expect(nextConfig.experimental?.proxyTimeout).toBeLessThanOrEqual(
-      contentReplacementBudgetMs + 5 * 60_000,
-    );
+  test("keeps replacement submission on the ordinary bounded proxy instead of waiting for content preparation", async () => {
+    expect(nextConfig.experimental?.proxyTimeout).toBe(300_000);
     expect(await nextConfig.rewrites?.()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ source: "/api/:path*" }),

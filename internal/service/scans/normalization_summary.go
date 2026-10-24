@@ -21,6 +21,7 @@ type normalizationSummary struct {
 	FormatCounts           map[string]int64       `json:"formatCounts"`
 	Warnings               []normalizationWarning `json:"warnings"`
 	Details                []normalizationDetail  `json:"details,omitempty"`
+	Plugins                []normalizationPlugin  `json:"plugins"`
 }
 
 type normalizationWarning struct {
@@ -58,6 +59,16 @@ func validateNormalizationSummary(summary *normalizationSummary) error {
 		len(summary.FormatCounts) > 8 || len(summary.Warnings) > 8 {
 		return model.ErrInvalid
 	}
+	if err := validateNormalizationMetrics(summary); err != nil {
+		return err
+	}
+	if err := validateNormalizationPlugins(summary.Plugins); err != nil {
+		return err
+	}
+	return validateNormalizationDetails(summary)
+}
+
+func validateNormalizationMetrics(summary *normalizationSummary) error {
 	counts := []int64{
 		summary.ArchiveCount, summary.VerifiedEntries,
 		summary.MetadataCorrections, summary.OmittedPhysicalEntries,
@@ -77,7 +88,7 @@ func validateNormalizationSummary(summary *normalizationSummary) error {
 			return model.ErrInvalid
 		}
 	}
-	return validateNormalizationDetails(summary)
+	return nil
 }
 
 func validateNormalizationDetails(summary *normalizationSummary) error {

@@ -20,6 +20,7 @@ func TestNormalizationSummaryIsOptionalBoundedDiagnostics(t *testing.T) {
 		Kind: "FORMAT_FAMILY", ConverterVersion: 1, SourceContentHash: strings.Repeat("a", 64),
 		ArchiveCount: 2, VerifiedEntries: 20, MetadataCorrections: 1, OmittedPhysicalEntries: 1,
 		FormatCounts: map[string]int64{"format": 2}, Warnings: []normalizationWarning{{Code: "METADATA_CORRECTED", Count: 1}},
+		Plugins: []normalizationPlugin{testNormalizationPlugin()},
 	}
 	if err := validateNormalizationSummary(&summary); err != nil {
 		t.Fatal(err)
@@ -155,6 +156,7 @@ func decodeNormalizationAudit(details any) (*normalizationSummary, error) {
 	body, err := json.Marshal(map[string]any{
 		"kind": "FORMAT_FAMILY", "converterVersion": 1,
 		"sourceContentHash": strings.Repeat("a", 64), "details": details,
+		"plugins": []normalizationPlugin{testNormalizationPlugin()},
 	})
 	if err != nil {
 		return nil, err

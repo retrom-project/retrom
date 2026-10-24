@@ -26,14 +26,15 @@ const (
 var errOutputLimit = errors.New("runtime message exceeds limit")
 
 type workerPool struct {
-	context   context.Context
-	cancel    context.CancelFunc
-	root      string
-	node      string
-	admission chan struct{}
-	sequence  atomic.Uint64
-	mutex     sync.Mutex
-	process   *sharedProcess
+	context       context.Context
+	cancel        context.CancelFunc
+	root          string
+	node          string
+	interactive   *requestLane
+	normalization *requestLane
+	sequence      atomic.Uint64
+	mutex         sync.Mutex
+	process       *sharedProcess
 }
 
 type runtimeResponse struct {
@@ -54,15 +55,22 @@ type sharedProcess struct {
 	stopped chan struct{}
 	once    sync.Once
 	mutex   sync.Mutex
-	pending map[string]chan runtimeResponse
+	pending map[string]*pendingRequest
 	failure error
+}
+
+type pendingRequest struct {
+	completed chan runtimeResponse
+	release   func()
 }
 
 func newWorkerPool(ctx context.Context, root, node string) *workerPool {
 	lifetime, cancel := context.WithCancel(ctx)
+	interactive := newRequestLane(interactiveExecutions, maximumPending)
 	return &workerPool{
 		context: lifetime, cancel: cancel, root: root, node: node,
-		admission: make(chan struct{}, maximumPending),
+		interactive:   interactive,
+		normalization: newRequestLane(normalizationExecutions, maximumNormalizationPending),
 	}
 }
 
@@ -80,54 +88,77 @@ func (p *workerPool) Close() {
 func (p *workerPool) Call(ctx context.Context, command string, input, output any) error {
 	bounded, cancel := context.WithTimeout(ctx, commandTimeout(command))
 	defer cancel()
-	select {
-	case p.admission <- struct{}{}:
-	case <-bounded.Done():
+	if bounded.Err() != nil {
 		return fmt.Errorf("runtime admission: %w", bounded.Err())
-	case <-p.context.Done():
+	}
+	if p.context.Err() != nil {
 		return fmt.Errorf("runtime stopped: %w", model.ErrUnavailable)
 	}
-	defer func() { <-p.admission }()
+	lane := p.interactive
+	if command == "normalize-content" {
+		lane = p.normalization
+	}
+	lease, err := lane.reserve()
+	if err != nil {
+		return err
+	}
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			lease.release()
+		}
+	}()
 	if input == nil {
 		input = map[string]any{}
 	}
 	id := strconv.FormatUint(p.sequence.Add(1), 10)
-	encoded, err := json.Marshal(map[string]any{"id": id, "command": command, "input": input})
+	encoded, err := lease.encode(bounded, p.context, id, command, input)
 	if err != nil {
-		return fmt.Errorf("runtime input: %w", err)
+		if p.context.Err() != nil {
+			return fmt.Errorf("runtime stopped: %w", model.ErrUnavailable)
+		}
+		return err
 	}
-	if len(encoded) > maximumMessage {
-		return errOutputLimit
+	if err := lease.wait(bounded, p.context); err != nil {
+		if p.context.Err() != nil {
+			return fmt.Errorf("runtime stopped: %w", model.ErrUnavailable)
+		}
+		return fmt.Errorf("runtime admission: %w", err)
 	}
 	process, err := p.current()
 	if err != nil {
 		return err
 	}
-	if err := process.exchange(bounded, id, encoded, output); err != nil {
+	handedOff = true
+	if err := process.exchange(bounded, id, encoded, output, lease.release); err != nil {
 		return fmt.Errorf("runtime %s: %w", command, err)
 	}
 	return nil
 }
 
-func (process *sharedProcess) exchange(ctx context.Context, id string, encoded []byte, output any) error {
+func (process *sharedProcess) exchange(ctx context.Context, id string, encoded []byte,
+	output any, release func(),
+) error {
 	var err error
 	completed := make(chan runtimeResponse, 1)
 	process.mutex.Lock()
 	if process.failure != nil {
 		err = process.failure
 	} else {
-		process.pending[id] = completed
+		process.pending[id] = &pendingRequest{completed: completed, release: release}
 	}
 	process.mutex.Unlock()
 	if err != nil {
+		release()
 		return err
 	}
-	defer process.forget(id)
 	select {
 	case process.writes <- append(encoded, '\n'):
 	case <-process.done:
+		process.forget(id)
 		return process.reason()
 	case <-ctx.Done():
+		process.forget(id)
 		return fmt.Errorf("runtime request cancelled: %w", ctx.Err())
 	}
 	select {
@@ -143,7 +174,6 @@ func (process *sharedProcess) exchange(ctx context.Context, id string, encoded [
 		}
 		return nil
 	case <-ctx.Done():
-		process.forget(id)
 		process.cancelRequest(id)
 		return fmt.Errorf("runtime request cancelled: %w", ctx.Err())
 	case <-process.owner.context.Done():
@@ -192,7 +222,7 @@ func (p *workerPool) current() (*sharedProcess, error) {
 	process := &sharedProcess{
 		owner: p, command: command, input: input, output: bufio.NewReaderSize(output, 64*1024),
 		writes: make(chan []byte, maximumPending*2), done: make(chan struct{}),
-		stopped: make(chan struct{}), pending: make(map[string]chan runtimeResponse),
+		stopped: make(chan struct{}), pending: make(map[string]*pendingRequest),
 	}
 	p.process = process
 	go process.writeRequests()
@@ -202,8 +232,12 @@ func (p *workerPool) current() (*sharedProcess, error) {
 
 func (p *sharedProcess) forget(id string) {
 	p.mutex.Lock()
+	request := p.pending[id]
 	delete(p.pending, id)
 	p.mutex.Unlock()
+	if request != nil {
+		request.release()
+	}
 }
 
 func (p *sharedProcess) cancelRequest(id string) {
@@ -226,10 +260,8 @@ func (p *sharedProcess) fail(err error) {
 	p.once.Do(func() {
 		p.mutex.Lock()
 		p.failure = err
-		for id, completed := range p.pending {
-			completed <- runtimeResponse{failure: err}
-			delete(p.pending, id)
-		}
+		pending := p.pending
+		p.pending = make(map[string]*pendingRequest)
 		close(p.done)
 		p.mutex.Unlock()
 		p.owner.mutex.Lock()
@@ -239,6 +271,10 @@ func (p *sharedProcess) fail(err error) {
 		p.owner.mutex.Unlock()
 		_ = p.command.Process.Kill()
 		_ = p.input.Close()
+		for _, request := range pending {
+			request.release()
+			request.completed <- runtimeResponse{failure: err}
+		}
 	})
 }
 
@@ -278,12 +314,13 @@ func (p *sharedProcess) readResponses() {
 			return
 		}
 		p.mutex.Lock()
-		completed := p.pending[response.ID]
+		request := p.pending[response.ID]
 		delete(p.pending, response.ID)
-		if completed != nil {
-			completed <- response
-		}
 		p.mutex.Unlock()
+		if request != nil {
+			request.release()
+			request.completed <- response
+		}
 		// Responses from cancelled requests are deliberately discarded.
 	}
 }

@@ -97,6 +97,39 @@ func TestRejectedNormalizationAndCancellationRetainMountedSource(t *testing.T) {
 	assertNoStaging(t, s)
 }
 
+func TestMatchedConverterFailureReportsStageAndNeverPublishesSourceFallback(t *testing.T) {
+	s, f, source, originals := normalizedSourceFixture(t, false)
+	// A recognizable embedded project with a bad member checksum matches the
+	// converter, then fails verification. It must not fall back to the executable.
+	body := originals["fixture.exe"]
+	at := bytes.LastIndex(body, []byte{'P', 'K', 1, 2})
+	if at < 0 {
+		t.Fatal("fixture central directory absent")
+	}
+	body[at+16] ^= 1
+	if err := os.WriteFile(filepath.Join(source, "fixture.exe"), body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root, err := s.Sources.Open(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeRoot(root)
+	scan := normalizationScan(t, f)
+	err = s.importGame(t.Context(), root, f.Principal, ".", Candidate{Input: f.Game.Input, Files: []string{"fixture.exe"}},
+		model.SourceMapping{DirectoryID: f.DirectoryID}, &scan, nil)
+	var contentError *model.RuntimeContentError
+	if !errors.As(err, &contentError) || contentError.Code != "CONTENT_NORMALIZATION_FAILED" ||
+		importFailureCode(err) != "CONTENT_NORMALIZATION_FAILED" {
+		t.Fatalf("matched conversion failure lost: %v", err)
+	}
+	if count, readErr := f.Repository.Count(t.Context(), "SELECT count(*) FROM game_tab"); readErr != nil || count != 0 {
+		t.Fatalf("matched failure published fallback: count=%d err=%v", count, readErr)
+	}
+	assertSourceUnchanged(t, source, originals)
+	assertNoStaging(t, s)
+}
+
 func normalizedSourceFixture(t *testing.T, invalid bool) (*Service, testsupport.Fixture, string, map[string][]byte) {
 	t.Helper()
 	f := testsupport.Library(t)

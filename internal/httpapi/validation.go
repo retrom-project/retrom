@@ -15,7 +15,6 @@ import (
 
 	"retrom/internal/httpapi/generated"
 	"retrom/internal/model"
-	"retrom/internal/service/scans"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -212,10 +211,6 @@ func uniqueValue(decoder *json.Decoder, depth int) error {
 }
 
 func boundedRequest(r *http.Request) (*http.Request, context.CancelFunc) {
-	budget := 10 * time.Minute
-	if r.Pattern == "POST /api/v1/admin/games/{gameId}/content-replacement" {
-		budget = scans.ContentPreparationTimeout
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), budget)
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
 	return r.WithContext(ctx), cancel
 }

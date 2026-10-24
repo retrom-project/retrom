@@ -9,13 +9,13 @@ import (
 	"time"
 )
 
-func TestContentReplacementBudgetIncludesNormalizationAndVerifiedPublication(t *testing.T) {
+func TestContentReplacementSubmissionUsesOrdinaryHTTPBudget(t *testing.T) {
 	t.Parallel()
 	for _, item := range []struct {
 		pattern string
 		want    time.Duration
 	}{
-		{"POST /api/v1/admin/games/{gameId}/content-replacement", 90 * time.Minute},
+		{"POST /api/v1/admin/games/{gameId}/content-replacement", 10 * time.Minute},
 		{"POST /api/v1/admin/games/{gameId}/parents", 10 * time.Minute},
 		{"GET /api/v1/games", 10 * time.Minute},
 		{"", 10 * time.Minute},

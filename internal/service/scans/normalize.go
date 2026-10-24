@@ -48,19 +48,19 @@ func (s *Service) normalize(ctx context.Context, id, platform string,
 		"platformId": platform,
 		"files":      runtimeclient.Files(files), "locators": locators, "outputRoot": absolute,
 	}, &output); err != nil {
-		return nil, wrap(err)
+		return nil, normalizationFailure(err)
 	}
 	if err = validateNormalizedFiles(output.Files); err != nil {
-		return nil, err
+		return nil, normalizationFailure(err)
 	}
 	if err = validateNormalizationSummary(output.Normalization); err != nil {
-		return nil, err
+		return nil, normalizationFailure(err)
 	}
 	result := make([]model.ContentFile, 0, len(output.Files))
 	for _, file := range output.Files {
 		value, importErr := s.normalizedFile(ctx, id, key, absolute, file, original)
 		if importErr != nil {
-			return nil, importErr
+			return nil, normalizationFailure(importErr)
 		}
 		result = append(result, value)
 	}

@@ -3161,6 +3161,120 @@
             "nullable": true
           }
         }
+      },
+      "ContentReplacementResult": {
+        "type": "object",
+        "nullable": true,
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "contentHash"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "contentHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "ContentReplacementError": {
+        "type": "object",
+        "nullable": true,
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ContentReplacement": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Latest temporary content replacement for one game. No historical job list; superseded IDs and expired progress return 404. Publishing cannot be cancelled.",
+        "required": [
+          "id",
+          "gameId",
+          "status",
+          "phase",
+          "canCancel",
+          "result",
+          "error",
+          "createdAtMs",
+          "updatedAtMs",
+          "expiresAtMs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gameId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "canceling",
+              "completed",
+              "failed",
+              "cancelled",
+              "interrupted"
+            ]
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "preparing",
+              "normalizing",
+              "configuring",
+              "packaging",
+              "publishing",
+              "completed"
+            ]
+          },
+          "canCancel": {
+            "type": "boolean"
+          },
+          "result": {
+            "$ref": "#/components/schemas/ContentReplacementResult"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ContentReplacementError"
+          },
+          "createdAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "updatedAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "expiresAtMs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
       }
     }
   }

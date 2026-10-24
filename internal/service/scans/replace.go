@@ -8,71 +8,94 @@ import (
 
 	"retrom/internal/model"
 	"retrom/internal/persistence"
-
-	"github.com/google/uuid"
 )
 
-func (s *Service) Replace(ctx context.Context, p model.Principal, id, sourcePath string,
-	version int64,
-) (model.GameDetail, error) {
-	if err := p.Admin(); err != nil {
-		return model.GameDetail{}, wrap(err)
-	}
-	if version < 1 {
-		return model.GameDetail{}, model.ErrInvalid
-	}
-	old, err := s.Repository.GameDetail(ctx, p.User.ID, id, "published")
+func (s *Service) prepareReplacement(ctx context.Context, task *replacementTask) error {
+	id, version := task.session.Progress.GameID, task.version
+	old, err := s.Repository.GameDetail(ctx, task.principal.User.ID, id, "published")
 	if err != nil {
-		return old, wrap(err)
+		return wrap(err)
+	}
+	if old.Game.Version != version {
+		return model.ErrConflict
 	}
 	directory, err := s.Repository.Directory(ctx, old.Game.PlatformInstanceID)
 	if err != nil {
-		return old, wrap(err)
+		return wrap(err)
 	}
-	root, name, err := s.Sources.OpenContent(sourcePath)
+	if !directory.Enabled {
+		return model.ErrInvalid
+	}
+	game, err := s.buildReplacement(ctx, task, old, directory)
 	if err != nil {
-		return old, wrap(err)
+		return err
 	}
-	defer closeRoot(root)
-	operation := uuid.NewString()
-	defer s.removeStaging(operation)
-	files, err := s.content(ctx, root, operation, []string{filepath.ToSlash(name)}, directory, nil)
-	if err != nil {
-		return old, err
-	}
-	files, err = s.normalize(ctx, operation, directory.PlatformID, files)
-	if err != nil {
-		return old, err
-	}
-	config, err := s.configure(ctx, directory, files)
-	if err != nil {
-		return old, err
-	}
-	config, err = retainDOSProgram(old.RuntimeConfig, config)
-	if err != nil {
-		return old, err
-	}
-	prepared, err := s.Runtime.Identity(ctx, directory, config, files, "")
-	if err != nil {
-		return old, wrap(err)
-	}
-	physical, err := s.finalizeContent(ctx, id, directory, config, files)
-	if err != nil {
-		return old, err
-	}
-	game := model.PreparedGame{
-		ID: id, Input: model.GameInput{Version: version, RuntimeConfig: config},
-		Files: physical, ContentHash: prepared.ROMHash,
+	physical := game.Files
+	if err = s.beginReplacementPublication(ctx, task, physical[0].ID,
+		model.ContentReplacementResult{Version: version + 1, ContentHash: game.ContentHash}); err != nil {
+		s.removePrepared(physical)
+		return err
 	}
 	err = s.Repository.Transaction(ctx, func(r *persistence.Repository) error {
 		return wrap(r.ReplaceFiles(ctx,
 			id, game, s.Now().UnixMilli()))
 	})
 	if err = s.finishReplacement(ctx, id, physical, err); err != nil {
-		return old, err
+		return err
 	}
-	result, err := s.Repository.GameDetail(ctx, p.User.ID, id, "published")
-	return result, wrap(err)
+	return nil
+}
+
+// buildReplacement performs source reads, normalization and physical publication
+// outside the Game CAS transaction. All source content stays read-only.
+func (s *Service) buildReplacement(ctx context.Context, task *replacementTask,
+	old model.GameDetail, directory model.Directory,
+) (model.PreparedGame, error) {
+	root, name, err := s.Sources.OpenContent(task.sourcePath)
+	if err != nil {
+		return model.PreparedGame{}, wrap(err)
+	}
+	defer closeRoot(root)
+	operation := task.session.Progress.ID
+	defer s.removeStaging(operation)
+	files, err := s.content(ctx, root, operation, []string{filepath.ToSlash(name)}, directory, nil)
+	if err != nil {
+		return model.PreparedGame{}, err
+	}
+	if err = s.replacementPhase(ctx, task, "normalizing"); err != nil {
+		return model.PreparedGame{}, err
+	}
+	files, err = s.normalize(ctx, operation, directory.PlatformID, files)
+	if err != nil {
+		return model.PreparedGame{}, err
+	}
+	if err = s.replacementPhase(ctx, task, "configuring"); err != nil {
+		return model.PreparedGame{}, err
+	}
+	config, err := s.configure(ctx, directory, files)
+	if err != nil {
+		return model.PreparedGame{}, err
+	}
+	config, err = retainDOSProgram(old.RuntimeConfig, config)
+	if err != nil {
+		return model.PreparedGame{}, err
+	}
+	prepared, err := s.Runtime.Identity(ctx, directory, config, files, "")
+	if err != nil {
+		return model.PreparedGame{}, wrap(err)
+	}
+	if err = s.replacementPhase(ctx, task, "packaging"); err != nil {
+		return model.PreparedGame{}, err
+	}
+	physical, err := s.finalizeContent(ctx, task.session.Progress.GameID, directory, config, files)
+	if err != nil {
+		return model.PreparedGame{}, err
+	}
+	game := model.PreparedGame{
+		ID: task.session.Progress.GameID, Input: model.GameInput{Version: task.version, RuntimeConfig: config},
+		Files: physical, ContentHash: prepared.ROMHash,
+	}
+	return game, nil
 }
 
 func (s *Service) finishReplacement(ctx context.Context, id string, files []model.GameFile, commitErr error) error {
