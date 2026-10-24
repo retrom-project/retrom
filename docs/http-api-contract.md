@@ -22,6 +22,8 @@ GameDetail.files 表示受管物理文件，项目的单条记录 role 为 proje
 
 正式 Provider 资源 `/runtime/providers/{providerId}/{bundleSha256}/{asset}` 始终返回该已安装 Bundle 的原始内容。不超过 8 MiB 且扩展名为 `.js`、`.mjs`、`.json`、`.css`、`.html`、`.svg`、`.png`、`.jpg`、`.woff`、`.woff2`、`.ttf`、`.otf` 或 `.ico` 的资源采用 `private, max-age=31536000, immutable, no-transform`；Wasm、核心归档及其他资源采用 `private, no-store, no-transform`，可由 Runtime 的摘要缓存复用。授权及资产允许列表仍在服务端校验。
 
+正式及开发 Provider 资源由后端统一返回 `Cross-Origin-Embedder-Policy: require-corp` 与 `Cross-Origin-Resource-Policy: same-origin`，使 Worker 入口保持宿主的跨源隔离策略；GET、HEAD、Range 和 304 响应均保留这些头。部署网关无需额外补齐该策略。
+
 PFB 开发资源采用 `/runtime/providers/{providerId}/{bundleSha256}/dev/{moduleSha256}/{asset}`，精确匹配当前开发模块摘要，返回 `private, no-store, no-transform`。覆盖层未修改的资源读取同一已安装 Bundle；旧开发摘要返回 404。Envelope 的 runtime base、入口模块和 bridge 必须属于同一正式或开发路径，正式 URL 不读取开发覆盖层。
 
 存档checkpoint payload保持不透明。可选截图接受实际PNG/JPEG字节，检查大小及图像尺寸后原样保存；不以上传文件名推断格式，不把JPEG伪报为PNG。截图读取按实际字节返回MediaType；设为游戏封面沿用公共媒体上传边界。multipart metadata仍按权威SaveCommitMetadata校验，包括必需但可为null的slot。
