@@ -70,8 +70,9 @@
 .runtime-core strong, .runtime-core small, .runtime-usage strong, .runtime-usage small, .runtime-dat-content strong, .runtime-dat-content small { display: block; }
 .runtime-core strong, .runtime-usage strong, .runtime-dat-content strong { font-size: var(--text-caption); }
 .runtime-core small, .runtime-usage small, .runtime-dat-content small { margin-top: 3px; color: var(--muted); font-size: var(--text-caption); }
-.runtime-row-actions { position: relative; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
-.runtime-row-actions .button { white-space: nowrap; }
+/* One column sized by the widest label, so the row's actions share a width. */
+.runtime-row-actions { position: relative; display: grid; grid-template-columns: max-content; justify-content: center; align-items: center; gap: 6px; }
+.runtime-row-actions .button { width: 100%; white-space: nowrap; }
 .runtime-no-action { color: var(--muted); font-size: var(--text-caption); }
 .runtime-inline-empty { min-height: 220px; padding: 30px; display: grid; place-items: center; align-content: center; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius-panel); background: var(--surface); }
 .runtime-inline-empty.compact { min-height: 142px; }
