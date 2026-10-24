@@ -194,6 +194,12 @@ export type RuntimeEventV1 =
   /** Live runtime is closing; final files remain usable after exit without another checkpoint call. */
   | { type: "EXIT_REQUESTED"; finalSnapshot?: RuntimeFinalSnapshotV1 }
   | { type: "FATAL_ERROR"; failure: RuntimeFailureV1 }
+  /**
+   * On-demand game content is waiting for the network (WAITING): the core is blocked on a read that is
+   * retried until the network returns. RESTORED follows once every waiting read has succeeded again.
+   * Neither state ends the runtime; the Host decides whether to keep waiting or exit.
+   */
+  | { type: "CONTENT_NETWORK"; state: "WAITING" | "RESTORED" }
   | { type: "DIAGNOSTIC"; code: string; message: string };
 
 export type RuntimeEventListenerV1 = (event: RuntimeEventV1) => void;

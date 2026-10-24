@@ -61,7 +61,7 @@ function Session({
   onNativeChange = () => undefined,
   startAllowed = true,
 }: SessionProps) {
-  const { mount, state, error } = usePlayerSession(
+  const { mount, state, error, networkWaiting } = usePlayerSession(
     run,
     onNativeChange,
     () => undefined,
@@ -72,7 +72,7 @@ function Session({
     async () => {},
     startAllowed,
   );
-  return <div ref={mount}>{state}{error ? <p role="alert">{error}</p> : null}</div>;
+  return <div ref={mount}>{state}{error ? <p role="alert">{error}</p> : null}{networkWaiting ? <p>network-waiting</p> : null}</div>;
 }
 
 it.each([true, false])("shows a useful failure and never replaces native evidence with the rejected mount code: native=%s", async native => {
@@ -223,4 +223,23 @@ it("exports teardown through the original owner's callback before a new owner mo
   expect(first.exit).toHaveBeenCalledOnce();
   view.unmount();
   await waitFor(() => expect(next.exit).toHaveBeenCalledOnce());
+});
+
+it("shows a network wait while content reads retry and clears it on recovery or failure", async () => {
+  const instance = runningRuntime();
+  let receive: (event: RuntimeEventV1) => void = () => undefined;
+  instance.subscribe = listener => {receive = listener; return () => undefined;};
+  vi.mocked(loadProviderRuntime).mockResolvedValue(instance);
+  const view = render(<Session run={sessionRun()} userId="owner-a" onSnapshot={vi.fn(async () => undefined)} />);
+  await waitFor(() => expect(instance.mount).toHaveBeenCalledOnce());
+  act(() => receive({type: "CONTENT_NETWORK", state: "WAITING"}));
+  expect(screen.getByText("network-waiting")).toBeInTheDocument();
+  act(() => receive({type: "CONTENT_NETWORK", state: "RESTORED"}));
+  expect(screen.queryByText("network-waiting")).toBeNull();
+  act(() => receive({type: "CONTENT_NETWORK", state: "WAITING"}));
+  act(() => receive({type: "FATAL_ERROR", failure: {code: "PLAYER_CONTENT_REJECTED", category: "NETWORK", phase: "PLAYING", retryable: false,
+    diagnostics: []}}));
+  expect(screen.queryByText("network-waiting")).toBeNull();
+  expect(instance.exit).not.toHaveBeenCalled();
+  view.unmount();
 });
