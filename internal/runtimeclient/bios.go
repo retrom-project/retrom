@@ -22,6 +22,15 @@ type BiosRequirement struct {
 	VirtualPath       *string           `json:"virtualPath"`
 	ActivationOptions map[string]string `json:"activationOptions"`
 	Members           []BiosMember      `json:"members,omitempty"`
+	// ResourceRole is the Launch resource role of a SEEKABLE_BLOB requirement; the host does not interpret it.
+	ResourceRole string `json:"resourceRole,omitempty"`
+	// ArchiveRoot lists directories the installed archive must hold at its root; the runtime verifies them.
+	ArchiveRoot []string `json:"archiveRoot,omitempty"`
+}
+
+// Verifiable reports whether the runtime can check an installed file beyond its presence.
+func (r BiosRequirement) Verifiable() bool {
+	return len(r.Members) > 0 || len(r.ArchiveRoot) > 0
 }
 
 type BiosMember struct {

@@ -21,6 +21,8 @@ func (s *Service) bios(ctx context.Context,
 	requirements := prepared.BiosRequirements
 	seen := make(map[string]bool, len(requirements))
 	groups := make(map[string][]map[string]any)
+	var blobs []map[string]any
+	ordinals := make(map[string]int)
 	for _, requirement := range requirements {
 		if seen[requirement.RequirementKey] {
 			continue
@@ -49,6 +51,15 @@ func (s *Service) bios(ctx context.Context,
 			MediaType:   "application/octet-stream",
 		}
 		run.Files = append(run.Files, entry)
+		if requirement.Delivery == "SEEKABLE_BLOB" {
+			// One Range resource per file, in the role the runtime declared for it.
+			blobs = append(blobs, map[string]any{
+				"role": requirement.ResourceRole, "kind": "SEEKABLE_BLOB", "ordinal": ordinals[requirement.ResourceRole],
+				"url": ResourceURL(run.Run.ID, entry), "sha256": file.SHA256, "sizeBytes": file.SizeBytes, "rangeRequired": true,
+			})
+			ordinals[requirement.ResourceRole]++
+			continue
+		}
 		virtual := requirement.LogicalName
 		if requirement.VirtualPath != nil {
 			virtual = *requirement.VirtualPath
@@ -77,12 +88,12 @@ func (s *Service) bios(ctx context.Context,
 			result = append(result, map[string]any{"role": role, "kind": resourceKind, "ordinal": 0, "files": files})
 		}
 	}
-	return result, nil
+	return append(result, blobs...), nil
 }
 
 func (s *Service) verifyBios(ctx context.Context, requirement runtimeclient.BiosRequirement, file model.BiosFile,
 ) error {
-	if !requirement.Required || len(requirement.Members) == 0 {
+	if !requirement.Required || !requirement.Verifiable() {
 		return nil
 	}
 	location, err := s.Storage.Absolute(file.StorageKey)

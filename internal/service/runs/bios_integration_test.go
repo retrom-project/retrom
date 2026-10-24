@@ -58,3 +58,31 @@ func TestBIOSDeliveryUsesDeclaredResourceRoles(t *testing.T) {
 		t.Fatalf("firmware delivery contradicts Target roles: %v", resources)
 	}
 }
+
+func TestSeekableBIOSDeliveryUsesTheRuntimeDeclaredRole(t *testing.T) {
+	t.Parallel()
+	service := &Service{Repository: testsupport.Database(t)}
+	id := uuid.NewString()
+	key := "retrom-runtime/rpgmaker-xp/Standard.zip"
+	file := model.BiosFile{
+		ID: id, RequirementKey: key, Filename: "Standard.zip",
+		StorageKey: "bios/" + id + "/file", SHA256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", SizeBytes: 4096,
+	}
+	if err := service.Repository.WriteBios(t.Context(), file, 1); err != nil {
+		t.Fatal(err)
+	}
+	prepared := runtimeclient.Prepared{BiosRequirements: []runtimeclient.BiosRequirement{{
+		RequirementKey: key, LogicalName: "Standard.zip", Delivery: "SEEKABLE_BLOB", Required: true, ResourceRole: "rtp",
+	}}}
+	run := &Context{Run: model.Run{ID: uuid.NewString()}}
+	resources, err := service.bios(t.Context(), run, prepared, nil)
+	if err != nil || len(resources) != 1 || len(run.Files) != 1 {
+		t.Fatalf("seekable BIOS resource assembly failed: %v %v", resources, err)
+	}
+	resource := resources[0]
+	if resource["role"] != "rtp" || resource["kind"] != "SEEKABLE_BLOB" || resource["ordinal"] != 0 ||
+		resource["rangeRequired"] != true || resource["sha256"] != file.SHA256 || resource["sizeBytes"] != file.SizeBytes ||
+		resource["url"] != ResourceURL(run.Run.ID, run.Files[0]) || resource["files"] != nil {
+		t.Fatalf("seekable BIOS was not delivered as one Range resource of its declared role: %v", resource)
+	}
+}
