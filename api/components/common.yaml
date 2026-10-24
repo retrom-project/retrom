@@ -2142,6 +2142,11 @@
               "RPGMV",
               "RPGMZ"
             ]
+          },
+          "rtp": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Run time package the RPG Maker project's Game.ini declares, as recorded by runtime configure; runtime validates it."
           }
         }
       },

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"retrom/internal/httpapi/generated"
 	"retrom/internal/model"
 )
 
@@ -205,5 +206,22 @@ func TestContractLeavesUploadChunksToTheirHandlerAndBoundsUploadDeclarations(t *
 	inspect.Header.Set("Content-Type", "application/json")
 	if err = validate(inspect); err != nil {
 		t.Fatalf("inspect an upload error=%v", err)
+	}
+}
+
+func TestContractAcceptsTheRecordedRPGMakerRTPInSavedContent(t *testing.T) {
+	t.Parallel()
+	spec, err := generated.GetSwagger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := spec.Components.Schemas["RuntimeContent"].Value
+	content := map[string]any{"kind": "RPG_MAKER_PROJECT", "entryFile": "Game.ini", "engine": "RPGXP", "rtp": "Standard"}
+	if err = schema.VisitJSON(content); err != nil {
+		t.Fatalf("saved content with its recorded RTP was rejected: %v", err)
+	}
+	content["unknown"] = true
+	if err = schema.VisitJSON(content); err == nil {
+		t.Fatal("RuntimeContent accepted an undeclared field")
 	}
 }

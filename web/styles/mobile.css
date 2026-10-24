@@ -324,8 +324,7 @@
   .runtime-bios-file h3,
   .runtime-dat-main h3,
   .runtime-bios-inspect { white-space: normal; overflow-wrap: anywhere; }
-  .runtime-row-actions { justify-content: stretch; }
-  .runtime-row-actions .button { width: 100%; }
+  .runtime-row-actions { grid-template-columns: minmax(0, 1fr); }
   .runtime-section-heading { align-items: flex-start; flex-direction: column; }
   .runtime-diff-table { overflow: visible; }
   .runtime-diff-table table,

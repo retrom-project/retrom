@@ -55,7 +55,7 @@ func (s *Service) List(ctx context.Context) ([]model.BiosRequirement, error) {
 			value.Filename = file.Filename
 			value.SizeBytes = file.SizeBytes
 			value.SHA256 = file.SHA256
-			if len(req.Members) > 0 {
+			if req.Verifiable() {
 				value.Verification, err = s.verify(ctx, req, file)
 				if err != nil {
 					return nil, err
