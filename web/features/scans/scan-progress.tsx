@@ -6,6 +6,7 @@ import { ResourceState } from "@/components/resource-state";
 import { BrowserTime } from "@/components/browser-time";
 import styles from "./scan.module.css";
 import { useToast } from "@/components/toast-provider";
+import { scanErrorMessage } from "./scan-error";
 export function scanDestination(type: "game" | "bios", scanId: string) {
   return type === "game" ? `/admin/reviews?scanId=${encodeURIComponent(scanId)}` : "/admin/bios";
 }
@@ -73,7 +74,7 @@ export function ScanProgressList({ revision = 0 }: { revision?: number }) {
                     <p>
                       更新时间 · <BrowserTime value={scan.updatedAtMs} />
                     </p>
-                    {scan.error ? <p role="alert">{scan.error}</p> : null}
+                    {scan.error ? <p role="alert">{scanErrorMessage(scan.error)}</p> : null}
                   </div>
                   <div className={styles.counts}>
                     <div>

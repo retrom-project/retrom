@@ -231,6 +231,12 @@
     },
     "/api/v1/admin/games/{gameId}/content": {
       "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1content"
+    },
+    "/api/v1/admin/games/{gameId}/content-replacement/{operationId}": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1content-replacement~1{operationId}"
+    },
+    "/api/v1/admin/games/{gameId}/content-replacement/{operationId}/cancel": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1content-replacement~1{operationId}~1cancel"
     }
   },
   "components": {
@@ -538,6 +544,15 @@
       },
       "ContentPage": {
         "$ref": "./components/common.yaml#/components/schemas/ContentPage"
+      },
+      "ContentReplacement": {
+        "$ref": "./components/common.yaml#/components/schemas/ContentReplacement"
+      },
+      "ContentReplacementResult": {
+        "$ref": "./components/common.yaml#/components/schemas/ContentReplacementResult"
+      },
+      "ContentReplacementError": {
+        "$ref": "./components/common.yaml#/components/schemas/ContentReplacementError"
       }
     }
   }

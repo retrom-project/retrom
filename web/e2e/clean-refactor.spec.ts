@@ -15,6 +15,7 @@ import { verifyLibraryCollectionDialog } from "./library-collection-dialog";
 import { verifyHomeFeatured } from "./home-featured";
 import { verifyGameDetailLayout } from "./game-detail-layout";
 import { verifyDetailTitle } from "./detail-title";
+import { verifyContentReplacement } from "./content-replacement";
 import {
   instantConflict,
   newInstantSave,
@@ -546,4 +547,10 @@ test("RPG entries stay aligned and multiple projects use a fixed dropdown", asyn
   test.setTimeout(90_000);
   await login(page);
   await verifyRPGEntrySelection(page, info);
+});
+
+test("content replacement returns an operation and survives a management-page refresh", async ({ page }, info) => {
+  test.setTimeout(90_000);
+  await login(page);
+  await verifyContentReplacement(page, info, await prepareLibrary(page));
 });

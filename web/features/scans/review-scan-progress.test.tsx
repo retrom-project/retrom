@@ -20,6 +20,13 @@ async function show(onChange = vi.fn()) {
 }
 async function poll() { await act(() => vi.advanceTimersByTimeAsync(3000)); }
 
+it("describes content conversion failure without exposing its internal code", async () => {
+  calls.get.mockResolvedValue(response([{ ...pending, status: "completed", failedCount: 1, error: "CONTENT_NORMALIZATION_FAILED" }]));
+  await show();
+  expect(screen.getByRole("alert")).toHaveTextContent("内容转换失败，请检查游戏来源与补丁文件");
+  expect(screen.queryByText("CONTENT_NORMALIZATION_FAILED")).not.toBeInTheDocument();
+});
+
 it("finds the exact game task after the first page and renders unknown totals as indeterminate", async () => {
   calls.get.mockResolvedValueOnce(response(Array.from({ length: 100 }, (_, id) => ({ ...pending, id: `other-${id}` }))))
     .mockResolvedValueOnce(response([pending]));

@@ -3,6 +3,7 @@ package scans
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 
 	"retrom/internal/model"
@@ -40,24 +41,31 @@ func (s *Service) normalize(ctx context.Context, id, platform string,
 		original[file.LogicalKey] = file
 	}
 	var output struct {
-		Files []normalizedFile `json:"files"`
+		Files         []normalizedFile      `json:"files"`
+		Normalization *normalizationSummary `json:"normalization"`
 	}
 	if err = s.Runtime.Call(ctx, "normalize-content", map[string]any{
 		"platformId": platform,
 		"files":      runtimeclient.Files(files), "locators": locators, "outputRoot": absolute,
 	}, &output); err != nil {
-		return nil, wrap(err)
+		return nil, normalizationFailure(err)
 	}
 	if err = validateNormalizedFiles(output.Files); err != nil {
-		return nil, err
+		return nil, normalizationFailure(err)
+	}
+	if err = validateNormalizationSummary(output.Normalization); err != nil {
+		return nil, normalizationFailure(err)
 	}
 	result := make([]model.ContentFile, 0, len(output.Files))
 	for _, file := range output.Files {
 		value, importErr := s.normalizedFile(ctx, id, key, absolute, file, original)
 		if importErr != nil {
-			return nil, importErr
+			return nil, normalizationFailure(importErr)
 		}
 		result = append(result, value)
+	}
+	if output.Normalization != nil {
+		slog.InfoContext(ctx, "content normalized", "operationId", id, "normalization", output.Normalization)
 	}
 	return result, nil
 }

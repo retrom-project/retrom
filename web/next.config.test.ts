@@ -24,6 +24,15 @@ test("retains the development indicator during ordinary development", async () =
 });
 
 describe("backend rewrite proxy limits", () => {
+  test("keeps replacement submission on the ordinary bounded proxy instead of waiting for content preparation", async () => {
+    expect(nextConfig.experimental?.proxyTimeout).toBe(300_000);
+    expect(await nextConfig.rewrites?.()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: "/api/:path*" }),
+      ]),
+    );
+  });
+
   test("does not statically bundle the runtime implementation package", () => {
     expect(nextConfig.transpilePackages ?? []).not.toContain(
       "@xxxsen/retrom-runtime",
@@ -36,11 +45,8 @@ describe("backend rewrite proxy limits", () => {
     expect(manifest.dependencies?.["@xxxsen/retrom-runtime"]).toBeUndefined();
   });
 
-  test("forwards the largest supported save-state body without the Next.js defaults truncating or timing it out", () => {
-    expect(backendProxyLimits).toEqual({
-      bodyBytes: 283_115_520,
-      timeoutMs: 300_000,
-    });
+  test("forwards the largest supported save-state body without the Next.js defaults truncating it", () => {
+    expect(backendProxyLimits.bodyBytes).toBe(283_115_520);
     expect(nextConfig.experimental?.proxyClientMaxBodySize).toBe(
       backendProxyLimits.bodyBytes,
     );
@@ -56,6 +62,19 @@ describe("backend rewrite proxy limits", () => {
       expect.arrayContaining([
         expect.objectContaining({ source: "/runtime/:path*" }),
       ]),
+    );
+  });
+
+  test.each([
+    "docker/nginx.conf.example",
+    "scripts/pfb/gateway/nginx.conf",
+  ])("keeps %s from closing content replacement before the Web proxy", (path) => {
+    const configuration = readFileSync(resolve(process.cwd(), "..", path), "utf8");
+    const timeout = /proxy_read_timeout\s+(\d+)s;/u.exec(configuration);
+
+    expect(timeout).not.toBeNull();
+    expect(Number(timeout?.[1]) * 1000).toBeGreaterThanOrEqual(
+      backendProxyLimits.timeoutMs,
     );
   });
 });

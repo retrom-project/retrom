@@ -49,5 +49,7 @@ func (s *Server) replaceContent(w http.ResponseWriter, r *http.Request, p model.
 	if err != nil {
 		return wrap(err)
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
 	return respond(w, value)
 }

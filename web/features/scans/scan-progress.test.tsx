@@ -18,6 +18,13 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 async function show() { await act(async () => { render(<ScanProgressList />); }); }
 async function advance(ms = 3000) { await act(() => vi.advanceTimersByTimeAsync(ms)); }
 
+it("describes content conversion failure without exposing its internal code", async () => {
+  calls.get.mockResolvedValue(response([{ ...running, scanType: "game", status: "completed", failedCount: 1, error: "CONTENT_NORMALIZATION_FAILED" }]));
+  await show();
+  expect(screen.getByRole("alert")).toHaveTextContent("内容转换失败，请检查游戏来源与补丁文件");
+  expect(screen.queryByText("CONTENT_NORMALIZATION_FAILED")).not.toBeInTheDocument();
+});
+
 it.each(([[], [{ ...running, status: "completed" }], [{ ...running, status: "failed" }], [{ ...running, status: "cancelled" }]] as Schema<"ScanProgress">[][]).map((items) => ({ items })))(
   "does not continuously poll an empty or terminal list (%j)", async ({ items }) => {
     calls.get.mockResolvedValue(response(items));

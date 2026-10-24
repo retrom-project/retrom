@@ -5,6 +5,7 @@ import { api, result } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
 import { isScanRunning, useScanPolling } from "./use-scan-polling";
 import styles from "./scan.module.css";
+import { scanErrorMessage } from "./scan-error";
 
 async function loadScan(scanId: string, signal: AbortSignal) {
   // Bound each lookup; never substitute a newer task for the requested one.
@@ -49,6 +50,6 @@ function ScanStatus({ scan }: { scan: Schema<"ScanProgress"> }) {
     <p role="status">{labels[scan.status]} · 已扫描 {scan.processedCount} / {scan.totalKnown ? scan.totalCount : "总数发现中"}</p>
     {running || scan.totalKnown ? <progress aria-label="游戏扫描进度" max={Math.max(1, scan.totalCount)} value={scan.totalKnown ? scan.processedCount : undefined} /> : null}
     <p>已导入 {scan.importedCount} · 已跳过 {scan.skippedCount} · 失败 {scan.failedCount}</p>
-    {scan.error ? <p role="alert">{scan.error}</p> : null}
+    {scan.error ? <p role="alert">{scanErrorMessage(scan.error)}</p> : null}
   </>;
 }

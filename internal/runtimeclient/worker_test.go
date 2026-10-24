@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -73,37 +74,33 @@ func TestSharedCLIConcurrentResponsesAreCorrelated(t *testing.T) {
 	}
 }
 
-func TestSharedCLIAdmissionDeadlineDoesNotDisruptAcceptedCalls(t *testing.T) {
-	pool := fixturePool(t)
-	var group sync.WaitGroup
-	results := make([]workerResult, maximumPending)
-	failures := make([]error, maximumPending)
-	for i := range maximumPending {
-		group.Go(func() {
-			failures[i] = pool.Call(t.Context(), "valid", map[string]any{"value": i, "delay": 0.4}, &results[i])
-		})
+func TestSharedCLIAdmissionBusyDoesNotDisruptAcceptedCalls(t *testing.T) {
+	pool, events, release := schedulingPool(t)
+	const count = maximumPending + 1
+	completed := make(chan error, count)
+	for i := range count {
+		go func() {
+			completed <- pool.Call(t.Context(), "prepare", scheduleInput(events, release, i), &workerResult{})
+		}()
 	}
-	deadline := time.Now().Add(2 * time.Second)
-	for len(pool.admission) != maximumPending {
-		if time.Now().After(deadline) {
-			t.Fatal("concurrent calls did not fill the bounded admission queue")
+	select {
+	case err := <-completed:
+		if !errors.Is(err, model.ErrUnavailable) || !strings.Contains(err.Error(), "RUNTIME_BUSY") {
+			t.Fatalf("overflow did not reject with BUSY: %v", err)
 		}
-		time.Sleep(time.Millisecond)
+	case <-time.After(time.Second):
+		t.Fatal("interactive admission accepted more than 32 requests")
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
-	defer cancel()
-	var overflow workerResult
-	if err := pool.Call(ctx, "valid", nil, &overflow); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("overflow did not respect its own deadline: %v", err)
+	if started := waitScheduleEvents(t, events, 4); len(started) != 4 {
+		t.Fatalf("interactive execution limit changed: %+v", started)
 	}
-	group.Wait()
-	for i := range maximumPending {
-		if failures[i] != nil || results[i].Value != i || results[i].PID != results[0].PID {
-			t.Fatalf("accepted call %d was disrupted: %+v / %v", i, results[i], failures[i])
+	if err := os.WriteFile(release, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for range maximumPending {
+		if err := <-completed; err != nil {
+			t.Fatal(err)
 		}
-	}
-	if err := pool.Call(t.Context(), "valid", nil, &overflow); err != nil || overflow.PID != results[0].PID {
-		t.Fatalf("admission did not recover with the existing process: %+v / %v", overflow, err)
 	}
 }
 
