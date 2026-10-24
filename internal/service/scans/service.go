@@ -18,6 +18,10 @@ import (
 	"github.com/google/uuid"
 )
 
+// ContentPreparationTimeout includes source staging, normalization, package verification and commit.
+// The runtime's one-hour normalization budget leaves thirty minutes for the host's bounded I/O.
+const ContentPreparationTimeout = 90 * time.Minute
+
 type Service struct {
 	Repository *persistence.Repository
 	Runtime    *runtimeclient.Client
@@ -146,7 +150,7 @@ func (s *Service) run(ctx context.Context,
 				s.progress(context.WithoutCancel(ctx), &scan)
 				return
 			}
-			candidateCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+			candidateCtx, cancel := context.WithTimeout(ctx, ContentPreparationTimeout)
 			importErr := s.importGame(candidateCtx, root, p, collection.Directory, candidate, mapping, &scan, inventory)
 			cancel()
 			if errors.Is(importErr, persistence.ErrCommitUncertain) {

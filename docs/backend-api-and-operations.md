@@ -25,6 +25,8 @@ Node工具和Provider必须与版本控制的 `data/runtime-inputs.json` 配套�
 
 生产同时运行PostgreSQL、Redis、Go、Web及可信反向代理。数据库和Redis不暴露公网；持久根仅服务UID可写。客户端IP默认信任内网与回环地址的直接代理，不需要配置代理网段。内网包括IPv4 RFC1918和IPv6 ULA；代理必须覆盖X-Forwarded-For。从右向左跳过内网代理，采用首个公网地址；整条链均为内网时采用最左侧客户端地址。公网直连忽略转发头，重复或超长的转发头，以及解析到无效地址时回退到直接连接地址。代理把/api/v1和/runtime交给Go，隔离host只代理/__retrom/runtime-isolation/，其他路径404；TLS、wildcard DNS和证书由部署者配置。健康ready端点仅内部验证依赖可用，不能将200当全部产品通过。
 
+内容归一化的 runtime 调用上限为60分钟；扫描中单个游戏的准备和同步 `POST /api/v1/admin/games/{gameId}/content-replacement` 上限为90分钟，包含内容读取、归一化、校验和受管包发布。其他HTTP请求仍为10分钟，并保留调用者取消。Next.js外部rewrite只提供全局代理超时，因此Web设置91分钟，覆盖内容替换预算并留出响应余量；它不延长Go对其他路由的限制。PFB网关和正式Nginx示例的 `proxy_read_timeout` 均为8小时，已覆盖该等待窗口。自定义代理也需要让内容替换路由的响应等待覆盖91分钟；该超时与上传请求体的读取、发送超时分别配置。
+
 管理员目录浏览使用 `GET /api/v1/admin/source-directories?path=/`，返回 `{items:[{name,path}]}`。来源inspect、游戏扫描、BIOS扫描和内容替换均提交绝对 `path`；不配置来源根或目录白名单。操作系统读取权限与容器实际挂载决定可访问范围，来源文件保持只读，游戏与BIOS复制到受管存储。部署只挂载需要导入的素材目录，浏览能力本身不扩展宿主机挂载。
 
 游戏的共享读取投影包含必需的 `lastPlayedAtMs`，值来自当前登录用户的 `recent_game_tab`，无游玩记录时为 `null`。普通列表、详情、收藏及最近列表都使用同一投影；分页完成后只读取所选游戏的当前用户记录，管理员也不会读取其他用户的游玩时间。成功运行继续更新既有最近记录，无新表或重复存储。

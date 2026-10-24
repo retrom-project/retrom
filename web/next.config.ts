@@ -6,7 +6,9 @@ const backend = process.env.NEXT_BACKEND_ORIGIN ?? "http://127.0.0.1:8080";
 
 export const backendProxyLimits = {
   bodyBytes: 283_115_520,
-  timeoutMs: 300_000
+  // External rewrites share this Next.js limit. Go keeps ordinary requests at
+  // ten minutes and content replacement at ninety, with time to return a result.
+  timeoutMs: 91 * 60_000
 } as const;
 
 const nextConfig: NextConfig = {
