@@ -12,6 +12,8 @@ BIOS 来源扫描最多枚举 100000 个文件，递归子目录的文件合并�
 
 安装列表通过 runtime 展示 DAT 匹配数及 valid / incomplete / invalid 状态；缺少必需成员或内容不匹配的已安装 BIOS 仍保留，但计入“待处理”。运行准备和审核就绪检查会拒绝不满足必需成员的 BIOS。手动替换仍可上传文件，实际可用性单独显示。自动重扫不修复、替换或删除任何已有安装。
 
+RPG Maker XP/VX/VX Ace（mkxp）的官方 RTP 作为运行依赖管理：`Standard.zip`、`RPGVX.zip`、`RPGVXAce.zip` 各对应一个引擎 Target。只有游戏的 Game.ini 声明了该引擎官方 RTP 时，runtime 才在配置中记录并把它列为必需；未声明的游戏、MV/MZ 与 EasyRPG 不受影响。已入库游戏需重新导入或替换内容后才会记录 RTP。RTP 以普通 ZIP 原样上传保存，不展开、不重打包；ZIP 根目录必须直接包含 `Audio/` 与 `Graphics/`（不能整个压进 `Standard/` 文件夹）。runtime 只读取 ZIP 目录校验这两个目录，缺失时列表显示 incomplete/invalid，启动前同样拒绝。启动时按 runtime 声明的资源角色以 Range 资源交付，核心按 Game.ini 中的名字挂载。
+
 MAME Current 的 CHD 要求来自对应 DAT 的 disk 记录，包括可选磁盘和克隆集继承关系。metadata.pegasus.txt / gamelist.xml 服务端导入只在该元文件目录及其子目录递归发现 CHD；不搜索父目录或其他元文件根。候选通过有界 CHD 头部读取，以 DAT 内容 SHA1 匹配，不依赖来源名称。支持 v3/v4/v5 完整镜像；依赖父镜像的差分 CHD 明确报错并要求提供完整 CHD。这与游戏 ROM Parent ZIP 的继承是不同的要求。
 
 导入保留主 ZIP，并将匹配 CHD 复制为受管的 `<rom-set>/<disk-name>.chd`，计算整文件 SHA256。不会修改来源、解压整盘或改变数据库结构。缺少必需 CHD 仍可形成待审核游戏；审核页显示缺项并支持追加 CHD，上传时检查磁盘身份，完整后才能运行。头部验证不等于逐块完整性审计；损坏压缩数据仍可能在核心读取时失败。
