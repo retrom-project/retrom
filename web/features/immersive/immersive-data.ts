@@ -47,7 +47,8 @@ export async function loadDestinations(): Promise<{ items: Destination[] }> {
     })),
   ]);
   if (libraries[0].count === 0) { return { items: [] }; }
-  return { items: [...libraries, ...directories.items.map((item): Destination => ({ id: item.id, name: item.name, code: platformCode(item.name, item.platformId), view: "games", directoryId: item.id, count: item.gameCount, featured: [] }))] };
+  // Directories without games are hidden; the library entries stay so their empty states remain reachable.
+  return { items: [...libraries, ...directories.items.filter((item) => item.gameCount > 0).map((item): Destination => ({ id: item.id, name: item.name, code: platformCode(item.name, item.platformId), view: "games", directoryId: item.id, count: item.gameCount, featured: [] }))] };
 }
 
 /**
