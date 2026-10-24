@@ -109,6 +109,7 @@ func (s *Server) providerAsset(w http.ResponseWriter, r *http.Request, _ model.P
 	if err != nil {
 		return err
 	}
+	w.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
 	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 	rootPath, filePath := provider.Root, name
 	if asset, exists := s.Runtime.Overrides[provider.ProviderID][name]; development && exists {
