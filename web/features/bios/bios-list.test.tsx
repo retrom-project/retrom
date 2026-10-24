@@ -46,7 +46,7 @@ it("keeps an installed incomplete archive in the action group and reports unmatc
   show({ ...item, verification: { status: "incomplete", matchedMembers: 1, expectedMembers: 2, missingMembers: ["firmware.rom"] } });
   const group = screen.getByRole("heading", { name: "需要处理" }).closest("section")!;
   expect(within(group).getByText("已安装 · 成员不完整")).toBeVisible();
-  expect(screen.getByText("DAT 成员匹配：1 / 2")).toBeVisible();
+  expect(screen.getByText("包内成员匹配：1 / 2")).toBeVisible();
   expect(screen.getByText("缺少或不匹配：firmware.rom")).toBeVisible();
   expect(screen.getByText("替换文件")).toBeVisible();
 });

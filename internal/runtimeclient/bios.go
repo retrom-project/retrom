@@ -24,13 +24,15 @@ type BiosRequirement struct {
 	Members           []BiosMember      `json:"members,omitempty"`
 	// ResourceRole is the Launch resource role of a SEEKABLE_BLOB requirement; the host does not interpret it.
 	ResourceRole string `json:"resourceRole,omitempty"`
-	// ArchiveRoot lists directories the installed archive must hold at its root; the runtime verifies them.
-	ArchiveRoot []string `json:"archiveRoot,omitempty"`
+	// ArchiveEntries are marker entries the installed archive must hold; the runtime identifies and verifies them.
+	ArchiveEntries []string `json:"archiveEntries,omitempty"`
+	// ArchiveExcludes are entries whose presence means a source file is not this requirement.
+	ArchiveExcludes []string `json:"archiveExcludes,omitempty"`
 }
 
 // Verifiable reports whether the runtime can check an installed file beyond its presence.
 func (r BiosRequirement) Verifiable() bool {
-	return len(r.Members) > 0 || len(r.ArchiveRoot) > 0
+	return len(r.Members) > 0 || len(r.ArchiveEntries) > 0
 }
 
 type BiosMember struct {

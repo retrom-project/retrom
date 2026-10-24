@@ -40,7 +40,7 @@ func TestInstalledBIOSMustSatisfyRequiredMembersBeforeLaunch(t *testing.T) {
 func TestInstalledRTPMustHoldItsRootDirectoriesBeforeLaunch(t *testing.T) {
 	service, store := verifyingService(t)
 	requirement := runtimeclient.BiosRequirement{
-		Required: true, Delivery: "SEEKABLE_BLOB", ResourceRole: "rtp", ArchiveRoot: []string{"Audio/", "Graphics/"},
+		Required: true, Delivery: "SEEKABLE_BLOB", ResourceRole: "rtp", ArchiveEntries: []string{"Audio/", "Graphics/"},
 	}
 	for _, test := range []struct {
 		name  string

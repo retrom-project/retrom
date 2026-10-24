@@ -102,7 +102,7 @@ func (s *Service) unusableBIOS(ctx context.Context, projections []biosProjection
 		for _, requirement := range projection.Requirements {
 			file, exists := files[requirement.RequirementKey]
 			if _, checked := unusable[requirement.RequirementKey]; checked || !exists || !requirement.Required ||
-				len(requirement.ArchiveRoot) == 0 {
+				len(requirement.ArchiveEntries) == 0 {
 				continue
 			}
 			location, err := s.Runtime.Locate(file.StorageKey)

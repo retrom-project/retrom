@@ -160,7 +160,7 @@ func TestReadinessTreatsAnUnusableInstalledArchiveAsMissing(t *testing.T) {
 		MissingROMMembers: []model.ReviewMissingROMMember{}, CRCWarnings: []model.ReviewCRCWarning{},
 		Requirements: []runtimeclient.BiosRequirement{{
 			RequirementKey: "retrom-runtime/rpgmaker-xp/Standard.zip", LogicalName: "Standard.zip", CoreID: "rpgmaker",
-			Required: true, ArchiveRoot: []string{"Audio/", "Graphics/"},
+			Required: true, ArchiveEntries: []string{"Audio/", "Graphics/"},
 		}},
 	}
 	installed := []model.BiosFile{{RequirementKey: "retrom-runtime/rpgmaker-xp/Standard.zip"}}

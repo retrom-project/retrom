@@ -9,8 +9,8 @@ export function BiosValidationRequirements({ items, catalog, verification }: {
     <summary>文件校验要求</summary>
     <div className="runtime-validation-list">
       {verification ? <section aria-label="已安装文件的成员校验结果">
-        <h4>DAT 成员校验</h4>
-        <p>DAT 成员匹配：{verification.matchedMembers} / {verification.expectedMembers}</p>
+        <h4>包内成员校验</h4>
+        <p>包内成员匹配：{verification.matchedMembers} / {verification.expectedMembers}</p>
         {verification.status === "invalid" ? <p>无法读取或校验包内文件，请替换完整的 ZIP 文件。</p> : null}
         {verification.missingMembers.map((name) => <p key={name}>缺少或不匹配：{name}</p>)}
       </section> : null}
@@ -23,7 +23,7 @@ export function BiosValidationRequirements({ items, catalog, verification }: {
             {item.sizeBytes !== null ? <><dt>要求大小</dt><dd>{item.sizeBytes.toLocaleString("zh-CN")} 字节</dd></> : null}
             {item.sha256 ? <><dt>SHA-256</dt><dd>{item.sha256}</dd></> : null}
             {item.md5 ? <><dt>MD5</dt><dd>{item.md5}</dd></> : null}
-          </dl> : <p>{verification ? "按 DAT 校验包内成员内容。" : "未声明固定大小或校验值。"}</p>}
+          </dl> : <p>{verification ? "按运行时声明校验包内成员。" : "未声明固定大小或校验值。"}</p>}
         </section>;
       })}
     </div>
