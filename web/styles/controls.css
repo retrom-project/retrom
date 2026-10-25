@@ -15,6 +15,7 @@
   white-space: nowrap;
   transition: background .15s ease, border-color .15s ease;
 }
+.button.multiline { white-space: normal; overflow-wrap: anywhere; }
 .button:hover { background: var(--purple-hover); color: white; }
 .button.secondary { background: var(--surface); border-color: var(--control-line); color: var(--ink); }
 .button.secondary:hover { background: var(--surface-subtle); border-color: var(--purple); color: var(--purple-dark); }

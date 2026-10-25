@@ -29,6 +29,17 @@ it("uses grouped games for the save destination count and featured covers", asyn
   expect(requests.GET).toHaveBeenCalledWith("/api/v1/saves", { params: { query: { offset: 0, limit: 3, groupByGame: true } }, signal: undefined });
 });
 
+it("hides directories without games and keeps empty library entries", async () => {
+  requests.loadDirectories.mockResolvedValue({ items: [
+    { id: "nes", name: "FC 红白机", platformId: "nes", gameCount: 2 },
+    { id: "gba", name: "GBA 游戏", platformId: "gba", gameCount: 0 },
+  ] });
+  requests.loadGames.mockImplementation(async (scope) => ({ items: [], total: scope === "library" ? 2 : 0 }));
+  requests.GET.mockResolvedValue({ data: { items: [], total: 0, offset: 0 } });
+  const destinations = await loadDestinations();
+  expect(destinations.items.map((item) => item.id)).toEqual(["all", "recent", "favorites", "saves", "nes"]);
+});
+
 describe("immersive platform codes", () => {
   it("names the base model of a shared platform family and otherwise keeps the platform ID", () => {
     expect(platformCode("Game Boy 游戏", "gbc")).toBe("GB");

@@ -10,6 +10,7 @@ import type {
   RuntimeFinalSnapshotV1,
   RuntimeStateV1,
   RuntimeStartupTaskV1,
+  RuntimeStartupInteractionV1,
 } from "./runtime/contract";
 import { disposeRuntime } from "./runtime/dispose-runtime";
 import { startupLabel } from "./startup-label";
@@ -46,6 +47,7 @@ export function usePlayerSession(
   const [step, setStep] = useState("正在准备运行环境…");
   // The runtime keeps retrying reads that need the network; the game resumes by itself when it returns.
   const [networkWaiting, setNetworkWaiting] = useState(false);
+  const [startupInteraction, setStartupInteraction] = useState<RuntimeStartupInteractionV1 | null>(null);
   const [tasks, setTasks] = useState<RuntimeStartupTaskV1[]>([]);
   const [completed, setCompleted] = useState<{run: typeof run; restore: typeof restore; userId: string; contentLoading: ContentLoading} | null>(null);
   const canStart = startAllowed || !!completed && completed.run === run && completed.restore === restore &&
@@ -67,6 +69,7 @@ export function usePlayerSession(
         if (event.state === "RUNNING" && !permitted()) { void instance?.pause(); return; }
         setState(event.state);
       }
+      if (event.type === "STARTUP_INTERACTION") {setStartupInteraction(event.interaction);}
       if (event.type === "LOAD_TASK") {
         setStep(startupLabel(event.task.kind));
         setTasks(timeline.receive(event.task));
@@ -97,6 +100,7 @@ export function usePlayerSession(
       try {
         setState("MOUNTING");
         setError("");
+        setStartupInteraction(null);
         const providerTask: RuntimeStartupTaskV1 = { id: "host:provider-module", kind: "PROVIDER_MODULE", state: "RUNNING", progress: null };
         setTasks(timeline.receive(providerTask));
         const original = validateLaunchEnvelopeBoundary(run.envelope);
@@ -187,7 +191,7 @@ export function usePlayerSession(
         .finally(() => controller.abort());
     };
   }, [run, restore, userId, contentLoading, canStart]);
-  return { mount, runtime, state, error, availability, step, tasks, networkWaiting };
+  return { mount, runtime, state, error, availability, step, tasks, networkWaiting, startupInteraction };
 }
 async function hash(bytes: Uint8Array) {
   const digest = await crypto.subtle.digest(
