@@ -94,6 +94,8 @@ make -C "$TASK_RETROM_ROOT" pfb-verify PFB="$PFB"
 
 日常 `up`／`restart` 不自动构建镜像、核心或 Provider 分块。不要手改 toolchain marker 绕过校验，也不要通过删除 workspace 强制重建依赖。
 
+同一PFB中的契约调整先按[开发期契约规则](engineering-quality-and-testing.md#开发期契约)判断正式生效边界，再直接修改当前定义与调用方；本地提交、分支镜像和上一轮验收数据不构成版本演进的依据。
+
 联合验收可在显式 `pfb-build` 时传 `RETROM_RUNTIME_TOOL_INPUT=<本 PFB 的自足工具目录>`，将完整 production 依赖复制到不可变快照；输入不得越出同一命名 PFB。工具清理后运行进程仍固定已发布的 resolved 路径。
 
 核心变更先在本 PFB 准备 core worktree，并在停止态使用相同的 `pfb-init` 参数追加 `CORE_ROOTS` JSON 映射，例如 `CORE_ROOTS='{"<core-id>":"<同一 PFB 内核心 worktree 的绝对路径>"}'`，替换占位值后使用；存在核心时必须保留同树 `RUNTIME_ROOT`。`pfb-core-build PFB=<name> CORE=<id>` 只构建／验证该核心，输出 `.pfb/workspace/core-builds/<id>/current`，不会自动切换运行资源。按[核心接入流程](platform-cores-integration.md)装配同源候选和导入基座后，应核对实际 Run 的核心资产与 Target 指纹再记录验收。
