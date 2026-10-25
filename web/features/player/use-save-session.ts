@@ -10,6 +10,7 @@ import type {
 import { makeDraft, putDraft, uploadDraft } from "./save-drafts";
 import type { SaveDraft } from "./save-drafts";
 import { reclaimProviderContentCache } from "./runtime/provider-dispatcher";
+type SaveFeedback = "FOREGROUND" | "BACKGROUND";
 export function useSaveSession(
   run: Schema<"Run">,
   userId: string,
@@ -27,12 +28,13 @@ export function useSaveSession(
   const [draft, setDraft] = useState<SaveDraft | null>(null);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [background, setBackground] = useState(false);
   const [preview, setPreview] = useState<RuntimeFinalSnapshotV1 | null>(null);
   const reclaimCache = useCallback<NonNullable<Parameters<typeof putDraft>[1]>>(
     (request) => reclaimProviderContentCache(run.envelope, request),
     [run.envelope],
   );
-  const persist = useCallback(async (record: SaveDraft, checkpoint: RuntimeCheckpointV1, runtime: PlayerRuntimeV1 | null) => {
+  const persist = useCallback(async (record: SaveDraft, checkpoint: RuntimeCheckpointV1, runtime: PlayerRuntimeV1 | null, feedback: SaveFeedback = "FOREGROUND") => {
     let persisted = false;
     try {
       const save = await uploadDraft(record, userId, reclaimCache);
@@ -43,7 +45,7 @@ export function useSaveSession(
       setDraft(null);
       pending.current = null;
       setStatus("");
-      notify({ tone: "good", message: "存档已同步。" });
+      if (feedback === "FOREGROUND") { notify({ tone: "good", message: "存档已同步。" }); }
       return true;
     } catch (failure) {
       // The server commit can succeed before Runtime acknowledgement fails.
@@ -61,6 +63,7 @@ export function useSaveSession(
       snapshot: RuntimeFinalSnapshotV1,
       runtime: PlayerRuntimeV1 | null,
       target: Schema<"Save"> | null = null,
+      feedback: SaveFeedback = "FOREGROUND",
     ) => {
       // A final snapshot can arrive while an ordinary native save is still
       // uploading. Finish it before choosing the save ID and expected version.
@@ -81,7 +84,7 @@ export function useSaveSession(
       setDraft(record);
       pending.current = record;
       await putDraft(record, reclaimCache);
-      return persist(record, snapshot.checkpoint, runtime);
+      return persist(record, snapshot.checkpoint, runtime, feedback);
     },
     [run, userId, native, notify, persist, protectedSourceId, reclaimCache],
   );
@@ -90,23 +93,28 @@ export function useSaveSession(
       runtime: PlayerRuntimeV1,
       intent: "CAPTURE" | "EXPORT" = "CAPTURE",
       target: Schema<"Save"> | null = null,
+      feedback: SaveFeedback = "FOREGROUND",
     ) => {
       if (saving.current) { queued.current = true; return false; }
       if (pending.current) {
         queued.current = native;
-        notify({ tone: "warn", message: "请先同步或导出已有草稿，再保存新的进度。" });
+        if (feedback === "FOREGROUND") { notify({ tone: "warn", message: "请先同步或导出已有草稿，再保存新的进度。" }); }
         return false;
       }
       saving.current = true;
       setBusy(true);
+      setBackground(feedback === "BACKGROUND");
       try {
         do {
           queued.current = false;
           const checkpoint = await runtime.checkpoint({ intent });
           const screenshot = await runtime.screenshot().catch(() => null);
-          const committed = await commit({ checkpoint, screenshot }, runtime, target);
+          const committed = await commit({ checkpoint, screenshot }, runtime, target, feedback);
           if (!committed) { return false; }
           intent = "EXPORT";
+          // Revisions queued during a requested save are subsequent background work.
+          feedback = "BACKGROUND";
+          setBackground(true);
         } while (
           queued.current &&
           !pending.current &&
@@ -122,13 +130,14 @@ export function useSaveSession(
       } finally {
         saving.current = false;
         setBusy(false);
+        setBackground(false);
       }
     },
     [commit, native, notify],
   );
-  const capture = useCallback((runtime: PlayerRuntimeV1, intent: "CAPTURE" | "EXPORT" = "CAPTURE", target: Schema<"Save"> | null = null) => {
+  const capture = useCallback((runtime: PlayerRuntimeV1, intent: "CAPTURE" | "EXPORT" = "CAPTURE", target: Schema<"Save"> | null = null, feedback: SaveFeedback = "FOREGROUND") => {
     if (inFlight.current) { queued.current = true; return inFlight.current; }
-    const operation = captureWork(runtime, intent, target);
+    const operation = captureWork(runtime, intent, target, feedback);
     inFlight.current = operation;
     void operation.finally(() => { if (inFlight.current === operation) { inFlight.current = null; } });
     return operation;
@@ -137,7 +146,7 @@ export function useSaveSession(
   const nativeChanged = useCallback(
     (runtime: PlayerRuntimeV1) => {
       if (native && run.purpose === "play") {
-        void capture(runtime, "EXPORT");
+        void capture(runtime, "EXPORT", null, "BACKGROUND");
       }
     },
     [native, run.purpose, capture],
@@ -147,6 +156,7 @@ export function useSaveSession(
     if (!record || saving.current) { return false; }
     saving.current = true;
     setBusy(true);
+    setBackground(false);
     let synced = false;
     try {
       await putDraft(record, reclaimCache);
@@ -161,7 +171,7 @@ export function useSaveSession(
       saving.current = false;
       setBusy(false);
     }
-    if (synced && native && runtime?.getCheckpointAvailability().available) { return captureWork(runtime, "EXPORT"); }
+    if (synced && native && runtime?.getCheckpointAvailability().available) { return captureWork(runtime, "EXPORT", null, "BACKGROUND"); }
     return synced;
   }
   function retry(runtime: PlayerRuntimeV1 | null) {
@@ -175,6 +185,7 @@ export function useSaveSession(
     draft,
     status,
     busy,
+    background,
     preview,
     currentSave,
     commit,

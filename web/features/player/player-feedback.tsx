@@ -20,6 +20,7 @@ export function PlayerFeedback({
   draft,
   status,
   busy,
+  background = false,
   preview,
   review,
   onRetry,
@@ -36,6 +37,7 @@ export function PlayerFeedback({
   draft: SaveDraft | null;
   status: string;
   busy: boolean;
+  background?: boolean;
   preview: RuntimeFinalSnapshotV1 | null;
   review: boolean;
   onRetry: () => void;
@@ -55,7 +57,7 @@ export function PlayerFeedback({
       ) : null}
       {!error ? <PlayerStartupFeedback state={state} step={step} tasks={tasks} interaction={startupInteraction}
         onChoose={onStartupChoice} onCancel={onCancelStartup} onReturn={onReturn} /> : null}
-      {draft ? (
+      {draft && (!background || !busy) ? (
         <div className="player-save-upload-progress">
           <p>{busy ? "正在同步存档…" : draft.recoveryError || status || "同步失败，存档已保留在浏览器。"}</p>
           <button
