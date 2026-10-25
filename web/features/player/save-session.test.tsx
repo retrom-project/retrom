@@ -6,6 +6,10 @@ import { useSaveSession } from "./use-save-session";
 import { disposeRuntime } from "./runtime/dispose-runtime";
 import { checkpoint, runFixture, runtimeFixture } from "./player-test-fixture";
 import { makeDraft, putDraft, uploadDraft } from "./save-drafts";
+import { reclaimProviderContentCache } from "./runtime/provider-dispatcher";
+vi.mock("./runtime/provider-dispatcher", () => ({
+  reclaimProviderContentCache: vi.fn().mockResolvedValue({ reclaimedBytes: 1, removedObjects: 1 }),
+}));
 vi.mock("./save-drafts", async () => {
   const original =
     await vi.importActual<typeof SaveDraftModule>("./save-drafts");
@@ -13,6 +17,17 @@ vi.mock("./save-drafts", async () => {
 });
 beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
+it("provides verified cache recovery for final native saves without a live runtime", async () => {
+  const run = runFixture();
+  const { result } = renderHook(() => useSaveSession(run, "user-a", true));
+  vi.mocked(uploadDraft).mockResolvedValueOnce({ id: "native-id", version: 1 } as Awaited<ReturnType<typeof uploadDraft>>);
+  await act(() => result.current.commit({ checkpoint, screenshot: null }, null));
+  const reclaim = vi.mocked(putDraft).mock.calls[0][1];
+  expect(reclaim).toBeTypeOf("function");
+  await reclaim?.({ targetBytes: 1024 });
+  expect(reclaimProviderContentCache).toHaveBeenCalledWith(run.envelope, { targetBytes: 1024 });
+  expect(vi.mocked(uploadDraft).mock.calls[0][2]).toBe(reclaim);
+});
 describe("durable native save", () => {
   it("keeps exact startup identity and does not acknowledge a context-expired commit", async () => {
     const run = runFixture();

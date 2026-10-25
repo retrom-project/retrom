@@ -4,7 +4,7 @@
 
 目录保存管理员核心集与默认核心；runtime catalog提供平台友好名和唯一公共core ID，不自动建目录。Run以当前User登录态创建，默认核心不能静默替换不可用核心；saveId恢复由服务端先读本人save并选择原core，不能依赖浏览器重新指定默认值。
 
-准备得到coreId/providerId/targetId/coreFingerprint/romHash、Target options、checkpoint能力和通用资源计划。ROMHash覆盖整份活动Game运行文件集合，各核心一致；单普通文件是原始SHA，多文件/项目由runtime规范TREE算法计算。Target指纹只覆盖Provider/Target身份及显式声明的核心文件内容摘要，不包含runtime版本、adapter/公共codec源码、输入/UI/加载辅助代码或部署路径。存档编码或恢复语义不兼容时由runtime显式修改checkpointFormat；Bundle/Module摘要继续用于产物完整性校验。游戏自带引擎由完整ROMHash覆盖。Go验证安装bytes/proof/integrity并装配部署URL。
+准备得到coreId/providerId/targetId/coreFingerprint/romHash、Target options、checkpoint能力和通用资源计划。ROMHash覆盖整份活动Game运行文件集合，各核心一致；单普通文件是原始SHA，多文件/项目由runtime规范TREE算法计算。Target指纹只覆盖Provider/Target身份及显式声明的核心文件内容摘要，不包含runtime版本、adapter/公共codec源码、输入/UI/加载辅助代码或部署路径。已正式生效的存档编码或恢复语义发生不兼容变化时，由runtime显式修改checkpointFormat；尚在开发中的功能遵循[开发期契约规则](engineering-quality-and-testing.md#开发期契约)，直接修改当前定义，不因PFB中间数据迭代格式版本。Bundle/Module摘要继续用于产物完整性校验。游戏自带引擎由完整ROMHash覆盖。Go验证安装bytes/proof/integrity并装配部署URL。
 
 Redis只保存两小时临时run：窄header和被允许的file/index hash字段，读取资源不反序列化整份项目。PG登录会话、Game和save不因Redis丢失消失。上下文丢失返回CONTEXT_EXPIRED；浏览器以冻结身份重建同样run后可重新提交草稿，身份变化则明确拒绝自动续传。
 
@@ -15,6 +15,8 @@ Redis只保存两小时临时run：窄header和被允许的file/index hash字段
 保存multipart metadata+payload+可选PNG/JPEG截图。commitId为浏览器持久草稿ID：创建save ID取commitId；覆盖保存last_commit_id。相同commit/payload hash/extinfo重试返回同一版本，其他提交按CAS竞争。IO完成后短事务锁Game确认published，再保存CAS；游戏删除后不能提交新存档。列表按distinct game/core一次batch-identity和一次batch-restorable，不逐存档调用Prepare/Node。筛选分页与count采用同条件。
 
 退出立即撤销PG会话、清cookie和释放运行资源，不整站Clear-Site-Data storage。未同步IndexedDB/OPFS草稿按User隔离，只有服务端明确成功或用户丢弃才删除。网络失败、Redis失效或响应丢失不能假成功、删除草稿或提前ack。
+
+保存草稿只有在 IndexedDB 事务完成后才算持久化，不能以单次 put 请求成功代替。实际 `QuotaExceededError` 可触发一次已校验 Provider Module 的 `reclaimContentCache`，然后重试同一份草稿；存储估算不能代替真实写入结果。Provider 只回收未被活动运行租约占用、可重新下载的 Content I/O 缓存，不访问存档、草稿、挂载来源或其他缓存。该入口不依赖仍存活的 PlayerRuntime，退出后的最终存档也适用。回收和重试失败保留原错误原因、同一 commitId 与可导出的内存副本；其他写入错误不触发回收，用户重试仍先确认本地持久化。本地草稿清理失败也保留内存副本，服务端提交重试继续使用原 commitId。
 
 resources由宿主允许ID/Range访问；runtime统一解释ZIP编码、虚拟paths、FILE_TREE/EXTERNAL_FILE_SET及bridgeAssetPath。隔离web bridgeUrl来自实际Target唯一桥资产，宿主不猜引擎。checkpoint HTTP与LOCAL restore均通过原V1公开Host接口。只有purpose=play收到running事件后更新最近表；创建run不提前记最近，review不进入个人最近。
 

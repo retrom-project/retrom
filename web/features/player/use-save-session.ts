@@ -9,6 +9,7 @@ import type {
 } from "./runtime/contract";
 import { makeDraft, putDraft, uploadDraft } from "./save-drafts";
 import type { SaveDraft } from "./save-drafts";
+import { reclaimProviderContentCache } from "./runtime/provider-dispatcher";
 export function useSaveSession(
   run: Schema<"Run">,
   userId: string,
@@ -27,10 +28,14 @@ export function useSaveSession(
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<RuntimeFinalSnapshotV1 | null>(null);
+  const reclaimCache = useCallback<NonNullable<Parameters<typeof putDraft>[1]>>(
+    (request) => reclaimProviderContentCache(run.envelope, request),
+    [run.envelope],
+  );
   const persist = useCallback(async (record: SaveDraft, checkpoint: RuntimeCheckpointV1, runtime: PlayerRuntimeV1 | null) => {
     let persisted = false;
     try {
-      const save = await uploadDraft(record, userId);
+      const save = await uploadDraft(record, userId, reclaimCache);
       persisted = true;
       selectedSave.current = save;
       setCurrentSave(save);
@@ -44,13 +49,13 @@ export function useSaveSession(
       // The server commit can succeed before Runtime acknowledgement fails.
       // Keep the same commit identity so retry never creates a second save.
       if (persisted) {
-        try { await putDraft(record); }
+        try { await putDraft(record, reclaimCache); }
         catch (storageFailure) { setStatus(storageFailure instanceof Error ? storageFailure.message : "无法保留浏览器草稿。"); return false; }
       }
       setStatus(failure instanceof Error ? failure.message : "同步失败，存档已保留在浏览器。");
       return false;
     }
-  }, [userId, native, notify]);
+  }, [userId, native, notify, reclaimCache]);
   const commit = useCallback(
     async (
       snapshot: RuntimeFinalSnapshotV1,
@@ -72,10 +77,10 @@ export function useSaveSession(
       const record = makeDraft(userId, run, snapshot.checkpoint, snapshot.screenshot, writable, native);
       setDraft(record);
       pending.current = record;
-      await putDraft(record);
+      await putDraft(record, reclaimCache);
       return persist(record, snapshot.checkpoint, runtime);
     },
-    [run, userId, native, notify, persist, protectedSourceId],
+    [run, userId, native, notify, persist, protectedSourceId, reclaimCache],
   );
   const captureWork = useCallback(
     async (
@@ -141,6 +146,7 @@ export function useSaveSession(
     setBusy(true);
     let synced = false;
     try {
+      await putDraft(record, reclaimCache);
       synced = await persist(record, {
         format: record.metadata.extinfo.checkpointFormat,
         bytes: new Uint8Array(await record.payload.arrayBuffer()),
