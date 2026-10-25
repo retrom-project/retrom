@@ -83,6 +83,11 @@ jobs:
           --health-cmd "pg_isready -U retrom -d postgres"
           --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
+      - name: Use runner disk for upload temporary storage
+        run: |
+          # Upload fixtures retain 10 GiB; avoid the size-limited /tmp tmpfs.
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          df -h /tmp "$RUNNER_TEMP"
       - name: Check out the repository
         uses: actions/checkout@v6
       - name: Set up Go
@@ -130,6 +135,11 @@ jobs:
           --health-cmd "pg_isready -U retrom -d postgres"
           --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
+      - name: Use runner disk for upload temporary storage
+        run: |
+          # Upload fixtures retain 10 GiB; avoid the size-limited /tmp tmpfs.
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          df -h /tmp "$RUNNER_TEMP"
       - name: Check out the repository
         uses: actions/checkout@v6
       - name: Set up Go
@@ -225,6 +235,11 @@ jobs:
           --health-cmd "pg_isready -U retrom -d postgres"
           --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
+      - name: Use runner disk for upload temporary storage
+        run: |
+          # Upload fixtures retain 10 GiB; avoid the size-limited /tmp tmpfs.
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          df -h /tmp "$RUNNER_TEMP"
       - name: Check out the repository
         uses: actions/checkout@v6
       - name: Set up Go
