@@ -1,3 +1,5 @@
+import {PlayerStartupChoice} from "./player-startup-choice";
+import type {RuntimeStartupInteractionV1} from "./runtime/contract";
 import type {
   RuntimeFinalSnapshotV1,
   RuntimeStateV1,
@@ -9,6 +11,9 @@ import { PlayerStartupTasks } from "./player-startup-tasks";
 
 export function PlayerFeedback({
   error,
+  startupInteraction,
+  onStartupChoice,
+  onCancelStartup,
   state,
   step,
   tasks,
@@ -22,6 +27,9 @@ export function PlayerFeedback({
   onReturn,
 }: {
   error: string;
+  startupInteraction?: RuntimeStartupInteractionV1 | null;
+  onStartupChoice?: (id: string) => void;
+  onCancelStartup?: () => void;
   state: RuntimeStateV1;
   step: string;
   tasks: RuntimeStartupTaskV1[];
@@ -45,13 +53,8 @@ export function PlayerFeedback({
           </button>
         </section></div>
       ) : null}
-      {["CREATED", "MOUNTING"].includes(state) && !error ? (
-        <div className="player-loading-layer"><section className="player-loading" role="status" aria-live="polite">
-          <strong>游戏启动中</strong>
-          {tasks.length ? <PlayerStartupTasks tasks={tasks} /> : <i aria-hidden="true" />}
-          <p>{step}</p>
-        </section></div>
-      ) : null}
+      {!error ? <PlayerStartupFeedback state={state} step={step} tasks={tasks} interaction={startupInteraction}
+        onChoose={onStartupChoice} onCancel={onCancelStartup} onReturn={onReturn} /> : null}
       {draft ? (
         <div className="player-save-upload-progress">
           <p>{busy ? "正在同步存档…" : draft.recoveryError || status || "同步失败，存档已保留在浏览器。"}</p>
@@ -81,4 +84,18 @@ export function PlayerFeedback({
       ) : null}
     </>
   );
+}
+
+function PlayerStartupFeedback({state, step, tasks, interaction, onChoose = () => {}, onCancel, onReturn}: {
+  state: RuntimeStateV1; step: string; tasks: RuntimeStartupTaskV1[];
+  interaction?: RuntimeStartupInteractionV1 | null; onChoose?: (id: string) => void;
+  onCancel?: () => void; onReturn: () => void;
+}) {
+  if (!["CREATED", "MOUNTING"].includes(state)) {return null;}
+  if (interaction) {return <PlayerStartupChoice interaction={interaction} onChoose={onChoose} onCancel={onCancel ?? onReturn} />;}
+  return <div className="player-loading-layer"><section className="player-loading" role="status" aria-live="polite">
+    <strong>游戏启动中</strong>
+    {tasks.length ? <PlayerStartupTasks tasks={tasks} /> : <i aria-hidden="true" />}
+    <p>{step}</p>
+  </section></div>;
 }

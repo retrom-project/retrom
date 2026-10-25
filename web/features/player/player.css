@@ -104,6 +104,8 @@
 .player-loading i { width: 42px; height: 42px; display: block; margin: 0 auto 15px; border: 4px solid #343c4b; border-top-color: #8d7df1; border-radius: 50%; animation: spin 1s linear infinite; }
 .player-loading strong { display: block; color: #edf0f5; font-size: var(--text-body); }
 .player-loading p { margin: 9px 0 0; color: #909aab; font-size: var(--text-caption); }
+.player-startup-choice { max-height: calc(100dvh - 40px); display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+.player-startup-options { min-height: 0; display: grid; gap: 8px; overflow-y: auto; }
 .player-loading a { color: #b9adff; }
 .player-failure { max-height: calc(100dvh - 32px); overflow: auto; }
 .player-failure-details { width: 100%; text-align: left; }
