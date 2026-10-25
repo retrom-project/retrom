@@ -300,6 +300,7 @@ function PlayerContent({
         draft={saves.draft}
         status={saves.status}
         busy={saves.busy}
+        background={saves.background}
         preview={saves.preview}
         review={run.purpose === "review"}
         onRetry={() => void saves.retry(runtime.current)}

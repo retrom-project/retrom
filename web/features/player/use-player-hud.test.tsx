@@ -75,6 +75,25 @@ it("cleans the reveal timer on unmount", async () => {
   expect(vi.getTimerCount()).toBe(0);
 });
 
+it.each([false, true])("preserves hidden, explicitly shown and paused controls across exports: desktop=%s", async desktop => {
+  vi.useFakeTimers();
+  const view = renderHook(({state}) => usePlayerHud(state, false, desktop),
+    {initialProps: {state: "RUNNING" as RuntimeStateV1}});
+  await act(() => view.result.current.hide());
+  view.rerender({state: "CHECKPOINTING"});
+  expect(view.result.current.visible).toBe(false);
+  view.rerender({state: "RUNNING"});
+  await act(() => view.result.current.show());
+  view.rerender({state: "CHECKPOINTING"});
+  expect(view.result.current.visible).toBe(true);
+  view.rerender({state: "PAUSED"});
+  await act(() => view.result.current.onFocus(true));
+  view.rerender({state: "CHECKPOINTING"});
+  expect(view.result.current.visible).toBe(true);
+  view.rerender({state: "PAUSED"});
+  expect(view.result.current.visible).toBe(true);
+});
+
 it("reveals desktop controls on hover and retracts immediately after leaving, including while paused", async () => {
   vi.useFakeTimers();
   const view = renderHook(({state}) => usePlayerHud(state, false, true),

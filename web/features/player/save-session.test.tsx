@@ -229,8 +229,8 @@ it("acknowledges J2ME RMS only after delayed persistence and serializes automati
   expect(result.current.busy).toBe(false);
   expect(result.current.draft).toBeNull();
 });
-it("retains the same native commit when acknowledgement fails after durable persistence", async () => {
-  const runtime = runtimeFixture();
+it.each(["RUNNING", "FAILED"] as const)("retains the same native commit when acknowledgement fails while %s", async state => {
+  const runtime = runtimeFixture(state);
   const acknowledge = vi.spyOn(runtime, "acknowledgeCheckpoint").mockRejectedValueOnce(new Error("确认失败"));
   vi.spyOn(runtime, "getCheckpointAvailability").mockReturnValue({ available: false, reason: "UNCHANGED" });
   vi.mocked(uploadDraft).mockResolvedValue({ id: "native-id", version: 4 } as Awaited<ReturnType<typeof uploadDraft>>);
@@ -248,6 +248,59 @@ it("retains the same native commit when acknowledgement fails after durable pers
   expect(result.current.currentSave?.version).toBe(4);
   expect(result.current.draft).toBeNull();
   expect(screen.getByRole("status")).toHaveTextContent("存档已同步。");
+});
+
+it.each(["EXITING", "EXITED"] as const)("finishes a persisted native save after the runtime becomes %s", async state => {
+  const runtime = runtimeFixture();
+  const current = vi.spyOn(runtime, "getState");
+  const acknowledge = vi.spyOn(runtime, "acknowledgeCheckpoint").mockRejectedValue(new Error("Aborted"));
+  vi.mocked(uploadDraft).mockImplementationOnce(async () => {
+    current.mockReturnValue(state);
+    return { id: "native-id", version: 4 } as Awaited<ReturnType<typeof uploadDraft>>;
+  });
+  const { result } = renderHook(() => useSaveSession(runFixture(), "user-a", true));
+  await act(async () => { expect(await result.current.capture(runtime, "EXPORT")).toBe(true); });
+  expect(acknowledge).not.toHaveBeenCalled();
+  expect(result.current.draft).toBeNull();
+  expect(result.current.status).toBe("");
+  expect(result.current.currentSave?.version).toBe(4);
+});
+
+it("finishes persistence when normal exit interrupts native acknowledgement", async () => {
+  const runtime = runtimeFixture();
+  const current = vi.spyOn(runtime, "getState");
+  vi.spyOn(runtime, "acknowledgeCheckpoint").mockImplementation(async () => {
+    current.mockReturnValue("EXITED");
+    throw new Error("Aborted");
+  });
+  vi.mocked(uploadDraft).mockResolvedValue({ id: "native-id", version: 4 } as Awaited<ReturnType<typeof uploadDraft>>);
+  const { result } = renderHook(() => useSaveSession(runFixture(), "user-a", true));
+  await act(async () => { expect(await result.current.capture(runtime, "EXPORT")).toBe(true); });
+  expect(result.current.draft).toBeNull();
+  expect(result.current.status).toBe("");
+});
+
+it("waits for an in-flight native save before committing a newer final snapshot", async () => {
+  const runtime = runtimeFixture();
+  const newer = { ...checkpoint, bytes: new Uint8Array([7, 8, 9]) };
+  let release!: (saved: Awaited<ReturnType<typeof uploadDraft>>) => void;
+  vi.mocked(uploadDraft)
+    .mockImplementationOnce(() => new Promise(resolve => { release = resolve; }))
+    .mockResolvedValueOnce({ id: "native-id", version: 2 } as Awaited<ReturnType<typeof uploadDraft>>);
+  const { result } = renderHook(() => useSaveSession(runFixture(), "user-a", true));
+  await act(async () => { result.current.nativeChanged(runtime); });
+  let final!: Promise<boolean>;
+  await act(async () => { final = result.current.commit({ checkpoint: newer, screenshot: null }, null); });
+  const uploadsBeforePersistence = vi.mocked(uploadDraft).mock.calls.length;
+  await act(async () => {
+    release({ id: "native-id", version: 1 } as Awaited<ReturnType<typeof uploadDraft>>);
+    await final;
+  });
+  expect(uploadsBeforePersistence).toBe(1);
+  expect(uploadDraft).toHaveBeenCalledTimes(2);
+  expect(vi.mocked(uploadDraft).mock.calls[1][0]).toMatchObject({ saveId: "native-id", metadata: { version: 1 } });
+  expect(result.current.currentSave?.version).toBe(2);
+  expect(result.current.draft).toBeNull();
 });
 
 it.each([true, false])("waits for the pending native save before unmount (persistence success=%s)", async (succeeds) => {
