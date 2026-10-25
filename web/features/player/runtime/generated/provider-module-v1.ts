@@ -185,10 +185,18 @@ export type RuntimeFailureV1 = {
   diagnostics: readonly {source: "CORE" | "RUNTIME"; message: string}[];
 };
 
+/** Actionable startup choices. The runtime remains MOUNTING until selected content is ready. */
+export type RuntimeStartupInteractionV1 = {
+  id: string;
+  title: string;
+  choices: readonly {id: string; label: string}[];
+};
+
 export type RuntimeEventV1 =
   | { type: "HOST_SHORTCUT"; shortcut: RuntimeHostShortcutV1 }
   | { type: "STATE_CHANGED"; previous: RuntimeStateV1; state: RuntimeStateV1 }
   | { type: "LOAD_TASK"; task: RuntimeStartupTaskV1 }
+  | { type: "STARTUP_INTERACTION"; interaction: RuntimeStartupInteractionV1 | null }
   | { type: "LOAD_PROGRESS"; loadedBytes: number; totalBytes: number | null }
   | { type: "CHECKPOINT_AVAILABILITY_CHANGED"; availability: RuntimeCheckpointAvailabilityV1 }
   /** Live runtime is closing; final files remain usable after exit without another checkpoint call. */
@@ -206,6 +214,8 @@ export type RuntimeEventListenerV1 = (event: RuntimeEventV1) => void;
 
 export interface PlayerRuntimeV1 {
   mount(target: HTMLElement): Promise<void>;
+  /** Replies only to the currently published startup choice. Cancel using exit(). */
+  respondToStartupInteraction?(id: string, choiceId: string): Promise<void>;
   pause(): Promise<void>;
   resume(): Promise<void>;
   checkpoint(request?: RuntimeCheckpointRequestV1): Promise<RuntimeCheckpointV1>;

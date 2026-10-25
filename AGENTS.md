@@ -2,6 +2,12 @@
 
 本文件适用于全仓库，子规范只能补充或收紧。用户明确授权与会话约束优先；事实冲突先核对并修正，不能静默保留两套契约。
 
+## 通用游戏平台
+
+Retrom 是通用游戏平台。方案设计、性能优化和问题修复必须面向通用平台能力，不得按游戏名称、文件哈希、特定游戏包名／类名、Game ID 或游戏白名单启用专用补丁、绕过或启动分支；也不得将同一名单逻辑转移到数据库、配置或导入脚本。
+
+运行行为应由平台／API 契约、实际内容结构、核心能力和运行状态决定。哈希用于完整性校验、缓存／存档隔离和证据追踪，不用于选择修复。游戏样本用于复现和回归；修复应有不依赖游戏身份的用例，并通过默认公共运行路径验证真实内容。
+
 开始工作按范围阅读docs/README.md、retrom-product-architecture.md、data-model.md、http-api-contract.md、engineering-quality-and-testing.md及project-acceptance.md。API权威是api/openapi.yaml及Provider V1 schemas；运行事实归配套retrom-runtime。正式文档不依赖临时设计目录。
 
 ## 仓库与架构

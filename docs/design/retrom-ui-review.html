@@ -16,12 +16,13 @@
 &lt;meta charset=&quot;utf-8&quot;&gt;
 &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
 &lt;meta name=&quot;referrer&quot; content=&quot;no-referrer&quot;&gt;
-&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#x27;none&#x27;; script-src &#x27;unsafe-inline&#x27; https://unpkg.com; style-src &#x27;unsafe-inline&#x27;; img-src data:; font-src data:; frame-src &#x27;none&#x27;; object-src &#x27;none&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;&quot;&gt;
+&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src 'none'; script-src 'unsafe-inline' https://unpkg.com; style-src 'unsafe-inline'; img-src data:; font-src data:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'&quot;&gt;
 &lt;title&gt;Retrom UI 交互评审稿&lt;/title&gt;
 &lt;link rel=&quot;icon&quot; type=&quot;image/svg+xml&quot; href=&quot;data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iOCIgZmlsbD0iIzc1NjBkYyIvPjxwYXRoIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yIDApIiBmaWxsPSIjZmZmIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xNiAxMmgxOWM5IDAgMTQgNSAxNCAxMyAwIDYtMyAxMC04IDEybDExIDE1SDM5TDI4IDM4aC0xdjE0SDE2Wk0yNyAyMnY3aDhjMyAwIDQtMSA0LTQgMC0yLTEtMy00LTNaIi8+PC9zdmc+Cg==&quot;&gt;
 &lt;style&gt;@layer app, controls; :root {
   color-scheme: dark;
   --layer-popover: 240;
+  --layer-notice: 300;
   --layer-toast: 400;
   --radius-cover: 4px;
   --radius-control: 6px;
@@ -77,7 +78,7 @@
   --text-immersive-heading: clamp(20px, 1.4vw, 30px);
   --text-immersive-title: clamp(32px, 3.2vw, 64px);
   --text-immersive-mark: min(clamp(72px, 10vw, 150px), 80cqh);
-  /* Whole platform codes of 5-6 and 7-10 characters also fit the mark container&#x27;s width. */
+  /* Whole platform codes of 5-6 and 7-10 characters also fit the mark container's width. */
   --text-immersive-mark-medium: min(clamp(72px, 10vw, 150px), 80cqh, calc(100cqi / 3.9));
   --text-immersive-mark-long: min(clamp(72px, 10vw, 150px), 80cqh, calc(100cqi / 6.4));
   --weight-regular: 400;
@@ -119,6 +120,7 @@
   white-space: nowrap;
   transition: background .15s ease, border-color .15s ease;
 }
+.rt-button.multiline { white-space: normal; overflow-wrap: anywhere; }
 .rt-button:hover { background: var(--purple-hover); color: white; }
 .rt-button:not(.rt-button-primary) { background: var(--surface); border-color: var(--control-line); color: var(--ink); }
 .rt-button:not(.rt-button-primary):hover { background: var(--surface-subtle); border-color: var(--purple); color: var(--purple-dark); }
@@ -145,14 +147,14 @@ select, .import-directory-trigger {
   border: 1px solid var(--control-line);
   border-radius: var(--radius-control);
   color: var(--control-ink);
-  background: var(--control-surface) url(&quot;data:image/svg+xml,%3Csvg xmlns=&#x27;http://www.w3.org/2000/svg&#x27; width=&#x27;16&#x27; height=&#x27;16&#x27; fill=&#x27;none&#x27; stroke=&#x27;%23c0afff&#x27; stroke-width=&#x27;1.6&#x27; viewBox=&#x27;0 0 16 16&#x27;%3E%3Cpath d=&#x27;m4 6 4 4 4-4&#x27;/%3E%3C/svg%3E&quot;) no-repeat right 12px center;
+  background: var(--control-surface) url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23c0afff' stroke-width='1.6' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E&quot;) no-repeat right 12px center;
   font-family: var(--font-sans);
   font-size: var(--control-font-size);
   font-weight: var(--weight-regular);
   line-height: 1.5;
   cursor: pointer;
 }
-input:not([type=&#x27;checkbox&#x27;], [type=&#x27;radio&#x27;], [type=&#x27;range&#x27;], [type=&#x27;file&#x27;], [type=&#x27;hidden&#x27;]), textarea {
+input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='hidden']), textarea {
   min-height: var(--control-height);
   padding: 10px 12px;
   border: 1px solid var(--control-line);
@@ -165,8 +167,8 @@ input:not([type=&#x27;checkbox&#x27;], [type=&#x27;radio&#x27;], [type=&#x27;ran
   line-height: 1.5;
 }
 textarea { min-height: 112px; resize: vertical; }
-textarea[rows=&#x27;1&#x27;] { min-height: var(--control-height); height: var(--control-height); resize: none; }
-input[type=&#x27;checkbox&#x27;], input[type=&#x27;radio&#x27;], input[type=&#x27;range&#x27;] { accent-color: var(--purple); }
+textarea[rows='1'] { min-height: var(--control-height); height: var(--control-height); resize: none; }
+input[type='checkbox'], input[type='radio'], input[type='range'] { accent-color: var(--purple); }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 select:focus-visible, input:focus-visible, textarea:focus-visible, .import-directory-trigger:focus-visible {
   border-color: var(--purple);
@@ -194,7 +196,7 @@ select[multiple], select[size]:not([size=&quot;0&quot;], [size=&quot;1&quot;]) {
 .import-directory-trigger &gt; svg { position: absolute; right: 12px; top: 50%; width: 16px; height: 16px; transform: translateY(-50%); color: var(--purple-dark); stroke-width: 1.6; }
 
 @media (max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px) {
-  select, input:not([type=&#x27;checkbox&#x27;], [type=&#x27;radio&#x27;], [type=&#x27;range&#x27;], [type=&#x27;file&#x27;], [type=&#x27;hidden&#x27;]), textarea, .import-directory-trigger {
+  select, input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='hidden']), textarea, .import-directory-trigger {
     font-size: var(--text-lead);
   }
 }
@@ -218,7 +220,7 @@ select[multiple], select[size]:not([size=&quot;0&quot;], [size=&quot;1&quot;]) {
   &lt;!-- PWA: account installation uses a real browser event; iOS shows share-menu guidance. Updates wait for all Player/immersive windows to exit and refresh only the requesting window. --&gt;
   &lt;!-- Library filters sort Chinese pinyin and Latin names together; hide platforms with zero published games; show published counts such as Arcade(863), 步步高 RPG(12), NES(999+). Directory/tag selects use the same sort, with 全部 first. --&gt;
   &lt;!-- Home platform rail includes only directories with published gameCount &gt; 0; hide the entire section when none qualify. --&gt;
-  &lt;!-- Home hero follows the latest actual play. Restore the original block layout, padding and metadata row; no new status row, reserved gaps or split groups. Any existing save selects that game&#x27;s newest save for its time, resume action and right-hand screenshot, regardless of the last play time. Unavailable saves remain visible but cannot resume. Only no saves uses platform artwork, 上次游玩, equal-width 新的开始 and 本次将启动全新游戏. Always keep 查看存档. Missing/failed save screenshots show an unavailable hint. Narrow/mobile layouts retain the original media-hidden breakpoint. --&gt;
+  &lt;!-- Home hero follows the latest actual play. Restore the original block layout, padding and metadata row; no new status row, reserved gaps or split groups. Any existing save selects that game's newest save for its time, resume action and right-hand screenshot, regardless of the last play time. Unavailable saves remain visible but cannot resume. Only no saves uses platform artwork, 上次游玩, equal-width 新的开始 and 本次将启动全新游戏. Always keep 查看存档. Missing/failed save screenshots show an unavailable hint. Narrow/mobile layouts retain the original media-hidden breakpoint. --&gt;
   &lt;!-- Project packages: management counts physical managed files. Generic entry selectors use logical member paths and &lt;=100-row pages, retaining the selected entry. Collapsed 浏览项目文件 exposes literal-prefix filtering, next page and first page using shared controls. RPG/ScummVM selectors retain runtime authority; no ZIP management details enter play flows. --&gt;
   &lt;!-- Review CRC approval: shared ConfirmDialog, cancel focused; ROM/Parent/BIOS counts, optional 测试运行, 返回检查, 确认风险并发布. Hard missing-file/BIOS failures remain blocked. --&gt;
   &lt;!-- Detail center: identity/tags at top, complete loading/launch/hint/runtime group at bottom. Fixed 427px wide/800px intermediate hero; single-line title scrolls only on hover/focus, touch supports native swipe. Keep 8/12px group gaps and put remaining space between groups; no title-driven growth or inner vertical scrollbar. Phone launch bar/sheet remain unchanged. --&gt;
@@ -470,7 +472,7 @@ select[multiple], select[size]:not([size=&quot;0&quot;], [size=&quot;1&quot;]) {
           &lt;section class=&quot;rt-player-dialog&quot; data-player-state=&quot;exit&quot; hidden&gt;&lt;h2&gt;退出游戏？&lt;/h2&gt;&lt;p&gt;直接退出不会创建存档；如需保留当前位置，请先创建存档。&lt;/p&gt;&lt;p class=&quot;rt-notice&quot;&gt;只有点击“创建存档”才会保存当前位置；直接退出只结束本次游戏，未保存的进度不会保留。&lt;/p&gt;&lt;div class=&quot;rt-actions&quot;&gt;&lt;button class=&quot;rt-button&quot; data-player-panel=&quot;saved&quot;&gt;创建存档&lt;/button&gt;&lt;button class=&quot;rt-button&quot; data-player-panel=&quot;none&quot;&gt;取消&lt;/button&gt;&lt;button class=&quot;rt-button rt-button-danger&quot; data-open=&quot;detail&quot;&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;
           &lt;div class=&quot;rt-player-toast&quot; data-player-state=&quot;saved&quot; role=&quot;status&quot; hidden&gt;存档已同步。&lt;button class=&quot;rt-button&quot; data-player-panel=&quot;none&quot; aria-label=&quot;关闭通知&quot;&gt;×&lt;/button&gt;&lt;/div&gt;
         &lt;/div&gt;
-        &lt;div class=&quot;rt-fields rt-section&quot;&gt;&lt;section class=&quot;rt-panel&quot;&gt;&lt;h2&gt;游戏启动中&lt;/h2&gt;&lt;p&gt;游戏内容 [▪▪▪▪▪▪▪▪▪▪] ✓&lt;/p&gt;&lt;p&gt;核心资源 [··········] ◌&lt;/p&gt;&lt;p class=&quot;rt-muted&quot;&gt;真实启动任务与字节进度；未知进度使用不定动画。&lt;/p&gt;&lt;/section&gt;&lt;section class=&quot;rt-panel&quot;&gt;&lt;p class=&quot;rt-muted&quot;&gt;游戏已暂停&lt;/p&gt;&lt;h2&gt;游戏菜单&lt;/h2&gt;&lt;p&gt;沉浸运行不显示普通工具栏；M 或 Select + Start 双击打开菜单。&lt;/p&gt;&lt;div class=&quot;rt-actions&quot;&gt;&lt;button class=&quot;rt-button&quot;&gt;取消&lt;/button&gt;&lt;button class=&quot;rt-button&quot;&gt;创建存档&lt;/button&gt;&lt;button class=&quot;rt-button&quot;&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;p class=&quot;rt-muted&quot;&gt;A 确认 · B 取消 · 返回后保留原目录与选中游戏&lt;/p&gt;&lt;/section&gt;&lt;section class=&quot;rt-panel&quot;&gt;&lt;p class=&quot;rt-muted&quot;&gt;网络中断&lt;/p&gt;&lt;h2&gt;网络连接中断，正在重新连接…&lt;/h2&gt;&lt;p&gt;按需加载的游戏内容读取失败时不结束游戏：画面上方显示提示，后台按 1/2/4/8 秒重试，网络恢复后自动从中断处继续。提示不拦截输入，也可随时退出游戏。&lt;/p&gt;&lt;/section&gt;&lt;/div&gt;
+        &lt;div class=&quot;rt-fields rt-section&quot;&gt;&lt;section class=&quot;rt-panel&quot;&gt;&lt;h2&gt;游戏启动中&lt;/h2&gt;&lt;p&gt;游戏内容 [▪▪▪▪▪▪▪▪▪▪] ✓&lt;/p&gt;&lt;p&gt;核心资源 [··········] ◌&lt;/p&gt;&lt;p class=&quot;rt-muted&quot;&gt;真实启动任务与字节进度；未知进度使用不定动画。&lt;/p&gt;&lt;/section&gt;&lt;section class=&quot;rt-panel&quot;&gt;&lt;h2&gt;选择启动入口&lt;/h2&gt;&lt;p class=&quot;rt-muted&quot;&gt;请选择要启动的入口&lt;/p&gt;&lt;div class=&quot;rt-actions&quot;&gt;&lt;button class=&quot;rt-button&quot;&gt;主程序&lt;/button&gt;&lt;button class=&quot;rt-button&quot;&gt;说明&lt;/button&gt;&lt;button class=&quot;rt-button&quot;&gt;取消启动&lt;/button&gt;&lt;/div&gt;&lt;p class=&quot;rt-muted&quot;&gt;方向键 / 手柄选择 · Enter / A 确认 · Escape / B 取消。等待选择时保持启动中，长列表独立滚动。&lt;/p&gt;&lt;/section&gt;&lt;section class=&quot;rt-panel&quot;&gt;&lt;p class=&quot;rt-muted&quot;&gt;游戏已暂停&lt;/p&gt;&lt;h2&gt;游戏菜单&lt;/h2&gt;&lt;p&gt;沉浸运行不显示普通工具栏；M 或 Select + Start 双击打开菜单。&lt;/p&gt;&lt;div class=&quot;rt-actions&quot;&gt;&lt;button class=&quot;rt-button&quot;&gt;取消&lt;/button&gt;&lt;button class=&quot;rt-button&quot;&gt;创建存档&lt;/button&gt;&lt;button class=&quot;rt-button&quot;&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;p class=&quot;rt-muted&quot;&gt;A 确认 · B 取消 · 返回后保留原目录与选中游戏&lt;/p&gt;&lt;/section&gt;&lt;section class=&quot;rt-panel&quot;&gt;&lt;p class=&quot;rt-muted&quot;&gt;网络中断&lt;/p&gt;&lt;h2&gt;网络连接中断，正在重新连接…&lt;/h2&gt;&lt;p&gt;按需加载的游戏内容读取失败时不结束游戏：画面上方显示提示，后台按 1/2/4/8 秒重试，网络恢复后自动从中断处继续。提示不拦截输入，也可随时退出游戏。&lt;/p&gt;&lt;/section&gt;&lt;/div&gt;
         &lt;p class=&quot;rt-notice&quot;&gt;启动时默认请求全屏；浏览器未允许时可在更多操作菜单中手动切换。PC鼠标移入顶部整条边缘展开菜单，移开收起；悬停不暂停，点击菜单任意位置暂停，点击游戏画面继续。手机保留点击把手与暂停/继续按钮。创建存档用于保存进度；原生存档需在游戏内保存，再同步。失败可重试、导出或保留本地草稿。独立截图下载入口已移除。&lt;/p&gt;
       &lt;/section&gt;
       &lt;section class=&quot;rt-page rt-panel&quot; data-page=&quot;save-warning&quot; hidden&gt;&lt;h2&gt;尝试加载旧存档？&lt;/h2&gt;&lt;p&gt;当前核心与创建此存档时的版本不一致，加载可能失败，或在游玩过程中出现异常。你仍可尝试加载。原存档会保留，后续保存的进度将另存为新存档。&lt;/p&gt;&lt;div class=&quot;rt-actions&quot;&gt;&lt;button class=&quot;rt-button&quot; data-open=&quot;saves&quot;&gt;取消&lt;/button&gt;&lt;button class=&quot;rt-button rt-button-primary&quot; data-open=&quot;player&quot;&gt;尝试加载&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;
@@ -516,9 +518,9 @@ select[multiple], select[size]:not([size=&quot;0&quot;], [size=&quot;1&quot;]) {
         if (save) { chooseSave(Number(save.dataset.immersiveSave) - 1); }
         const move = event.target.closest(&quot;[data-save-move]&quot;);
         if (move) { const selected = Array.from(root.querySelectorAll(&quot;[data-immersive-save]&quot;)).findIndex(item =&gt; item.getAttribute(&quot;aria-pressed&quot;) === &quot;true&quot;); chooseSave(selected + Number(move.dataset.saveMove)); }
-        const tagOption = event.target.closest(&#x27;.rt-tag-options [role=&quot;option&quot;]&#x27;);
+        const tagOption = event.target.closest('.rt-tag-options [role=&quot;option&quot;]');
         if (tagOption) { const selected = tagOption.getAttribute(&quot;aria-selected&quot;) !== &quot;true&quot;; tagOption.setAttribute(&quot;aria-selected&quot;, String(selected)); tagOption.querySelector(&quot;span&quot;)?.remove(); if (selected) { const mark = document.createElement(&quot;span&quot;); mark.setAttribute(&quot;aria-hidden&quot;, &quot;true&quot;); mark.textContent = &quot;✓&quot;; tagOption.append(mark); } }
-        if (event.target.closest(&quot;[data-player-surface]&quot;)) { root.querySelector(&#x27;[data-player-state=&quot;menu&quot;]&#x27;).hidden = true; }
+        if (event.target.closest(&quot;[data-player-surface]&quot;)) { root.querySelector('[data-player-state=&quot;menu&quot;]').hidden = true; }
         const playerAction = event.target.closest(&quot;[data-player-panel]&quot;);
         if (playerAction) { root.querySelectorAll(&quot;[data-player-state]&quot;).forEach(panel =&gt; { panel.hidden = panel.dataset.playerState !== playerAction.dataset.playerPanel; }); }
         const button = event.target.closest(&quot;[data-view], [data-open]&quot;);

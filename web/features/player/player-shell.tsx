@@ -131,7 +131,7 @@ function PlayerContent({
     },
     [commit],
   );
-  const { mount, runtime, state, error, availability, step, tasks, networkWaiting } = usePlayerSession(
+  const { mount, runtime, state, error, availability, step, tasks, networkWaiting, startupInteraction } = usePlayerSession(
     run,
     saves.nativeChanged,
     requestExit,
@@ -287,6 +287,12 @@ function PlayerContent({
       />
 
       <PlayerFeedback
+        startupInteraction={startupInteraction}
+        onStartupChoice={choiceId => {
+          if (!startupInteraction) {return;}
+          void runtime.current?.respondToStartupInteraction?.(startupInteraction.id, choiceId).catch(failure => reportError(failure.message));
+        }}
+        onCancelStartup={() => {void runtime.current?.exit().then(() => leave()).catch(failure => reportError(failure.message));}}
         error={error}
         state={state}
         step={step}
