@@ -39,7 +39,7 @@ export function useSaveSession(
       persisted = true;
       selectedSave.current = save;
       setCurrentSave(save);
-      if (native) { await runtime?.acknowledgeCheckpoint?.(checkpoint); }
+      if (native) { await acknowledgeNativeSave(runtime, checkpoint); }
       setDraft(null);
       pending.current = null;
       setStatus("");
@@ -62,6 +62,9 @@ export function useSaveSession(
       runtime: PlayerRuntimeV1 | null,
       target: Schema<"Save"> | null = null,
     ) => {
+      // A final snapshot can arrive while an ordinary native save is still
+      // uploading. Finish it before choosing the save ID and expected version.
+      if (runtime === null) { await inFlight.current; }
       if (run.purpose === "review") {
         setPreview(snapshot);
         setStatus("");
@@ -180,6 +183,21 @@ export function useSaveSession(
     retry,
     settle,
   };
+}
+
+async function acknowledgeNativeSave(runtime: PlayerRuntimeV1 | null, checkpoint: RuntimeCheckpointV1) {
+  if (!runtime || normallyExiting(runtime)) { return; }
+  try { await runtime.acknowledgeCheckpoint?.(checkpoint); }
+  catch (failure) {
+    // Confirmation only advances the running core's revision. After normal
+    // termination there is no live revision to advance; the server commit won.
+    if (!normallyExiting(runtime)) { throw failure; }
+  }
+}
+
+function normallyExiting(runtime: PlayerRuntimeV1) {
+  const state = runtime.getState();
+  return state === "EXITING" || state === "EXITED";
 }
 
 async function sameDraftCheckpoint(draft: SaveDraft, checkpoint: RuntimeCheckpointV1) {
