@@ -1,6 +1,7 @@
 import type { Schema } from "@/lib/api/types";
 import { DraftIdentityMismatch, uploadWithRenewal } from "./draft-upload";
-import type { RuntimeCheckpointV1 } from "./runtime/contract";
+import type { ProviderModuleV1, RuntimeCheckpointV1 } from "./runtime/contract";
+type ReclaimContentCache = ProviderModuleV1["reclaimContentCache"];
 export type SaveDraft = {
   id: string;
   userId: string;
@@ -34,34 +35,47 @@ async function transaction<T>(
       const tx = db.transaction("drafts", mode);
       const request = action(tx.objectStore("drafts"));
       tx.oncomplete = () => resolve(request.result);
-      tx.onerror = () => reject(tx.error);
+      // A request error precedes transaction shutdown and can still have a null
+      // tx.error. Wait for the native abort before recovery or closing the DB.
       tx.onabort = () => reject(tx.error ?? new Error("本地存档写入失败。"));
     });
   } finally {
     db.close();
   }
 }
-export async function putDraft(draft: SaveDraft) {
+export async function putDraft(draft: SaveDraft, reclaim?: ReclaimContentCache) {
   volatileDrafts.set(draft.id, draft);
   try {
     await transaction("readwrite", (store) => store.put(draft));
-    volatileDrafts.delete(draft.id);
-  } catch {
-    throw new Error(
-      "无法将存档写入浏览器。请先导出备份，刷新页面后将无法找回这份临时存档。",
-    );
+  } catch (failure) {
+    if (!reclaim || !(failure instanceof DOMException) || failure.name !== "QuotaExceededError") {
+      throw draftStorageFailure(failure);
+    }
+    try {
+      await reclaim({ targetBytes: Math.max(32 * 1024 * 1024, 2 * (draft.payload.size + (draft.screenshot?.size ?? 0))) });
+      await transaction("readwrite", (store) => store.put(draft));
+    } catch (retryFailure) {
+      throw draftStorageFailure(new AggregateError([failure, retryFailure], "浏览器存档配额恢复失败。"));
+    }
   }
+  volatileDrafts.delete(draft.id);
+}
+function draftStorageFailure(cause: unknown) {
+  return new Error(
+    "无法将存档写入浏览器。请先导出备份，刷新页面后将无法找回这份临时存档。",
+    { cause },
+  );
 }
 export async function removeDraft(userId: string, id: string) {
   const volatile = volatileDrafts.get(id);
   if (volatile && volatile.userId !== userId) {
     throw new Error("无法访问其他账号的存档。");
   }
-  volatileDrafts.delete(id);
   const record: unknown = await transaction("readonly", (store) =>
     store.get(id),
   );
   if (record === undefined) {
+    volatileDrafts.delete(id);
     return;
   }
   if (
@@ -73,6 +87,7 @@ export async function removeDraft(userId: string, id: string) {
     throw new Error("无法访问其他账号的存档。");
   }
   await transaction("readwrite", (store) => store.delete(id));
+  volatileDrafts.delete(id);
 }
 export async function listDrafts(userId: string): Promise<SaveDraft[]> {
   let records: unknown;
@@ -101,7 +116,7 @@ export async function listDrafts(userId: string): Promise<SaveDraft[]> {
     .filter((draft) => draft.userId === userId)
     .sort((a, b) => b.createdAtMs - a.createdAtMs);
 }
-export async function uploadDraft(draft: SaveDraft, currentUserId: string) {
+export async function uploadDraft(draft: SaveDraft, currentUserId: string, reclaim?: ReclaimContentCache) {
   if (draft.userId !== currentUserId) {
     throw new Error("无法上传其他账号的存档。");
   }
@@ -112,7 +127,7 @@ export async function uploadDraft(draft: SaveDraft, currentUserId: string) {
   } catch (failure) {
     if (failure instanceof DraftIdentityMismatch) {
       draft.recoveryError = failure.message;
-      await putDraft(draft);
+      await putDraft(draft, reclaim);
     }
     throw failure;
   }

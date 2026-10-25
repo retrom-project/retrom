@@ -1,4 +1,6 @@
 import type {
+  ContentCacheReclaimRequestV1,
+  ContentCacheReclaimResultV1,
   LaunchEnvelopeV1,
   PlayerRuntimeV1,
   ProviderModuleV1,
@@ -32,7 +34,38 @@ export async function loadProviderRuntime(
   ) {
     throw playerRuntimeError("PLAYER_RUNTIME_THREADS_UNAVAILABLE");
   }
-  const moduleBytes = await fetchProviderModule(envelope, host, dispatcher);
+  const provider = await loadProviderModule(envelope, host.signal, importer, dispatcher);
+  const runtime = await provider.createRuntime(envelope, host);
+  validatePlayerRuntime(runtime, envelope);
+  return runtime;
+}
+
+export async function reclaimProviderContentCache(
+  envelopeValue: unknown,
+  request: ContentCacheReclaimRequestV1,
+  importer: ProviderImporter = importProviderModule,
+  environment: Partial<DispatcherEnvironment> = {},
+): Promise<ContentCacheReclaimResultV1> {
+  const envelope = validateLaunchEnvelopeBoundary(envelopeValue);
+  const signal = AbortSignal.any([
+    AbortSignal.timeout(15000),
+    ...(request.signal ? [request.signal] : []),
+  ]);
+  signal.throwIfAborted();
+  const provider = await loadProviderModule(envelope, signal, importer, dispatcherEnvironment(environment));
+  signal.throwIfAborted();
+  // Await the Provider's safe cancellation boundary; never release its locks
+  // through a race while storage deletion is still in progress.
+  return provider.reclaimContentCache({ ...request, signal });
+}
+
+async function loadProviderModule(
+  envelope: LaunchEnvelopeV1,
+  signal: AbortSignal | undefined,
+  importer: ProviderImporter,
+  dispatcher: DispatcherEnvironment,
+) {
+  const moduleBytes = await fetchProviderModule(envelope, signal, dispatcher);
   const moduleUrl = dispatcher.createModuleUrl(
     new Blob([moduleBytes], {
       type: "text/javascript; charset=utf-8",
@@ -46,10 +79,7 @@ export async function loadProviderRuntime(
   } finally {
     dispatcher.revokeModuleUrl(moduleUrl);
   }
-  const provider = validateProviderModule(imported, envelope);
-  const runtime = await provider.createRuntime(envelope, host);
-  validatePlayerRuntime(runtime, envelope);
-  return runtime;
+  return validateProviderModule(imported, envelope);
 }
 
 function dispatcherEnvironment(
@@ -70,7 +100,7 @@ function dispatcherEnvironment(
 
 async function fetchProviderModule(
   envelope: LaunchEnvelopeV1,
-  host: RuntimeHostV1,
+  signal: AbortSignal | undefined,
   environment: DispatcherEnvironment,
 ) {
   try {
@@ -78,7 +108,7 @@ async function fetchProviderModule(
       cache: "default",
       credentials: "same-origin",
       redirect: "error",
-      signal: host.signal,
+      signal,
     });
     if (
       !response.ok ||
@@ -164,11 +194,13 @@ function validateProviderModule(
       "providerApiVersion",
       "providerId",
       "providerVersion",
+      "reclaimContentCache",
     ]) ||
     value.providerId !== envelope.runtime.providerId ||
     value.providerVersion !== envelope.runtime.providerVersion ||
     value.providerApiVersion !== envelope.runtime.providerApiVersion ||
-    typeof value.createRuntime !== "function"
+    typeof value.createRuntime !== "function" ||
+    typeof value.reclaimContentCache !== "function"
   ) {
     throw invalidModule();
   }

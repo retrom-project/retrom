@@ -16,6 +16,8 @@ Redis只保存两小时临时run：窄header和被允许的file/index hash字段
 
 退出立即撤销PG会话、清cookie和释放运行资源，不整站Clear-Site-Data storage。未同步IndexedDB/OPFS草稿按User隔离，只有服务端明确成功或用户丢弃才删除。网络失败、Redis失效或响应丢失不能假成功、删除草稿或提前ack。
 
+保存草稿只有在 IndexedDB 事务完成后才算持久化，不能以单次 put 请求成功代替。实际 `QuotaExceededError` 可触发一次已校验 Provider Module 的 `reclaimContentCache`，然后重试同一份草稿；存储估算不能代替真实写入结果。Provider 只回收未被活动运行租约占用、可重新下载的 Content I/O 缓存，不访问存档、草稿、挂载来源或其他缓存。该入口不依赖仍存活的 PlayerRuntime，退出后的最终存档也适用。回收和重试失败保留原错误原因、同一 commitId 与可导出的内存副本；其他写入错误不触发回收，用户重试仍先确认本地持久化。本地草稿清理失败也保留内存副本，服务端提交重试继续使用原 commitId。
+
 resources由宿主允许ID/Range访问；runtime统一解释ZIP编码、虚拟paths、FILE_TREE/EXTERNAL_FILE_SET及bridgeAssetPath。隔离web bridgeUrl来自实际Target唯一桥资产，宿主不猜引擎。checkpoint HTTP与LOCAL restore均通过原V1公开Host接口。只有purpose=play收到running事件后更新最近表；创建run不提前记最近，review不进入个人最近。
 
 Host 在首次导航前为游戏 iframe 设置 allow-modals，允许游戏的 alert/confirm/prompt；隔离 Web adapter 沿用同一权限。缺少该标志时浏览器会忽略原生确认框并按取消处理。运行 origin、内容桥、弹出窗口与顶层导航限制保持原有边界，游戏确认框不经过 Host 专用接口。

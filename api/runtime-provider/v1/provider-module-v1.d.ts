@@ -332,9 +332,22 @@ export type LaunchEnvelopeV1 = {
 
 export type ProviderLaunchRequestV1 = LaunchEnvelopeV1;
 
+export type ContentCacheReclaimRequestV1 = {
+  // Reclamation target, not a hard ceiling: cache objects are removed whole.
+  targetBytes: number;
+  signal?: AbortSignal;
+};
+export type ContentCacheReclaimResultV1 = {
+  reclaimedBytes: number;
+  removedObjects: number;
+};
+
 export interface ProviderModuleV1 {
   providerId: string;
   providerVersion: string;
   providerApiVersion: 1;
   createRuntime(request: unknown, host: RuntimeHostV1): Promise<PlayerRuntimeV1>;
+  // Only idle, reconstructible Content I/O cache; never native saves or drafts.
+  // Independent of a PlayerRuntime, including after its final snapshot/exit.
+  reclaimContentCache(request: ContentCacheReclaimRequestV1): Promise<ContentCacheReclaimResultV1>;
 }
