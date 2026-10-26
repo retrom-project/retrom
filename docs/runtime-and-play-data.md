@@ -8,7 +8,9 @@
 
 Redis只保存两小时临时run：窄header和被允许的file/index hash字段，读取资源不反序列化整份项目。PG登录会话、Game和save不因Redis丢失消失。上下文丢失返回CONTEXT_EXPIRED；浏览器以冻结身份重建同样run后可重新提交草稿，身份变化则明确拒绝自动续传。
 
-按需读取（Range）的游戏内容遇到请求级超时或网络失败时，runtime 不结束运行：读取保持挂起并按 1/2/4/8 秒退避重试，浏览器恢复联网时立即重试，Player 通过公共事件 `CONTENT_NETWORK`（WAITING/RESTORED）显示重连提示；内容变化、授权失败、校验失败等仍立即失败。游戏正在等待的内容首次请求失败或 5 秒无响应时即报告 WAITING，不等单次读取的 15 秒期限；仅后台预取失败不提示。mkxp、Butterscotch、PPSSPP、KiriKiri 等核心桥不设自身读取期限，统一由 runtime 等待网络。
+按需读取（Range）默认使用 2 MiB 网络窗口，内部缓存块仍为 256 KiB；5 MiB 及以下的小文件整取。实际读取越过当前窗口一半时，可在预算允许时预取相邻窗口，每个 Session 最多一个纯预取。单次读取以连续 15 秒没有有效数据进度判超时，HTTP、调度、Reader、异步和同步桥按该请求的实际数据进度续期；总下载超过 15 秒仍可完成。隔离网页的 Service Worker 以 `READ_STARTED` 区分排队和活动读取，以递增的 `READ_PROGRESS` 计数续期；重复通知、元数据和其他活动读取不延长某个活动请求。
+
+按需读取的游戏内容遇到请求级超时或网络失败时，runtime 不结束运行：读取保持挂起并按 1/2/4/8 秒退避重试，浏览器恢复联网时立即重试，Player 通过公共事件 `CONTENT_NETWORK`（WAITING/RESTORED）显示重连提示；内容变化、授权失败、校验失败等仍立即失败。游戏正在等待的内容首次请求失败或 5 秒无响应时即报告 WAITING，不等单次读取的 15 秒空闲期限；仅后台预取失败不提示。mkxp、Butterscotch、PPSSPP、KiriKiri 等核心桥不设自身读取期限，统一由 runtime 等待网络。
 
 运行期间ROM/Core变更不会拒绝仍存续的原run保存；存档extinfo只能复制原run冻结coreId/providerId/targetId/coreFingerprint/romHash/checkpointFormat/content/runtimeOptions。普通启动使用当前配置。恢复先读取当前User的Save，再将原extinfo交给runtime：校验当前允许核心、完整ROM身份和可读格式后，按原content与runtimeOptions准备资源，不用后来编辑的运行选项替换存档上下文。Go在准备与restore descriptor中复用同一次Save投影，避免并发覆盖时混合原选项与新payload；实际下载遇到不匹配的强ETag仍可明确失败，不增加持久快照关系。核心指纹变化只返回core_changed警告，不拦截恢复；ROM变化和不可读格式优先于警告。旧存档显示真实不可恢复原因。saveId、kind、slot、name和version仍是存档领域字段，不从内容hash反推。
 

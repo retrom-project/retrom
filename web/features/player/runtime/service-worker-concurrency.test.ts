@@ -63,6 +63,10 @@ function deferredContentBridge() {
       return batch.length;
     },
     pending: () => requests.length,
+    notify(index: number, type: string, networkBytes?: number) {
+      const {message, port} = requests[index];
+      port.onmessage?.({data: {id: message.id, type, networkBytes}});
+    },
   };
 }
 
@@ -89,6 +93,45 @@ it("loads 148 simultaneous plugin scripts without rejecting excess bridge reques
     } });
   }
   expect(bridge.pending()).toBe(0);
+});
+
+it("renews a slow read on advancing data and keeps queued reads alive while admission makes progress", async () => {
+  vi.useFakeTimers();
+  try {
+    const bridge = deferredContentBridge();
+    const pending = [bridge.request({type: "READ", path: "slow"}), bridge.request({type: "READ", path: "queued"})];
+    const result = Promise.allSettled(pending);
+    await vi.advanceTimersByTimeAsync(0);
+    bridge.notify(0, "READ_STARTED");
+    for (let n = 1; n <= 4; n++) {
+      await vi.advanceTimersByTimeAsync(8000);
+      bridge.notify(0, "READ_PROGRESS", n * 65536);
+      expect(bridge.pending()).toBe(2);
+    }
+    bridge.notify(1, "READ_STARTED"); bridge.flush();
+    expect((await result).every(item => item.status === "fulfilled")).toBe(true);
+  } finally {vi.useRealTimers();}
+});
+
+it("does not renew a stalled active read on duplicate notifications or another read's progress", async () => {
+  vi.useFakeTimers();
+  try {
+    const bridge = deferredContentBridge();
+    const pending = [bridge.request({type: "READ", path: "slow"}), bridge.request({type: "READ", path: "stalled"})];
+    const result = Promise.allSettled(pending);
+    await vi.advanceTimersByTimeAsync(0);
+    bridge.notify(0, "READ_STARTED"); bridge.notify(1, "READ_STARTED");
+    bridge.notify(1, "READ_PROGRESS", 65536);
+    for (let n = 1; n <= 4; n++) {
+      await vi.advanceTimersByTimeAsync(4000);
+      bridge.notify(0, "READ_PROGRESS", n * 65536);
+      bridge.notify(1, "READ_STARTED"); bridge.notify(1, "READ_PROGRESS", 65536);
+    }
+    bridge.flush();
+    const settled = await result;
+    expect(settled[0].status).toBe("fulfilled");
+    expect(settled[1]).toMatchObject({status: "rejected", reason: {message: "CONTENT_IO_TIMEOUT"}});
+  } finally {vi.useRealTimers();}
 });
 
 it("keeps the backlog bounded and admits later requests after it drains", async () => {

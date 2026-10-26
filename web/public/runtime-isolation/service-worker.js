@@ -40,11 +40,30 @@ function bind(port, input) {
   connection = port;
   connection.onmessage = ({ data }) => {
     const request = pending.get(data?.id);
-    if (!request || data?.type === "READ_STARTED") {
+    if (!request) {
+      return;
+    }
+    if (data.type === "READ_STARTED") {
+      if (request.read && !request.admitted) {
+        request.admitted = true;
+        request.renew();
+      }
+      return;
+    }
+    if (data.type === "READ_PROGRESS") {
+      if (request.read && request.admitted &&
+        Number.isSafeInteger(data.networkBytes) && data.networkBytes > request.networkBytes) {
+        request.networkBytes = data.networkBytes;
+        request.renew();
+        renewQueuedReads();
+      }
       return;
     }
     pending.delete(data.id);
     clearTimeout(request.timer);
+    if (request.read && data.status === 200 && data.bytes instanceof Uint8Array && data.bytes.length > 0) {
+      renewQueuedReads();
+    }
     request.resolve(data);
   };
   connection.start();
@@ -150,22 +169,35 @@ function sendRequest(body) {
   const port = connection;
   const id = ++sequence;
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      pending.delete(id);
-      if (connection === port) {
-        connection = null;
-      }
-      reject(new Error("CONTENT_IO_TIMEOUT"));
-    }, 15000);
-    pending.set(id, { resolve, reject, timer });
+    const request = { resolve, reject, timer: null, read: body.type === "READ", admitted: false, networkBytes: 0,
+      renew() {
+        clearTimeout(this.timer);
+        this.timer = setTimeout(() => {
+          pending.delete(id);
+          if (connection === port) {
+            connection = null;
+          }
+          reject(new Error("CONTENT_IO_TIMEOUT"));
+        }, 15000);
+      },
+    };
+    request.renew();
+    pending.set(id, request);
     try {
       port.postMessage({ ...body, id });
     } catch (error) {
       pending.delete(id);
-      clearTimeout(timer);
+      clearTimeout(request.timer);
       reject(error);
     }
   });
+}
+function renewQueuedReads() {
+  for (const request of pending.values()) {
+    if (request.read && !request.admitted) {
+      request.renew();
+    }
+  }
 }
 async function block(path, offset, length) {
   const reply = await request({
