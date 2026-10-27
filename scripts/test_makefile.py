@@ -43,6 +43,11 @@ class MakefileDependencyTests(unittest.TestCase):
                        "test_migrations.py", "migrations.py check"):
             self.assertIn(f"python3 scripts/{script}", output)
 
+    def test_web_check_runs_the_duplication_gate_and_its_detector_regressions(self) -> None:
+        output = self.dry_run("web-check")
+        self.assertIn("scripts/duplicates.test.mjs", output)
+        self.assertIn("npm run check:duplicates", output)
+
     def test_data_reset_forwards_optional_verified_provider_base(self) -> None:
         output = subprocess.run(
             ["make", "--dry-run", "pfb-data-reset", "PFB=fixture", "CONFIRM=fixture-000000000000",

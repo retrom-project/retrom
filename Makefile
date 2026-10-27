@@ -149,7 +149,8 @@ web-ui-check: prepare-node
 	@cd web && "$(NODE_HOME)/bin/node" scripts/check-ui-styles.mjs
 
 web-lint: prepare-node web-ui-check
-	@cd web && "$(NODE_HOME)/bin/node" --test scripts/lint-policy.test.mjs
+	@cd web && "$(NODE_HOME)/bin/node" --test scripts/lint-policy.test.mjs scripts/duplicates.test.mjs
+	@cd web && $(NPM) run check:duplicates
 	@cd web && $(NPM) run lint
 
 web-typecheck: prepare-node

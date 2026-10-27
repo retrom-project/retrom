@@ -211,6 +211,14 @@ jobs:
           key: retrom-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node-version', 'scripts/prepare-node.sh') }}
       - name: Check Web styles, lint, types, tests and build
         run: make web-check
+      - name: Upload Web duplication report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-duplication
+          path: .artifacts/duplicates/web/
+          include-hidden-files: true
+          if-no-files-found: ignore
 
   browser_ui:
     name: browser-ui (${{ matrix.project }})

@@ -188,6 +188,13 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
         self.assertNotIn("needs: quality", workflow)
         self.assertNotIn("run: make ci", workflow)
         self.assertNotIn("run: make prepare-deps", workflow)
+        self.assertNotIn("check:duplicates", workflow)
+
+    def test_web_job_retains_the_duplication_report(self) -> None:
+        web = ci_job("web")
+        self.assertIn("run: make web-check", web)
+        self.assertIn("path: .artifacts/duplicates/web/", web)
+        self.assertIn("if: always()", web)
 
     def test_pull_request_images_are_verified_and_separate_from_production(self) -> None:
         workflow = (REPOSITORY_ROOT / ".github/workflows/branch-image.yml").read_text(

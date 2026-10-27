@@ -1,0 +1,43 @@
+{
+  "path": [
+    "."
+  ],
+  "format": [
+    "javascript",
+    "jsx",
+    "typescript",
+    "tsx"
+  ],
+  "minTokens": 120,
+  "minLines": 10,
+  "mode": "weak",
+  "ignoreIdentifiers": "consistent",
+  "crossFormats": "js-ts",
+  "baseline": ".jscpd-baseline.json",
+  "failOnNewClones": 0,
+  "failOnEmpty": true,
+  "reporters": [
+    "console",
+    "json"
+  ],
+  "noColors": true,
+  "workers": 2,
+  "ignore": [
+    "**/node_modules/**",
+    "**/.next*/**",
+    "**/out/**",
+    "**/coverage/**",
+    "**/playwright-report/**",
+    "**/test-results/**",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/*.d.ts",
+    "**/*.d.mts",
+    "**/*.d.cts",
+    "**/tests/**",
+    "**/__tests__/**",
+    "e2e/**",
+    "lib/api/generated/**"
+  ],
+  "output": "../.artifacts/duplicates/web"
+}
