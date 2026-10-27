@@ -3,6 +3,11 @@ Source: https://github.com/lucide-icons/lucide/blob/main/icons/maximize.svg
 Source SHA-256: 1f790856b0de805ab62e871609f1990b89d227d472022e57a11fde015aad4826
 Adaptation: shared Retrom stroke width of 1.8.
 
+The Player touch-gamepad toggle uses Lucide gamepad-2 from v0.468.0.
+Source: https://github.com/lucide-icons/lucide/blob/0.468.0/icons/gamepad-2.svg
+Source SHA-256: b0671de7afbebdafc4d655d867d9851947170b906fb187e749410039df867509
+Adaptation: equivalent line paths and shared Retrom stroke width of 1.8.
+
 ISC License
 
 Copyright (c) 2026 Lucide Icons and Contributors

@@ -25,6 +25,7 @@ type Props = {
   onHover: (value: boolean) => void;
   onFocus: (value: boolean) => void;
   onPause: () => void;
+  touchGamepad?: {enabled: boolean; toggle: () => void | Promise<void>} | null;
   onSave: () => void;
   onExit: () => void;
   onSettings: () => void;
@@ -48,6 +49,9 @@ export function PlayerToolbar(props: Props) {
         {!mobile ? <button className="player-control player-debug-control" aria-expanded={props.debugOpen} onClick={props.onDebug}><AppIcon name="chip" />调试信息</button> : null}
         <button className="player-control player-save-button player-context-action is-primary" disabled={controls.saveDisabled} onClick={onSave}><AppIcon name="save" />{envelope.runtime.checkpoint?.semantics === "GAME_SAVE" ? "同步存档" : mobile ? "保存" : "创建存档"}</button>
         <ToolbarPauseControl state={state} disabled={controls.pauseDisabled} desktopPointer={!!props.desktopPointer} onPause={onPause} />
+        {props.touchGamepad ? <button className="player-control is-icon is-toggle" aria-label={props.touchGamepad.enabled ? "隐藏虚拟手柄" : "显示虚拟手柄"}
+          title={props.touchGamepad.enabled ? "隐藏虚拟手柄" : "显示虚拟手柄"} aria-pressed={props.touchGamepad.enabled} disabled={!controls.ready}
+          onClick={() => {void props.touchGamepad?.toggle();}}><AppIcon name={props.touchGamepad.enabled ? "gamepad-2" : "gamepad-2-off"} /></button> : null}
         <div className="player-menu-wrap">
           <button id="player-more-button" className="player-control is-icon" aria-label="更多操作" aria-haspopup="menu" aria-expanded={props.menu} onClick={props.onMenu}><AppIcon name="more" /></button>
           {props.menu ? <PlayerMenu {...props} controls={controls} /> : null}
