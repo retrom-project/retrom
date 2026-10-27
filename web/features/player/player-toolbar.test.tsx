@@ -16,10 +16,13 @@ it("keeps the touch gamepad toggle in the top toolbar in both preference states"
   const hide = screen.getByRole("button", {name: "隐藏虚拟手柄"});
   expect(hide.closest(".player-actions")).not.toBeNull();
   expect(hide).toHaveAttribute("aria-pressed", "true");
+  const enabledIcon = hide.querySelector("svg")?.innerHTML;
   fireEvent.click(hide);
   expect(toggle).toHaveBeenCalledOnce();
   view.rerender(<PlayerToolbar {...props} menu={false} state="RUNNING" touchGamepad={{enabled: false, toggle}} />);
-  expect(screen.getByRole("button", {name: "显示虚拟手柄"})).toHaveAttribute("aria-pressed", "false");
+  const show = screen.getByRole("button", {name: "显示虚拟手柄"});
+  expect(show).toHaveAttribute("aria-pressed", "false");
+  expect(show.querySelector("svg")?.innerHTML).not.toBe(enabledIcon);
 });
 
 function toolbarProps(): ComponentProps<typeof PlayerToolbar> {

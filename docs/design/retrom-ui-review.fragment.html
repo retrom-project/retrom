@@ -261,7 +261,7 @@
         <p class="rt-muted">失败时沿用居中错误面板：先显示可读提示，再逐行显示核心原因与具体缺件；长文件名折行，版权提示与程序栈留在诊断层。工具栏与更多菜单优先显示真实运行状态：失败为“游戏运行失败”，退出中为“正在退出…”，结束为“游戏已结束”；旧存档提示或同步状态不得覆盖这些状态。</p>
         <div class="rt-player-preview">
           <section class="rt-player-dialog" data-player-state="portrait" hidden aria-label="横屏游玩提示"><p>↻ 横屏游玩</p><h2>请将手机横屏后开始游戏</h2><p>已先尝试自动横屏全屏；浏览器未能完成切换。</p><p>竖屏时游戏暂停并禁用操作。关闭手机的旋转锁定，再将手机横放即可继续。</p><button class="rt-button" data-player-panel="exit">返回并退出游戏</button></section>
-          <div class="rt-player-hud"><button class="rt-button" aria-label="返回并退出游戏" data-player-panel="exit"><i data-lucide="arrow-left"></i></button><span>可创建存档</span><button class="rt-button" data-player-panel="saved">创建存档</button><button class="rt-button" aria-label="暂停"><i data-lucide="pause"></i></button><button class="rt-button" aria-label="隐藏虚拟手柄" aria-pressed="true" data-player-touch-gamepad><i data-lucide="gamepad-2"></i></button><button class="rt-button" data-player-panel="menu">更多操作</button><button class="rt-button" data-player-panel="portrait">手机竖屏提示</button></div>
+          <div class="rt-player-hud"><button class="rt-button" aria-label="返回并退出游戏" data-player-panel="exit"><i data-lucide="arrow-left"></i></button><span>可创建存档</span><button class="rt-button" data-player-panel="saved">创建存档</button><button class="rt-button" aria-label="暂停"><i data-lucide="pause"></i></button><button class="rt-button player-control is-toggle" aria-label="隐藏虚拟手柄" aria-pressed="true" data-player-touch-gamepad><i data-lucide="gamepad-2"></i></button><button class="rt-button" data-player-panel="menu">更多操作</button><button class="rt-button" data-player-panel="portrait">手机竖屏提示</button></div>
           <div class="rt-player-scene" data-player-surface="true"><p>游戏画面</p><span class="rt-player-stick" data-player-touch-stick aria-hidden="true"></span></div>
           <nav class="rt-player-menu" data-player-state="menu" hidden aria-label="更多操作"><button class="rt-button" data-player-panel="editor">游戏修改</button><button class="rt-button" data-player-panel="settings">模拟器设置</button><button class="rt-button">全屏 / 退出全屏</button><button class="rt-button" data-player-panel="exit">退出游戏</button></nav>
           <section class="rt-player-dialog rt-player-editor" data-player-state="editor" hidden><header class="rt-editor-head"><div><small class="rt-muted">当前游戏</small><h2>游戏修改</h2></div><button class="rt-button" data-player-panel="none">返回游戏</button></header><nav class="rt-editor-tabs" aria-label="修改类别"><button class="rt-button" aria-pressed="true">金币</button><button class="rt-button">道具</button><button class="rt-button">武器</button><button class="rt-button">护甲</button><button class="rt-button">变量</button><button class="rt-button">开关</button><button class="rt-button">角色</button><button class="rt-button">技能</button><button class="rt-button">状态</button><button class="rt-button">职业</button><button class="rt-button">队伍成员</button><button class="rt-button">事件独立开关</button></nav><div class="rt-editor-content"><p class="rt-muted">修改立即生效。离开前请创建存档，以保留修改后的进度。</p><header class="rt-editor-head"><h2>金币</h2><div class="rt-actions"><button class="rt-button">查找</button><button class="rt-button">刷新</button></div></header><div class="rt-editor-list"><div class="rt-editor-row"><div><strong>金币</strong><p class="rt-muted">当前：120</p></div><div class="rt-actions"><button class="rt-button" aria-label="金币减一">−</button><input aria-label="修改金币" type="number" value="120" min="0"><button class="rt-button" aria-label="金币加一">+</button><button class="rt-button">应用</button></div></div></div></div></section>
@@ -325,6 +325,12 @@
           const enabled = touchToggle.getAttribute("aria-pressed") !== "true";
           touchToggle.setAttribute("aria-pressed", String(enabled));
           touchToggle.setAttribute("aria-label", enabled ? "隐藏虚拟手柄" : "显示虚拟手柄");
+          const icon = touchToggle.querySelector("svg");
+          icon?.querySelector("[data-touch-off]")?.remove();
+          if (!enabled && icon) {
+            const slash = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            slash.setAttribute("d", "M3 3 21 21"); slash.setAttribute("data-touch-off", ""); icon.append(slash);
+          }
           root.querySelector("[data-player-touch-stick]").hidden = !enabled;
           return;
         }
