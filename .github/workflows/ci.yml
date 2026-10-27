@@ -64,6 +64,10 @@ jobs:
           key: retrom-postgresql-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/prepare-postgres.sh') }}
       - name: Check workspace, structure, API and data contracts
         run: make ci-contracts
+      - name: Check migrations against the latest published stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make migration-check-released
 
   backend:
     runs-on: ubuntu-latest
@@ -309,9 +313,20 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  pfb_gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Verify isolated PFB gateway routing
+        run: make pfb-gateway-test
+
   quality:
     runs-on: ubuntu-latest
-    needs: [changes, contracts, backend, integration, web, browser_ui]
+    needs: [changes, contracts, backend, integration, web, browser_ui, pfb_gateway]
     if: ${{ always() }}
     steps:
       - name: Require every quality check to pass
@@ -323,12 +338,13 @@ jobs:
           INTEGRATION_RESULT: ${{ needs.integration.result }}
           WEB_RESULT: ${{ needs.web.result }}
           BROWSER_UI_RESULT: ${{ needs.browser_ui.result }}
+          PFB_GATEWAY_RESULT: ${{ needs.pfb_gateway.result }}
         run: |
           # Only a documentation-only change may skip the product browser.
           if [[ "$PRODUCT_CHANGED" == false && "$BROWSER_UI_RESULT" == skipped ]]; then
             BROWSER_UI_RESULT=success
           fi
-          for result in "$CHANGES_RESULT" "$CONTRACTS_RESULT" "$BACKEND_RESULT" "$INTEGRATION_RESULT" "$WEB_RESULT" "$BROWSER_UI_RESULT"; do
+          for result in "$CHANGES_RESULT" "$CONTRACTS_RESULT" "$BACKEND_RESULT" "$INTEGRATION_RESULT" "$WEB_RESULT" "$BROWSER_UI_RESULT" "$PFB_GATEWAY_RESULT"; do
             if [[ "$result" != success ]]; then
               echo "Quality check did not pass: $result" >&2
               exit 1

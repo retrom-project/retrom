@@ -113,6 +113,8 @@ test: prepare-go api-generate-go
 
 lint-go: api-generate-go install-golangci-lint
 	@python3 scripts/test_architecture_rules.py
+	@go test ./scripts/sql-boundary ./scripts/lint-policy
+	@go run ./scripts/sql-boundary
 	@bin/golangci-lint run --allow-serial-runners --build-tags integration $(GO_PACKAGES)
 
 backend-check: database-isolation-check quality-structure-check fmt-check build test lint-go
@@ -147,6 +149,7 @@ web-ui-check: prepare-node
 	@cd web && "$(NODE_HOME)/bin/node" scripts/check-ui-styles.mjs
 
 web-lint: prepare-node web-ui-check
+	@cd web && "$(NODE_HOME)/bin/node" --test scripts/lint-policy.test.mjs
 	@cd web && $(NPM) run lint
 
 web-typecheck: prepare-node
@@ -200,6 +203,9 @@ data-check:
 	@python3 -m unittest scripts.test_pfb_upstream_sync
 	@python3 -m unittest scripts.test_pfb_init
 	@python3 -m unittest scripts.test_pfb_data_reset
+	@python3 scripts/test_pfb_runtime_tool.py
+	@python3 scripts/test_pfb_server_data.py
+	@python3 scripts/test_runtime_origin_topology.py
 	@python3 scripts/test_prepare_toolchains.py
 	@python3 scripts/test_makefile.py
 	@python3 scripts/test_workflows.py
@@ -257,9 +263,24 @@ workspace-check:
 	@python3 workspace/catalog.py
 	@python3 -m unittest discover -s workspace -p 'test_*.py'
 
-ci-contracts: workspace-check database-isolation-check quality-structure-check api-check data-check test-local-postgres
+.PHONY: migration-check migration-check-released migration-manifest pfb-gateway-test
+migration-check:
+	@python3 scripts/test_migrations.py
+	@python3 scripts/migrations.py check
 
-ci: workspace-check database-isolation-check quality-structure-check api-check backend-check web-check integration-test data-check test-local-postgres
+migration-check-released:
+	@python3 scripts/migrations.py check --latest-release
+
+migration-manifest:
+	@test -n "$(TAG)" || { echo 'TAG is required' >&2; exit 2; }
+	@python3 scripts/migrations.py snapshot --release-tag "$(TAG)" --output .artifacts/release/migrations.json
+
+pfb-gateway-test:
+	@python3 scripts/test_pfb_gateway.py
+
+ci-contracts: workspace-check database-isolation-check quality-structure-check migration-check api-check data-check test-local-postgres
+
+ci: workspace-check database-isolation-check quality-structure-check migration-check api-check backend-check web-check integration-test data-check test-local-postgres
 
 require-local-user:
 	@python3 scripts/local_user.py

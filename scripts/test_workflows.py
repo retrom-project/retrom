@@ -35,6 +35,7 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
             "integration": "make integration-test",
             "web": "make web-check",
             "browser_ui": "make acceptance-case CASE=ACC-RF-BROWSER",
+            "pfb_gateway": "make pfb-gateway-test",
         }
         for job_id, command in commands.items():
             with self.subTest(job=job_id):
@@ -54,6 +55,15 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
         self.assertIn("actions/setup-go@v7", ci_job("contracts"))
         self.assertNotIn("run: make ci\n", workflow)
         self.assertNotIn("|| true", workflow)
+
+    def test_published_migrations_are_checked_before_image_publication(self) -> None:
+        self.assertIn("make migration-check-released", ci_job("contracts"))
+        release = (REPOSITORY_ROOT / ".github/workflows/docker-image.yml").read_text()
+        self.assertLess(release.index("make migration-check migration-check-released"),
+                        release.index("name: Build and verify both images"))
+        self.assertIn('make migration-manifest TAG="$IMAGE_TAG"', release)
+        self.assertIn('git merge-base --is-ancestor "$GITHUB_SHA" origin/master', release)
+        self.assertIn("path: .artifacts/release/migrations.json", release)
 
     def test_runtime_consumers_prepare_their_own_dependencies(self) -> None:
         for job_id, command in (
@@ -82,15 +92,15 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
         self.assertIn("name: ui-consistency-evidence-${{ matrix.project }}", browser)
 
         quality = ci_job("quality")
-        self.assertIn("needs: [changes, contracts, backend, integration, web, browser_ui]", quality)
+        self.assertIn("needs: [changes, contracts, backend, integration, web, browser_ui, pfb_gateway]", quality)
         self.assertIn("if: ${{ always() }}", quality)
-        for job_id in ("changes", "contracts", "backend", "integration", "web", "browser_ui"):
+        for job_id in ("changes", "contracts", "backend", "integration", "web", "browser_ui", "pfb_gateway"):
             self.assertIn(f"needs.{job_id}.result", quality)
 
         script = textwrap.dedent(quality.split("        run: |\n", 1)[1])
         results = (
             "CHANGES_RESULT", "CONTRACTS_RESULT", "BACKEND_RESULT", "INTEGRATION_RESULT",
-            "WEB_RESULT", "BROWSER_UI_RESULT",
+            "WEB_RESULT", "BROWSER_UI_RESULT", "PFB_GATEWAY_RESULT",
         )
         environment = {**os.environ, **dict.fromkeys(results, "success"), "PRODUCT_CHANGED": "true"}
         run = lambda env: subprocess.run(["bash", "-e"], input=script, text=True,

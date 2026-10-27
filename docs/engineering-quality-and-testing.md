@@ -14,6 +14,12 @@
 
 make backend-check执行数据库隔离上限、结构门禁、格式、build、普通tests和全部Go lint。depguard检查HTTP不能越过service读取持久层、基础层不反依赖业务、runtime/存档不依赖扫描，真实可编译的违规样例必须被门禁拒绝。make integration-test需要显式RETROM_TEST_DATABASE_URL，每例建独立DB迁移并销毁，不skip、不污染产品库。make api-check重生成同一authority对比TS；make web-check与runtime自身lint/type/test保留原强度。
 
+`lint-go` 还执行 service SQL 类型边界：按实际 `persistence.Repository` 方法识别 `Count`/`Execute`，覆盖别名、方法值和方法表达式，允许命名领域操作及其他类型的同名方法。Go/Web 配置回归核对现有 lint、复杂度、行数及忽略范围；规则调整与相应回归通过普通 PR 审阅。
+
+PG integration 在完整应用 migration 后检查应用 schema、精确业务表集合、技术账本、禁用对象和目录/核心关系空种子，并逐项注入违规对象验证拒绝。它检查最终数据库结构。`make migration-check` 离线检查已发布 SQL 摘要和连续编号；CI contracts 及 tag 镜像发布另执行 `make migration-check-released`，从 GitHub 最新已发布 stable release 的 tag 源码计算摘要，避免本地清单落后漏检。详见 [数据模型](data-model.md)。
+
+PR 的 `quality` 聚合 contracts、backend、integration、web、browser-ui 和独立 `pfb_gateway`。网关使用临时 Docker 网络和容器验证分流及隔离，结束后清理自有资源；`data-check` 同时包含 PFB runtime tool、server-data、runtime origin topology 回归。master 的 required check 应设置为 GitHub Actions 的 `quality` 及 branch-image 的 `build`。镜像 tag 发布保留原有构建与部署验证，stable tag 额外要求源码已在 master，并记录 migration 摘要为 Actions artifact。
+
 风险集成用真实PostgreSQL覆盖：Game/文件写入后失败与progress一起回滚、commit响应丢失按分配ID核对；两save同版本竞争仅一胜、同commit重试不增版本、Game删除后保存拒绝；BIOS自动安装遇并发手动安装只skip；真实文件移除失败保留deleted，active引用保护字节。纯回归覆盖可信代理链/伪造XFF、严格JSON、UUID和编码斜杠、目录有界迭代与并发消失、共享常驻runtime并发关联、单请求取消、异常退出后的恢复。
 
 Playwright通过正常HTTP建立合法MIT NES来源、扫描、共享审核、运行、保存和新实例恢复，页面无error/溢出；保留桌面/移动/4K视口。浏览器CI必须提供同版runtime工具/Provider明确输入，不能用旧正式release冒充新契约。私有素材验收只在授权目录读取并复制，证据和素材不提交。
