@@ -56,11 +56,10 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
         self.assertNotIn("run: make ci\n", workflow)
         self.assertNotIn("|| true", workflow)
 
-    def test_published_migrations_are_checked_before_image_publication(self) -> None:
+    def test_published_migrations_are_checked_in_pr_while_release_records_the_manifest(self) -> None:
         self.assertIn("make migration-check-released", ci_job("contracts"))
         release = (REPOSITORY_ROOT / ".github/workflows/docker-image.yml").read_text()
-        self.assertLess(release.index("make migration-check migration-check-released"),
-                        release.index("name: Build and verify both images"))
+        self.assertNotIn("make migration-check", release)
         self.assertIn('make migration-manifest TAG="$IMAGE_TAG"', release)
         self.assertIn('git merge-base --is-ancestor "$GITHUB_SHA" origin/master', release)
         self.assertIn("path: .artifacts/release/migrations.json", release)

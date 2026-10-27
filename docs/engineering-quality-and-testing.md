@@ -16,7 +16,7 @@ make backend-check执行数据库隔离上限、结构门禁、格式、build、
 
 `lint-go` 还执行 service SQL 类型边界：按实际 `persistence.Repository` 方法识别 `Count`/`Execute`，覆盖别名、方法值和方法表达式，允许命名领域操作及其他类型的同名方法。Go/Web 配置回归核对现有 lint、复杂度、行数及忽略范围；规则调整与相应回归通过普通 PR 审阅。
 
-PG integration 在完整应用 migration 后检查应用 schema、精确业务表集合、技术账本、禁用对象和目录/核心关系空种子，并逐项注入违规对象验证拒绝。它检查最终数据库结构。`make migration-check` 离线检查已发布 SQL 摘要和连续编号；CI contracts 及 tag 镜像发布另执行 `make migration-check-released`，从 GitHub 最新已发布 stable release 的 tag 源码计算摘要，避免本地清单落后漏检。详见 [数据模型](data-model.md)。
+PG integration 在完整应用 migration 后检查应用 schema、精确业务表集合、技术账本、禁用对象和目录/核心关系空种子，并逐项注入违规对象验证拒绝。它检查最终数据库结构。`make migration-check` 离线检查已发布 SQL 摘要和连续编号；PR CI contracts 另执行 `make migration-check-released`，从 GitHub 最新已发布 stable release 的 tag 源码计算摘要，避免本地清单落后漏检。migration 的历史比对及其回归测试在 PR 阶段执行，tag 镜像流程生成当前 SQL 摘要作为发布产物记录。详见 [数据模型](data-model.md)。
 
 PR 的 `quality` 聚合 contracts、backend、integration、web、browser-ui 和独立 `pfb_gateway`。网关使用临时 Docker 网络和容器验证分流及隔离，结束后清理自有资源；`data-check` 同时包含 PFB runtime tool、server-data、runtime origin topology 回归。master 的 required check 应设置为 GitHub Actions 的 `quality` 及 branch-image 的 `build`。镜像 tag 发布保留原有构建与部署验证，stable tag 额外要求源码已在 master，并记录 migration 摘要为 Actions artifact。
 
