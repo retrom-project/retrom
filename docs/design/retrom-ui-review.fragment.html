@@ -133,7 +133,10 @@
       #retrom-ui-review .rt-player-preview { position: relative; min-height: 580px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--navy-950); }
       #retrom-ui-review .rt-player-hud { min-height: 58px; padding: 0 var(--space-4); display: flex; align-items: center; gap: var(--space-3); background: var(--surface); border-bottom: 1px solid var(--line); }
       #retrom-ui-review .rt-player-hud > span { margin-left: auto; color: var(--cyan); font-size: var(--text-caption); }
-      #retrom-ui-review .rt-player-scene { min-height: 470px; display: grid; place-items: center; color: var(--muted); }
+      #retrom-ui-review .rt-player-scene { position: relative; min-height: 470px; display: grid; place-items: center; color: var(--muted); }
+      #retrom-ui-review .rt-player-stick { position: absolute; left: 20px; bottom: 20px; width: clamp(100px, 30vmin, 160px); aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; background: rgb(255 0 0 / 50%); opacity: .5; pointer-events: none; }
+      #retrom-ui-review .rt-player-stick[hidden] { display: none; }
+      #retrom-ui-review .rt-player-stick::after { content: ''; width: 50%; height: 50%; border-radius: 50%; background: rgb(255 0 0 / 50%); }
       #retrom-ui-review .rt-j2me-layout { display: grid; grid-template-columns: 132px minmax(100px, 1fr) 172px; align-items: center; gap: var(--space-4); padding: var(--space-4); background: var(--navy-950); }
       #retrom-ui-review .rt-j2me-stick { position: relative; width: 132px; height: 132px; padding: 0; border-radius: 50%; }
       #retrom-ui-review .rt-j2me-stick::after { content: ''; position: absolute; width: 60px; height: 60px; left: 35px; top: 35px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface-raised); }
@@ -259,7 +262,7 @@
         <div class="rt-player-preview">
           <section class="rt-player-dialog" data-player-state="portrait" hidden aria-label="横屏游玩提示"><p>↻ 横屏游玩</p><h2>请将手机横屏后开始游戏</h2><p>已先尝试自动横屏全屏；浏览器未能完成切换。</p><p>竖屏时游戏暂停并禁用操作。关闭手机的旋转锁定，再将手机横放即可继续。</p><button class="rt-button" data-player-panel="exit">返回并退出游戏</button></section>
           <div class="rt-player-hud"><button class="rt-button" aria-label="返回并退出游戏" data-player-panel="exit"><i data-lucide="arrow-left"></i></button><span>可创建存档</span><button class="rt-button" data-player-panel="saved">创建存档</button><button class="rt-button" aria-label="暂停"><i data-lucide="pause"></i></button><button class="rt-button" aria-label="隐藏虚拟手柄" aria-pressed="true" data-player-touch-gamepad><i data-lucide="gamepad-2"></i></button><button class="rt-button" data-player-panel="menu">更多操作</button><button class="rt-button" data-player-panel="portrait">手机竖屏提示</button></div>
-          <div class="rt-player-scene" data-player-surface="true"><p>游戏画面</p></div>
+          <div class="rt-player-scene" data-player-surface="true"><p>游戏画面</p><span class="rt-player-stick" data-player-touch-stick aria-hidden="true"></span></div>
           <nav class="rt-player-menu" data-player-state="menu" hidden aria-label="更多操作"><button class="rt-button" data-player-panel="editor">游戏修改</button><button class="rt-button" data-player-panel="settings">模拟器设置</button><button class="rt-button">全屏 / 退出全屏</button><button class="rt-button" data-player-panel="exit">退出游戏</button></nav>
           <section class="rt-player-dialog rt-player-editor" data-player-state="editor" hidden><header class="rt-editor-head"><div><small class="rt-muted">当前游戏</small><h2>游戏修改</h2></div><button class="rt-button" data-player-panel="none">返回游戏</button></header><nav class="rt-editor-tabs" aria-label="修改类别"><button class="rt-button" aria-pressed="true">金币</button><button class="rt-button">道具</button><button class="rt-button">武器</button><button class="rt-button">护甲</button><button class="rt-button">变量</button><button class="rt-button">开关</button><button class="rt-button">角色</button><button class="rt-button">技能</button><button class="rt-button">状态</button><button class="rt-button">职业</button><button class="rt-button">队伍成员</button><button class="rt-button">事件独立开关</button></nav><div class="rt-editor-content"><p class="rt-muted">修改立即生效。离开前请创建存档，以保留修改后的进度。</p><header class="rt-editor-head"><h2>金币</h2><div class="rt-actions"><button class="rt-button">查找</button><button class="rt-button">刷新</button></div></header><div class="rt-editor-list"><div class="rt-editor-row"><div><strong>金币</strong><p class="rt-muted">当前：120</p></div><div class="rt-actions"><button class="rt-button" aria-label="金币减一">−</button><input aria-label="修改金币" type="number" value="120" min="0"><button class="rt-button" aria-label="金币加一">+</button><button class="rt-button">应用</button></div></div></div></div></section>
           <div class="rt-player-settings" data-player-state="settings" hidden><label>画面<select><option>锐利像素</option><option>平滑增强</option></select></label><label>音量<input type="range" min="0" max="100" value="50"></label><button class="rt-button">静音</button><button class="rt-button">控制</button><button class="rt-button">显示</button><button class="rt-button">Core 设置</button><button class="rt-button" data-player-panel="none">收起</button></div>
@@ -322,6 +325,7 @@
           const enabled = touchToggle.getAttribute("aria-pressed") !== "true";
           touchToggle.setAttribute("aria-pressed", String(enabled));
           touchToggle.setAttribute("aria-label", enabled ? "隐藏虚拟手柄" : "显示虚拟手柄");
+          root.querySelector("[data-player-touch-stick]").hidden = !enabled;
           return;
         }
         const playerAction = event.target.closest("[data-player-panel]");

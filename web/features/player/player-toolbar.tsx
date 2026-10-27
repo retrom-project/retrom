@@ -51,7 +51,7 @@ export function PlayerToolbar(props: Props) {
         <ToolbarPauseControl state={state} disabled={controls.pauseDisabled} desktopPointer={!!props.desktopPointer} onPause={onPause} />
         {props.touchGamepad ? <button className="player-control is-icon" aria-label={props.touchGamepad.enabled ? "隐藏虚拟手柄" : "显示虚拟手柄"}
           title={props.touchGamepad.enabled ? "隐藏虚拟手柄" : "显示虚拟手柄"} aria-pressed={props.touchGamepad.enabled} disabled={!controls.ready}
-          onClick={() => {void props.touchGamepad?.toggle();}}><AppIcon name="gamepad" /></button> : null}
+          onClick={() => {void props.touchGamepad?.toggle();}}><AppIcon name="gamepad-2" /></button> : null}
         <div className="player-menu-wrap">
           <button id="player-more-button" className="player-control is-icon" aria-label="更多操作" aria-haspopup="menu" aria-expanded={props.menu} onClick={props.onMenu}><AppIcon name="more" /></button>
           {props.menu ? <PlayerMenu {...props} controls={controls} /> : null}
