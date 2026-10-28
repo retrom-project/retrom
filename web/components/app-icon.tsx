@@ -31,6 +31,8 @@ export type AppIconName =
   | "eye-off"
   | "pin"
   | "gamepad"
+  | "gamepad-2"
+  | "gamepad-2-off"
   | "gamepad-retro"
   | "expand"
   | "maximize"
@@ -41,6 +43,14 @@ export type AppIconName =
   | "ban"
   | "music"
   | "warning";
+
+// Lucide gamepad-2; license: /licenses/lucide-icons.txt.
+const gamepad2 = (
+  <>
+    <path d="M6 11h4M8 9v4M15 12h.01M18 10h.01" />
+    <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z" />
+  </>
+);
 
 const paths: Record<AppIconName, ReactNode> = {
   ban: <><circle cx="12" cy="12" r="9" /><path d="m5.6 5.6 12.8 12.8" /></>,
@@ -208,6 +218,8 @@ const paths: Record<AppIconName, ReactNode> = {
       <path d="M8 13h4M10 11v4M16 12h.01M18 14h.01" />
     </>
   ),
+  "gamepad-2": gamepad2,
+  "gamepad-2-off": <>{gamepad2}<path d="M3 3 21 21" /></>,
   "gamepad-retro": (
     <>
       <rect x="2" y="6" width="20" height="12" rx="3" />

@@ -6,6 +6,7 @@ import type {
 import { prepareIsolatedFrame } from "./isolated-frame";
 import { prepareBlankFrame } from "./blank-frame";
 import type { ContentLoading } from "../content-loading";
+import {readTouchGamepadPreference} from "../touch-gamepad-preference";
 export function createRuntimeHost(
   envelope: LaunchEnvelopeV1,
   signal: AbortSignal,
@@ -25,6 +26,7 @@ export function createRuntimeHost(
   );
   return {
     signal,
+    touchGamepadEnabled: readTouchGamepadPreference(envelope.runtime.coreId),
     contentLoading:
       envelope.runtime.capabilities.contentLoading === "PRELOAD_ONLY"
         ? "PRELOAD"

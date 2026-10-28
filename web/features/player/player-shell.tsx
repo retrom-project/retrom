@@ -38,6 +38,7 @@ import { AppIcon } from "@/components/app-icon";
 import { usePlayerOrientation, useOrientationPause } from "./use-player-orientation";
 import { markImmersivePlayerReturn } from "@/features/immersive/active-gamepad";
 import {usePlayerPresentation} from "./use-player-presentation";
+import {usePlayerTouchGamepad} from "./use-player-touch-gamepad";
 export function PlayerShell({
   runId,
   returnTo,
@@ -145,6 +146,7 @@ function PlayerContent({
   const volume = usePlayerVolume(runtime, state, returnTo.startsWith("/immersive"), reportError);
   const settings = usePlayerSettings(runtime, state, reportError);
   const editor = usePlayerEditor(runtime, state, reportError);
+  const touchGamepad = usePlayerTouchGamepad(runtime, state, envelope.runtime.coreId, reportError);
 
   async function pause() {
     if (orientation.blocked) { return; }
@@ -236,6 +238,7 @@ function PlayerContent({
         status={saves.status}
         visible={hud.visible}
         desktopPointer={desktopPointer}
+        touchGamepad={touchGamepad}
         menu={!immersive && menu}
         onMenu={() => immersive ? requestExitMenu() : setMenu(!menu)}
         onControlError={reportError}

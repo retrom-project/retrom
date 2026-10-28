@@ -51,3 +51,14 @@ it.each(["ISOLATED_ORIGIN_RESOURCE", "SAME_ORIGIN_BLANK"] as const)(
     expect(target.childElementCount).toBe(0);
   },
 );
+it("passes the per-core touch gamepad preference before a runtime mounts", () => {
+  const envelope = JSON.parse(readFileSync(resolve(
+    process.cwd(), "../api/runtime-provider/v1/fixtures/valid/single-minimal.json",
+  ), "utf8")) as LaunchEnvelopeV1;
+  localStorage.clear();
+  const key = `retrom:touch-gamepad:${envelope.runtime.coreId}`;
+  expect(createRuntimeHost(envelope, new AbortController().signal).touchGamepadEnabled).toBe(true);
+  localStorage.setItem(key, "off");
+  expect(createRuntimeHost(envelope, new AbortController().signal).touchGamepadEnabled).toBe(false);
+  localStorage.clear();
+});
