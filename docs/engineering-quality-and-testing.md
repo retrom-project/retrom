@@ -22,7 +22,7 @@ PR web job 在成功/失败后上传 `.artifacts/duplicates/web/` 的 JSON 报�
 
 PG integration 在完整应用 migration 后检查应用 schema、精确业务表集合、技术账本、禁用对象和目录/核心关系空种子，并逐项注入违规对象验证拒绝。它检查最终数据库结构。`make migration-check` 离线检查已发布 SQL 摘要和连续编号；PR CI contracts 另执行 `make migration-check-released`，从 GitHub 最新已发布 stable release 的 tag 源码计算摘要，避免本地清单落后漏检。migration 的历史比对及其回归测试在 PR 阶段执行，tag 镜像流程生成当前 SQL 摘要作为发布产物记录。详见 [数据模型](data-model.md)。
 
-PR 的 `quality` 聚合 contracts、backend、integration、web、browser-ui 和独立 `pfb_gateway`。网关使用临时 Docker 网络和容器验证分流及隔离，结束后清理自有资源；`data-check` 同时包含 PFB runtime tool、server-data、runtime origin topology 回归。master 的 required check 应设置为 GitHub Actions 的 `quality` 及 branch-image 的 `build`。镜像 tag 发布保留原有构建与部署验证，stable tag 额外要求源码已在 master，并记录 migration 摘要为 Actions artifact。
+PR 的 `quality` 聚合 contracts、backend、integration、web、browser-ui 和独立 `pfb_gateway`。网关使用临时 Docker 网络和容器验证分流及隔离，结束后清理自有资源；`data-check` 同时包含 PFB runtime tool、server-data、runtime origin topology 回归。`branch-image` 的 `build` 验证双应用镜像及部署连接。镜像 tag 发布保留原有构建与部署验证，stable tag 额外要求源码已在 master，并记录 migration 摘要为 Actions artifact。
 
 风险集成用真实PostgreSQL覆盖：Game/文件写入后失败与progress一起回滚、commit响应丢失按分配ID核对；两save同版本竞争仅一胜、同commit重试不增版本、Game删除后保存拒绝；BIOS自动安装遇并发手动安装只skip；真实文件移除失败保留deleted，active引用保护字节。纯回归覆盖可信代理链/伪造XFF、严格JSON、UUID和编码斜杠、目录有界迭代与并发消失、共享常驻runtime并发关联、单请求取消、异常退出后的恢复。
 
