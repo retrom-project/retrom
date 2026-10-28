@@ -2,6 +2,22 @@ import { describe, it, expect, vi } from "vitest";
 import { disposeRuntime } from "./dispose-runtime";
 import { runtimeFixture, checkpoint } from "../player-test-fixture";
 describe("runtime teardown", () => {
+  it("waits for native IO before final export, persistence and core release", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = runtimeFixture(), order: string[] = [];
+      const availability = vi.spyOn(runtime, "getCheckpointAvailability").mockReturnValue({ available: false, reason: "BUSY" });
+      runtime.checkpoint = vi.fn(async () => { order.push("export"); return checkpoint; });
+      runtime.exit = vi.fn(async () => { order.push("exit"); });
+      const disposing = disposeRuntime(runtime, async () => { order.push("persist"); });
+      await vi.advanceTimersByTimeAsync(100);
+      expect(order).toEqual([]);
+      availability.mockReturnValue({ available: true, reason: null, revision: "native-complete" });
+      await vi.advanceTimersByTimeAsync(50);
+      await disposing;
+      expect(order).toEqual(["export", "persist", "exit"]);
+    } finally { vi.useRealTimers(); }
+  });
   it("exports dirty native files before persistence and core teardown", async () => {
     const order: string[] = [];
     const runtime = runtimeFixture();

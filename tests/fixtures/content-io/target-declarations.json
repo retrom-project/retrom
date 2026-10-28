@@ -719,7 +719,7 @@
       "mode": "RANGE",
       "delivery": "READER",
       "gameKind": "SEEKABLE_BLOB",
-      "checkpointSemantics": "INSTANT"
+      "checkpointSemantics": "GAME_SAVE"
     },
     {
       "providerId": "retrom-runtime",

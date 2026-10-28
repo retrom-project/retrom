@@ -4,6 +4,7 @@ import type { PlayerRuntimeV1 } from "./runtime/contract";
 import { browserGamepadSource } from "@/features/immersive/gamepad-source";
 import { buttonPressed } from "@/features/immersive/input-model";
 import { ImmersiveNeutralGate } from "./immersive-controls";
+import { waitForNativeSave } from "./runtime/wait-native-save";
 
 export function waitForPlayerNeutral() {
   return new Promise<void>((resolve) => {
@@ -74,15 +75,26 @@ export function usePlayerExit({ runtime, immersive, native, hasDraft, saving, re
     if (pending.current || saving) { return; }
     pending.current = true;
     setBusy(true);
+    const waiting = new AbortController();
+    checkpointWait.current = waiting;
     try {
       const instance = runtime.current;
       // A failed native export is presented before a second explicit exit choice.
-      if (native && instance && (hasDraft || instance.getCheckpointAvailability().available) && saveState !== "error") {
-        if (!await (hasDraft ? retry(instance) : capture(instance, "EXPORT"))) { setSaveState("error"); return; }
+      if (native && instance && saveState !== "error") {
+        const availability = await waitForNativeSave(instance, waiting.signal);
+        if (waiting.signal.aborted || runtime.current !== instance) { return; }
+        if (hasDraft || availability.available) {
+          if (!await (hasDraft ? retry(instance) : capture(instance, "EXPORT"))) { setSaveState("error"); return; }
+        }
       }
       await leave();
-    } catch (failure) { reportError(message(failure, "退出游戏失败。")); }
-    finally { pending.current = false; setBusy(false); }
+    } catch (failure) {
+      if (!waiting.signal.aborted) {
+        if (native) { setSaveState("error"); }
+        reportError(message(failure, "退出游戏失败。"));
+      }
+    }
+    finally { checkpointWait.current = null; pending.current = false; setBusy(false); }
   }
   return { open, active: open || busy, opening: busy && !open, busy: busy || saving, saveState, request, cancel, save, confirm };
 }

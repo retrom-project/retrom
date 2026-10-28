@@ -1,4 +1,5 @@
 import type { PlayerRuntimeV1, RuntimeFinalSnapshotV1 } from "./contract";
+import { waitForNativeSave } from "./wait-native-save";
 export async function disposeRuntime(
   runtime: PlayerRuntimeV1,
   onSnapshot: (snapshot: RuntimeFinalSnapshotV1) => Promise<void>,
@@ -6,9 +7,9 @@ export async function disposeRuntime(
 ) {
   try {
     await beforeSnapshot();
-    const availability = runtime.getCheckpointAvailability();
+    if (runtime.getState() === "CREATED") { return; }
+    const availability = await waitForNativeSave(runtime);
     if (
-      runtime.getState() !== "CREATED" &&
       availability.available &&
       availability.revision
     ) {

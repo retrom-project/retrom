@@ -430,7 +430,7 @@
         "operator:ppsspp"
       ],
       "fixtureAvailability": "OPERATOR_REQUIRED",
-      "checkpointSemantics": "INSTANT",
+      "checkpointSemantics": "GAME_SAVE",
       "requiredScenarios": [
         "preview-publish",
         "cold",
@@ -475,8 +475,8 @@
         },
         {
           "scenario": "save-restore-input",
-          "operation": "Use standard gamepad, save the case-specific state, exit and restore in a different Launch",
-          "waitFor": "The saved scene/state is restored and direction plus confirmation change game state",
+          "operation": "Use standard gamepad, save through the game menu, synchronize, exit and restore in a different Launch, then use native Continue/Load",
+          "waitFor": "Native saved progress is loaded and direction plus confirmation change game state",
           "maxWaitMs": 120000,
           "assertion": "Checkpoint semantics match the Target; stored and restored content hashes match",
           "failureCode": "CONTENT_IO_RESTORE_FAILED"
