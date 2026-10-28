@@ -2,6 +2,10 @@
 
 目标 schema 由 migrations 按编号顺序叠加得到：001_schema.sql 是完整基线（含项目包成员表、标题字母序列和活动槽列），后续变化从 002 起追加。新库和既有库执行同一序列，新库不跳过后续 migration。已发布的 migration 文件固化不再修改，schema 变化只能追加新编号文件。迁移不读取或重打包游戏字节。应用数据库包含以下20张业务表和schema_migrations_tab技术账本，没有FK、CHECK、用户TRIGGER、VIEW、materialized VIEW、DOMAIN或业务函数，也没有 partial index（索引不带 WHERE 谓词，新增状态值不需要重建索引）。
 
+`migrations.All()` 自动嵌入并按文件名排列全部顶层 SQL，要求 `NNN_lowercase.sql` 从 001 连续、唯一且非空；启动时在同一加锁事务内逐项应用，已登记的 ID 跳过。新库集成测试核对每个嵌入 ID 已登记，账本数量随实际序列变化。
+
+`quality/released-migrations.json` 提供离线已发布基线；首次基线来自 v0.0.158 的真实 tag commit。运行 `make migration-check` 检查发布文件的字节摘要、删除和重命名，未发布的新文件可继续原位编辑。PR CI 通过 `make migration-check-released` 重新读取最新已发布 GitHub stable release 的 tag 源码，不以分支提交当作发布。tag 镜像流程用 `make migration-manifest TAG=<tag>` 生成 `.artifacts/release/migrations.json` 并保存为 Actions artifact；历史比对和回归测试在 PR 阶段完成。正式发布后可用 `python3 scripts/migrations.py snapshot --ref <tag> --release-tag <tag> --output quality/released-migrations.json` 在后续 PR 更新离线基线；PR 联网门禁独立核对最新发布源码。
+
 “同一键只有一条活动记录”由可空槽列加普通唯一索引表达：活动行的 active_slot 为 1，退休行为 NULL；PostgreSQL 唯一索引中 NULL 互不相等，因此退休行可以任意多条。唯一索引为 game_file_tab(game_id,logical_key,active_slot)、game_media_tab(game_id,kind,ordinal,active_slot)、bios_file_tab(requirement_key,active_slot)、tag_tab(name_key,active_slot)；项目包的 package_slot 仅在活动 project_package 行为 1，唯一索引为 game_file_tab(game_id,package_slot)。插入活动行和改为 deleted 的同一条语句同步写入槽列，BIOS 扫描安装以 ON CONFLICT(requirement_key,active_slot) 保持手工安装不被覆盖。
 
 | 表 | 当前事实 |

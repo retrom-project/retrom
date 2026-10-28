@@ -21,41 +21,8 @@ func TestSchemaAndSessionLifecycle(t *testing.T) {
 
 func assertEmptyApplicationSchema(t *testing.T, repository *persistence.Repository) {
 	t.Helper()
-	ctx := t.Context()
-	tableCount, err := repository.Count(ctx, `SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname='public' AND c.relkind='r' AND c.relname LIKE '%\_tab' ESCAPE '\'
- AND c.relname <> 'schema_migrations_tab'`)
-	if err != nil || tableCount != 20 {
-		t.Fatalf("tables=%d err=%v", tableCount, err)
-	}
-	unsuffixed, err := repository.Count(ctx, `SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname='public' AND c.relkind='r' AND c.relname NOT LIKE '%\_tab' ESCAPE '\'`)
-	if err != nil || unsuffixed != 0 {
-		t.Fatalf("unsuffixed tables=%d err=%v", unsuffixed, err)
-	}
-	ledger, err := repository.Count(ctx, "SELECT count(*) FROM schema_migrations_tab")
-	if err != nil || ledger != 1 {
-		t.Fatalf("applied migrations=%d err=%v", ledger, err)
-	}
-	prohibited,
-		err := repository.Count(ctx,
-		`SELECT count(*) FROM pg_constraint k JOIN pg_namespace n ON n.oid=k.connamespace
- WHERE n.nspname='public' AND k.contype IN ('c','f')`)
-	if err != nil || prohibited != 0 {
-		t.Fatalf("constraints=%d err=%v", prohibited, err)
-	}
-	// Partial indexes bake a status list into the schema; one-active rules use active_slot columns instead.
-	partial, err := repository.Count(ctx, `SELECT count(*) FROM pg_index x JOIN pg_class c ON c.oid=x.indexrelid
- JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND x.indpred IS NOT NULL`)
-	if err != nil || partial != 0 {
-		t.Fatalf("partial indexes=%d err=%v", partial, err)
-	}
-	views, err := repository.Count(ctx, `SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname='public' AND c.relkind IN ('v','m')`)
-	if err != nil || views != 0 {
-		t.Fatalf("views=%d err=%v", views, err)
-	}
-	directories, err := repository.Directories(ctx, true)
+	assertSchemaPolicy(t, repository)
+	directories, err := repository.Directories(t.Context(), true)
 	if err != nil || len(directories) != 0 {
 		t.Fatalf("directories=%v err=%v", directories, err)
 	}

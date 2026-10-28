@@ -47,6 +47,10 @@ func (r *Repository) Close() {
 }
 
 func (r *Repository) Migrate(ctx context.Context) error {
+	ordered, err := migrations.All()
+	if err != nil {
+		return fmt.Errorf("load migrations: %w", err)
+	}
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin migration: %w", err)
@@ -58,10 +62,8 @@ func (r *Repository) Migrate(ctx context.Context) error {
 	if _, err = tx.Exec(ctx, "CREATE TABLE IF NOT EXISTS schema_migrations_tab (id TEXT PRIMARY KEY)"); err != nil {
 		return fmt.Errorf("create migration bookkeeping: %w", err)
 	}
-	for _, migration := range []struct{ id, schema string }{
-		{"001_schema", migrations.Schema},
-	} {
-		if err = applyMigration(ctx, tx, migration.id, migration.schema); err != nil {
+	for _, migration := range ordered {
+		if err = applyMigration(ctx, tx, migration.ID, migration.SQL); err != nil {
 			return err
 		}
 	}
