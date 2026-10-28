@@ -9,6 +9,7 @@ import { verifyScanControls } from "./scan-controls";
 import { verifyLoginReturn } from "./login-return";
 import { verifyRPGEntrySelection } from "./rpg-entry-selection";
 import { verifyDesktopPlayerControls } from "./player-desktop";
+import { verifyPlayerExitDialogLayout } from "./player-exit-dialog";
 import { verifyPlatformCardLayout } from "./immersive-platform-layout";
 import { verifyTouchButtonAlignment } from "./touch-button-alignment";
 import { verifyLibraryCollectionDialog } from "./library-collection-dialog";
@@ -263,6 +264,11 @@ test("shared review, real NES save and new-instance restore", async ({
   await page.goForward();
   await expect(page).toHaveURL(new RegExp(`/saves\\?gameId=${game.id}$`, "u"));
   expect(errors).toEqual([]);
+});
+
+test("player exit actions remain visible in short landscape viewports", async ({ page }) => {
+  test.setTimeout(120_000);
+  await verifyPlayerExitDialogLayout(page);
 });
 
 test("populated pages keep their viewport and functional favorite classification", async ({
