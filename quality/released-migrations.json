@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "releaseTag": "v0.0.158",
+  "releaseCommit": "0c7fb3b4fc2f5e92b8f2733d88eed5fd698ea2ae",
+  "migrations": [
+    {
+      "path": "migrations/001_schema.sql",
+      "sha256": "722e8c8fcb6072c09c8f44a639b3e2655ffc017ca0b3bd42a642fd5d081700e3"
+    }
+  ]
+}

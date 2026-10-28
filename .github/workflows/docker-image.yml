@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Validate the image tag
         id: release
         env:
@@ -61,6 +63,15 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - name: Prepare the release migration manifest
+        env:
+          IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
+        run: make migration-manifest TAG="$IMAGE_TAG"
+      - name: Require stable image sources to be on master
+        if: steps.release.outputs.publish_latest == 'true'
+        run: |
+          git fetch --no-tags origin '+refs/heads/master:refs/remotes/origin/master'
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/master
       - name: Prepare pinned password blocklist
         run: python3 scripts/dependencies.py prepare-auth --versions 4.2.3,4.3.0-pre
       - name: Restore verified Provider chunks
@@ -101,3 +112,10 @@ jobs:
           docker tag "$WEB_IMAGE:$IMAGE_TAG" "$WEB_IMAGE:latest"
           docker push "$BACKEND_IMAGE:latest"
           docker push "$WEB_IMAGE:latest"
+      - name: Record the released migration manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: released-migrations-${{ steps.release.outputs.image_tag }}
+          path: .artifacts/release/migrations.json
+          include-hidden-files: true
+          if-no-files-found: error
