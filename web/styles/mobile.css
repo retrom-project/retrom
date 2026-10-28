@@ -513,3 +513,8 @@
   .favorite-select { width: 44px; height: 44px; min-height: 44px; }
 
 }
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .dialog-actions { display: flex; flex-wrap: wrap; }
+  .dialog-actions > * { width: auto; flex: 1 1 auto; }
+}
