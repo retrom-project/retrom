@@ -55,11 +55,15 @@ func (r *Repository) Games(ctx context.Context, userID, status string, q model.Q
 	args := []any{userID, status, q.Search, q.DirectoryID, q.PlatformID, q.TagID, q.Favorite, q.FolderID, q.Unclassified}
 	order, projection, relations := "g.title_sort_key,g.title,g.id", "g.id,g.title_sort_key,g.title", gameRelations
 	outerOrder := "p.title_sort_key,p.title,p.id"
-	if q.Sort == "recent" {
+	switch q.Sort {
+	case "recent":
 		relations += " LEFT JOIN recent_game_tab rg ON rg.game_id=g.id AND rg.user_id=$1"
 		projection += ",rg.last_played_at_ms"
 		order = "rg.last_played_at_ms DESC NULLS LAST,g.title_sort_key,g.title,g.id"
 		outerOrder = "p.last_played_at_ms DESC NULLS LAST,p.title_sort_key,p.title,p.id"
+	case "random":
+		projection += ",random() AS random_order"
+		order, outerOrder = "random_order,g.id", "p.random_order,p.id"
 	}
 	query := `WITH selected AS MATERIALIZED (SELECT ` + projection + relations + gameFilter +
 		` ORDER BY ` + order + ` LIMIT $10 OFFSET $11)

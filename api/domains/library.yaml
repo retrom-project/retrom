@@ -208,9 +208,11 @@
               "type": "string",
               "enum": [
                 "title",
-                "recent"
+                "recent",
+                "random"
               ]
-            }
+            },
+            "description": "Random ordering samples the filtered games independently on each request. Items within one response are unique; separate requests may overlap."
           },
           {
             "name": "platformId",

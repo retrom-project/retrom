@@ -2,9 +2,10 @@ import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import type { Schema } from "../lib/api/types";
 import { request } from "./clean-refactor-support";
+import { verifyHomeDiscover } from "./home-discover";
 
 export async function verifyHomeFeatured(page: Page) {
-  await page.goto("/");
+  await verifyHomeDiscover(page);
   const home = await request<Schema<"Home">>(page, "/api/v1/home");
   const recent = home.recent[0];
   expect(recent).toBeDefined();

@@ -8,6 +8,8 @@
 
 库、收藏与管理列表的platformId和platformInstanceId按AND过滤；sort=recent使用当前用户最后游玩时间降序，未游玩排后，名称/ID提供稳定次序。最近页只含当前用户已游玩游戏，sort=recent按最后时间、title按名称；q、active标签和afterMs/beforeMs闭区间与总数使用相同过滤条件。
 
+GET `/api/v1/games` 另支持 `sort=random`：在相同可见性与筛选条件内每次独立随机排序，先选取分页候选再组装资料；单次响应中游戏不重复，不同请求可以重合，不提供跨请求的稳定分页。首页发现游戏使用 offset=0，手机 limit=6、桌面 limit=12。普通游戏库的默认标题排序保持不变。
+
 按名称排序的列表（游戏库、目录、收藏、最近与存档的 title 排序）统一按标题字母序：先字母分组 A–Z、最后 #，同一字母内中文按拼音、拉丁按字母，再以名称和 ID 稳定。Game 返回 titleLetter（所属分组）与 sortName（管理员排序名，空串表示按标题）；管理员保存 Game 时可提交 sortName（≤300 字符），非空时代替标题参与分组和排序。GET `/api/v1/games/letters` 与 GET `/api/v1/favorites/letters` 接受与对应列表相同的筛选参数（不含分页和 sort），返回 TitleLetters `{items: [{letter, offset, count}]}`：只含实际存在的分组，按列表顺序排列，offset 是该分组第一项在同一筛选列表中的位置，可直接用作列表 offset。
 
 业务读写使用当前登录会话。管理员只扩展共享管理权限；存档、收藏、最近仍限定本人。写入要求一个精确匹配的Origin，已登录写入还要求当前CSRF。代理链默认只在RemoteAddr属于内网或回环地址时解析，公网直接伪造X-Forwarded-For不会改变限流主体。内网代理必须覆盖转发头，客户端IP解析及边界见[账号与部署](backend-api-and-operations.md)。无凭据的隔离origin仅提供静态桥壳，不提供业务API。

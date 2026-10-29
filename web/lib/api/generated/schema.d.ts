@@ -3745,7 +3745,8 @@ export interface operations {
                 q?: string;
                 platformInstanceId?: string;
                 tagId?: string;
-                sort?: "title" | "recent";
+                /** @description Random ordering samples the filtered games independently on each request. Items within one response are unique; separate requests may overlap. */
+                sort?: "title" | "recent" | "random";
                 /** @description Matches games in directories belonging to this platform; combines with directory and tag filters. */
                 platformId?: string;
             };
