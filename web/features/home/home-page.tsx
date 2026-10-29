@@ -4,6 +4,7 @@ import { ImmersiveEntryDialog } from "@/features/immersive/entry-dialog";
 import { ImmersiveHomeEntry } from "./immersive-home-entry";
 import { usePhoneLayout } from "@/lib/use-phone-layout";
 import { PhoneHome } from "./phone-home";
+import { HomeDiscover } from "./home-discover";
 import { loadHome } from "./home-data";
 import { useResource } from "@/lib/use-resource";
 import { PageHeader } from "@/components/ui";
@@ -52,6 +53,7 @@ export function HomePage() {
                 (item) => item.game.id !== featuredGameId(data),
               )}
             />
+            <HomeDiscover />
             <HomeFavorites games={data.favorites} />
             <HomeDirectories directories={data.directories} />
             <section
