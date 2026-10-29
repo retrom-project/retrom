@@ -63,6 +63,54 @@ it("native sync uses EXPORT and failed exit needs another explicit decision", as
   await act(() => result.current.confirm());
   expect(f.options.leave).toHaveBeenCalledOnce();
 });
+it("waits for in-game native IO before exporting and leaving", async () => {
+  vi.useFakeTimers();
+  try {
+    const f = fixture(false, true);
+    const availability = vi.spyOn(f.instance, "getCheckpointAvailability").mockReturnValue({ available: false, reason: "BUSY" });
+    const { result } = renderHook(() => usePlayerExit(f.options));
+    await act(() => result.current.request());
+    let closing!: Promise<void>;
+    await act(async () => { closing = result.current.confirm(); });
+    expect(f.options.leave).not.toHaveBeenCalled();
+    expect(f.options.capture).not.toHaveBeenCalled();
+    availability.mockReturnValue({ available: true, reason: null, revision: "native-complete" });
+    await act(async () => { await vi.advanceTimersByTimeAsync(50); await closing; });
+    expect(f.options.capture).toHaveBeenCalledWith(f.instance, "EXPORT");
+    expect(f.options.leave).toHaveBeenCalledOnce();
+  } finally { vi.useRealTimers(); }
+});
+it("keeps an unfinished native save in the exit menu until another explicit decision", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+  try {
+    const f = fixture(false, true);
+    vi.spyOn(f.instance, "getCheckpointAvailability").mockReturnValue({ available: false, reason: "BUSY" });
+    const { result } = renderHook(() => usePlayerExit(f.options));
+    await act(() => result.current.request());
+    let closing!: Promise<void>;
+    await act(async () => { closing = result.current.confirm(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); await closing; });
+    expect(f.options.leave).not.toHaveBeenCalled();
+    expect(f.options.capture).not.toHaveBeenCalled();
+    expect(result.current.saveState).toBe("error");
+    expect(result.current.open).toBe(true);
+    expect(f.options.reportError).toHaveBeenCalledWith(expect.stringContaining("游戏内存档仍在写入"));
+    await act(() => result.current.confirm());
+    expect(f.options.leave).toHaveBeenCalledOnce();
+  } finally { vi.useRealTimers(); }
+});
+it("cancels the native IO exit wait when its Player unmounts", async () => {
+  const f = fixture(false, true);
+  vi.spyOn(f.instance, "getCheckpointAvailability").mockReturnValue({ available: false, reason: "BUSY" });
+  const { result, unmount } = renderHook(() => usePlayerExit(f.options));
+  await act(() => result.current.request());
+  let closing!: Promise<void>;
+  await act(async () => { closing = result.current.confirm(); });
+  await act(async () => { unmount(); await closing; });
+  expect(f.options.leave).not.toHaveBeenCalled();
+  expect(f.options.capture).not.toHaveBeenCalled();
+  expect(f.options.reportError).not.toHaveBeenCalled();
+});
 it.each(["RUNNING", "PAUSED"] as const)("immersive cancellation waits for neutral then preserves original %s state", async (state) => {
   const f = fixture(true, false, state);
   const { result } = renderHook(() => usePlayerExit(f.options));

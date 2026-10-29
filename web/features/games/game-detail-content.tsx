@@ -8,6 +8,7 @@ import { AppIcon } from "@/components/app-icon";
 import { DetailLaunch } from "./detail-launch";
 import { DetailTitle } from "./detail-title";
 import { SaveCard } from "@/features/saves/save-card";
+import type { ContentLoading } from "@/features/player/content-loading";
 type DetailProps = {
   detail: Schema<"GameDetail">;
   mode: "user" | "admin" | "review";
@@ -19,6 +20,7 @@ type DetailProps = {
 };
 export function GameDetailContent(props: DetailProps) {
   const { detail, mode, onChange } = props;
+  const [contentLoading, setContentLoading] = useState<ContentLoading>("ON_DEMAND");
   const { game } = detail;
   const latest = detail.saves[0];
   const video = game.media.find((media) => media.kind === "video");
@@ -53,11 +55,12 @@ export function GameDetailContent(props: DetailProps) {
             </div>
           </div>
         </div>
-        <DetailControls {...props} />
+        <DetailControls {...props} contentLoading={contentLoading}
+          onContentLoadingChange={setContentLoading} />
         <DetailPreview save={latest} video={video} />
       </section>
       <DetailOverview game={game} />
-      <DetailSaves detail={detail} onChange={onChange} />
+      <DetailSaves detail={detail} onChange={onChange} contentLoading={contentLoading} />
     </div>
   );
 }
@@ -67,7 +70,12 @@ function DetailControls({
   onFavorite,
   onReview,
   busy,
-}: DetailProps) {
+  contentLoading,
+  onContentLoadingChange,
+}: DetailProps & {
+  contentLoading: ContentLoading;
+  onContentLoadingChange: (value: ContentLoading) => void;
+}) {
   const { game } = detail;
   const tagRail = useHorizontalWheel<HTMLDivElement>();
   return (
@@ -101,7 +109,8 @@ function DetailControls({
           </Link>
         ))}
       </div>
-      <DetailLaunch detail={detail} review={mode === "review"} />{" "}
+      <DetailLaunch detail={detail} review={mode === "review"} contentLoading={contentLoading}
+        onContentLoadingChange={onContentLoadingChange} />{" "}
       {mode === "review" ? (
         <div className="workspace-actions workspace-section">
           <button className="button danger" onClick={() => onReview("discard")}>
@@ -214,9 +223,11 @@ function DetailOverview({ game }: { game: Schema<"Game"> }) {
 function DetailSaves({
   detail,
   onChange,
+  contentLoading,
 }: {
   detail: Schema<"GameDetail">;
   onChange: () => void;
+  contentLoading: ContentLoading;
 }) {
   return (
     <section className="game-detail-saves">
@@ -230,7 +241,8 @@ function DetailSaves({
       {detail.saves.length ? (
         <div className="game-detail-save-grid">
           {detail.saves.slice(0, 3).map((save) => (
-            <SaveCard compact save={save} key={save.id} onChange={onChange} />
+            <SaveCard compact save={save} key={save.id} onChange={onChange}
+              contentLoading={contentLoading} />
           ))}
         </div>
       ) : (

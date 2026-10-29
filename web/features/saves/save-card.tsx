@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api/client";
 import type { Save } from "@/lib/api/types";
 import { LaunchButton } from "@/features/player/launch-button";
+import type { ContentLoading } from "@/features/player/content-loading";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { AppIcon } from "@/components/app-icon";
 import { BrowserTime } from "@/components/browser-time";
@@ -22,10 +23,12 @@ export function SaveCard({
   save,
   onChange,
   compact = false,
+  contentLoading = "ON_DEMAND",
 }: {
   save: Save;
   onChange?: () => void;
   compact?: boolean;
+  contentLoading?: ContentLoading;
 }) {
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
   const [menu, setMenu] = useState(false);
@@ -147,6 +150,7 @@ export function SaveCard({
             coreId={save.extinfo.coreId}
             saveId={save.id} restoreWarning={save.restoreWarning}
             disabled={!save.restorable}
+            contentLoading={contentLoading}
           >
             从这里继续
           </LaunchButton>
