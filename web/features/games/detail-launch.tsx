@@ -16,16 +16,18 @@ async function loadCatalog() {
 export function DetailLaunch({
   detail,
   review,
+  contentLoading,
+  onContentLoadingChange,
 }: {
   detail: Schema<"GameDetail">;
   review: boolean;
+  contentLoading: ContentLoading;
+  onContentLoadingChange: (value: ContentLoading) => void;
 }) {
   const [core, setCore] = useState(detail.defaultCoreId);
   const [options, setOptions] = useState(false);
   const phone = usePhoneLayout();
   const catalog = useResource(loadCatalog);
-  const [contentLoading, setContentLoading] =
-    useState<ContentLoading>("ON_DEMAND");
   const loadingCapability = targetContentLoading(
     catalog.data,
     core,
@@ -49,7 +51,7 @@ export function DetailLaunch({
     <ContentLoadingField
       capability={loadingCapability}
       value={contentLoading}
-      onChange={setContentLoading}
+      onChange={onContentLoadingChange}
     />
   );
   const start = (
