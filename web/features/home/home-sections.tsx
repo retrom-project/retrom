@@ -1,4 +1,5 @@
 import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
+import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Directory, Game, Schema } from "@/lib/api/types";
@@ -83,7 +84,6 @@ function launchNote(save: Schema<"Save"> | undefined) {
   return save ? "本次将从存档位置启动" : "本次将启动全新游戏";
 }
 export function HomeRecent({ recent }: { recent: Schema<"RecentGame">[] }) {
-  const recentRail = useHorizontalWheel<HTMLDivElement>();
   return (
     <section className="home-layer">
       <div className="home-section-head">
@@ -91,32 +91,32 @@ export function HomeRecent({ recent }: { recent: Schema<"RecentGame">[] }) {
         <Link href="/recent">查看全部</Link>
       </div>
       {recent.length ? (
-        <div ref={recentRail} className="home-horizontal-rail home-recent-rail">
-          {recent.map((item) => (
-            <Link
-              className="home-recent-card"
-              key={item.game.id}
-              href={`/games/${item.game.id}`}
-            >
-              <span className="home-recent-cover">
-                <Cover game={item.game} />
-                <span className="home-poster-platform">
-                  <span>{item.game.directoryName}</span>
-                </span>
-              </span>
-              <span className="home-recent-copy">
-                <strong>{item.game.title}</strong>
-                <small>
-                  <BrowserTime value={item.lastPlayedAtMs} />
-                </small>
-              </span>
-            </Link>
-          ))}
-        </div>
+        <HomeGameRail items={recent.map((item) => ({
+          game: item.game, caption: <BrowserTime value={item.lastPlayedAtMs} />,
+        }))} />
       ) : (
         <div className="home-inline-empty">最近玩过的游戏会出现在这里。</div>
       )}
     </section>
+  );
+}
+export function HomeGameRail({ items }: { items: { game: Game; caption: ReactNode }[] }) {
+  const rail = useHorizontalWheel<HTMLDivElement>();
+  return (
+    <div ref={rail} className="home-horizontal-rail home-recent-rail">
+      {items.map(({ game, caption }) => (
+        <Link className="home-recent-card" key={game.id} href={`/games/${game.id}`}>
+          <span className="home-recent-cover">
+            <Cover game={game} />
+            <span className="home-poster-platform"><span>{game.directoryName}</span></span>
+          </span>
+          <span className="home-recent-copy">
+            <strong title={game.title}>{game.title}</strong>
+            <small>{caption}</small>
+          </span>
+        </Link>
+      ))}
+    </div>
   );
 }
 export function HomeFavorites({ games }: { games: Game[] }) {

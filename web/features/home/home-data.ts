@@ -5,6 +5,13 @@ export type HomeData = Schema<"Home"> & {
   featured: { recent: Schema<"RecentGame">; save?: Save } | null;
 };
 
+export async function loadDiscover(limit: number, signal?: AbortSignal) {
+  return result(await api.GET("/api/v1/games", {
+    signal,
+    params: { query: { q: "", offset: 0, limit, sort: "random" } },
+  }));
+}
+
 export async function loadHome(signal?: AbortSignal): Promise<HomeData> {
   const home = result(await api.GET("/api/v1/home", { signal }));
   const recent = home.recent[0];
