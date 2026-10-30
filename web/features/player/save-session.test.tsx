@@ -29,6 +29,29 @@ it("provides verified cache recovery for final native saves without a live runti
   expect(vi.mocked(uploadDraft).mock.calls[0][2]).toBe(reclaim);
 });
 describe("durable native save", () => {
+  it("keeps the save screenshot when the export adds no player save point", async () => {
+    const runtime = runtimeFixture();
+    vi.spyOn(runtime, "checkpoint").mockResolvedValue({ ...checkpoint, screenshot: "UNCHANGED" });
+    const screenshot = vi.spyOn(runtime, "screenshot");
+    vi.spyOn(runtime, "getCheckpointAvailability").mockReturnValue({ available: false, reason: "UNCHANGED" });
+    vi.mocked(uploadDraft).mockResolvedValueOnce({ id: "native-id", version: 1 } as Awaited<ReturnType<typeof uploadDraft>>);
+    const run = runFixture();
+    run.save = { id: "native-id", version: 1, screenshotUrl: "/api/v1/saves/native-id/screenshot", extinfo: run.extinfo } as NonNullable<typeof run.save>;
+    const { result } = renderHook(() => useSaveSession(run, "user-a", true));
+    await act(() => result.current.capture(runtime, "EXPORT"));
+    expect(screenshot).not.toHaveBeenCalled();
+    expect(vi.mocked(putDraft).mock.calls[0][0].screenshot).toBeNull();
+  });
+  it("still captures the current frame when the target save has no image to keep", async () => {
+    const runtime = runtimeFixture();
+    vi.spyOn(runtime, "checkpoint").mockResolvedValue({ ...checkpoint, screenshot: "UNCHANGED" });
+    const screenshot = vi.spyOn(runtime, "screenshot");
+    vi.spyOn(runtime, "getCheckpointAvailability").mockReturnValue({ available: false, reason: "UNCHANGED" });
+    vi.mocked(uploadDraft).mockResolvedValueOnce({ id: "native-id", version: 1 } as Awaited<ReturnType<typeof uploadDraft>>);
+    const { result } = renderHook(() => useSaveSession(runFixture(), "user-a", true));
+    await act(() => result.current.capture(runtime, "EXPORT"));
+    expect(screenshot).toHaveBeenCalledOnce();
+  });
   it("keeps exact startup identity and does not acknowledge a context-expired commit", async () => {
     const run = runFixture();
     const runtime = runtimeFixture();

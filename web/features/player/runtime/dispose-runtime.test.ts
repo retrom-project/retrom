@@ -34,6 +34,25 @@ describe("runtime teardown", () => {
     expect(order).toEqual(["export", "persist", "exit"]);
     expect(runtime.checkpoint).toHaveBeenCalledWith({ intent: "EXPORT" });
   });
+  it("omits the screenshot when the final export adds no player save point", async () => {
+    const runtime = runtimeFixture();
+    runtime.checkpoint = vi.fn(async () => ({ ...checkpoint, screenshot: "UNCHANGED" as const }));
+    const screenshot = vi.spyOn(runtime, "screenshot");
+    const persisted = vi.fn(async () => undefined);
+    await disposeRuntime(runtime, persisted);
+    expect(screenshot).not.toHaveBeenCalled();
+    expect(persisted).toHaveBeenCalledWith(expect.objectContaining({ screenshot: null }));
+  });
+  it("uses the save-point image a checkpoint carries instead of the current frame", async () => {
+    const runtime = runtimeFixture();
+    const image = new Blob(["save-point"], { type: "image/png" });
+    runtime.checkpoint = vi.fn(async () => ({ ...checkpoint, screenshot: image }));
+    const screenshot = vi.spyOn(runtime, "screenshot");
+    const persisted = vi.fn(async () => undefined);
+    await disposeRuntime(runtime, persisted);
+    expect(screenshot).not.toHaveBeenCalled();
+    expect(persisted).toHaveBeenCalledWith(expect.objectContaining({ screenshot: image }));
+  });
   it("does not capture an unmounted StrictMode instance", async () => {
     const runtime = runtimeFixture("CREATED");
     const capture = vi.spyOn(runtime, "checkpoint");

@@ -38,6 +38,11 @@ export type RuntimeCheckpointV1 = {
   format: string;
   bytes: Uint8Array;
   metadata: Record<string, unknown> | null;
+  /**
+   * Blob: the PNG image of this export's save point, used instead of the current frame.
+   * UNCHANGED: the export adds no player save point; keep the save's existing screenshot.
+   */
+  screenshot?: Blob | "UNCHANGED";
 };
 export type RuntimeCheckpointRequestV1 = {
   /** GAME_SAVE defaults to EXPORT. CAPTURE explicitly requests a new native save. */

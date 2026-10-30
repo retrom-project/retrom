@@ -153,6 +153,11 @@ func (s *Service) commit(ctx context.Context, save model.Save, create bool) erro
 		if readErr != nil && !errors.Is(readErr, model.ErrNotFound) {
 			return wrap(readErr)
 		}
+		// An update without a screenshot keeps the current image: the runtime
+		// omits it when the exported progress is not shown on screen.
+		if readErr == nil && save.ScreenshotKey == "" {
+			save.ScreenshotKey = previous.ScreenshotKey
+		}
 		return wrap(r.WriteSave(ctx, save, s.Now().UnixMilli(), create))
 	}))
 }

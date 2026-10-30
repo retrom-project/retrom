@@ -5906,7 +5906,7 @@ export interface operations {
                     payload: string;
                     /**
                      * Format: binary
-                     * @description Optional bounded PNG or JPEG screenshot. Preserve the original image bytes; the server validates the actual image format.
+                     * @description Optional bounded PNG or JPEG screenshot. Preserve the original image bytes; the server validates the actual image format. Omitting it keeps the save's current screenshot.
                      */
                     screenshot?: string;
                 };
