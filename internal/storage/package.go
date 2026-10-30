@@ -33,10 +33,14 @@ func (s *Store) Stage(ctx context.Context, operation string, reader io.Reader) (
 }
 
 func (s *Store) StageLimit(ctx context.Context, operation string, reader io.Reader, maximum int64) (File, error) {
-	if !model.UUID(operation) {
+	if maximum < 0 || maximum > MaximumFileSize {
 		return File{}, model.ErrInvalid
 	}
-	if maximum < 0 || maximum > MaximumFileSize {
+	return s.stageLimit(ctx, operation, reader, maximum)
+}
+
+func (s *Store) stageLimit(ctx context.Context, operation string, reader io.Reader, maximum int64) (File, error) {
+	if !model.UUID(operation) {
 		return File{}, model.ErrInvalid
 	}
 	free, err := s.FreeBytes()

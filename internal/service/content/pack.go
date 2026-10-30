@@ -62,24 +62,26 @@ func (s *Service) PackExisting(ctx context.Context, id string, apply bool) (Pack
 		result.Status = "already_packed"
 		return result, nil
 	}
-	if err = storage.ValidateContent(files); err != nil {
-		return result, wrap(err)
-	}
 	result.Members = len(files)
-	for _, file := range files {
-		if err = s.verifySource(ctx, file); err != nil {
-			return result, wrap(err)
-		}
-		result.ContentBytes += file.SizeBytes
+	result.ContentBytes, err = s.contentBytes(ctx, files)
+	if err != nil {
+		return result, err
 	}
 	result.AdditionalBytes = result.ContentBytes + int64(len(files))*(2*1024+256) + 1024
+	original, err := originalOwner(snapshot.Files)
+	if err != nil {
+		return result, err
+	}
+	if original != nil {
+		result.AdditionalBytes += original.ExtInfo.ConversionInfo.OriginInfo.SizeBytes
+	}
 	if !apply {
 		result.Status = "candidate"
 		return result, nil
 	}
-	file, err := s.Storage.BuildPackage(ctx, id, files)
+	file, err := s.preparePackage(ctx, id, files, original)
 	if err != nil {
-		return result, wrap(err)
+		return result, err
 	}
 	if err = s.commitPackage(ctx, snapshot, file); err != nil {
 		return result, err
@@ -87,6 +89,36 @@ func (s *Service) PackExisting(ctx context.Context, id string, apply bool) (Pack
 
 	result.Status = "packed"
 	return result, nil
+}
+
+func (s *Service) contentBytes(ctx context.Context, files []model.ContentFile) (int64, error) {
+	if err := storage.ValidateContent(files); err != nil {
+		return 0, wrap(err)
+	}
+	var size int64
+	for _, file := range files {
+		if err := s.verifySource(ctx, file); err != nil {
+			return 0, err
+		}
+		size += file.SizeBytes
+	}
+	return size, nil
+}
+
+func (s *Service) preparePackage(ctx context.Context, id string, files []model.ContentFile,
+	original *model.GameFile,
+) (model.GameFile, error) {
+	file, err := s.Storage.BuildPackage(ctx, id, files)
+	if err != nil {
+		return model.GameFile{}, wrap(err)
+	}
+	if original != nil {
+		file.ExtInfo.ConversionInfo, err = s.Storage.CopyOrigin(ctx, id, *original, file.ID)
+		if err != nil {
+			return model.GameFile{}, wrap(errors.Join(err, s.removePackage(id, file)))
+		}
+	}
+	return file, nil
 }
 
 func (s *Service) verifySource(ctx context.Context, file model.ContentFile) error {
@@ -152,9 +184,31 @@ func (s *Service) commitPackage(ctx context.Context, snapshot persistence.Conten
 		}
 	}
 	if err != nil {
-		return wrap(errors.Join(err, s.Storage.Remove(file.StorageKey)))
+		return wrap(errors.Join(err, s.removePackage(snapshot.ID, file)))
 	}
 	return nil
+}
+
+func originalOwner(files []model.GameFile) (*model.GameFile, error) {
+	var owner *model.GameFile
+	for _, file := range files {
+		if file.ExtInfo.ConversionInfo == nil || file.ExtInfo.ConversionInfo.OriginInfo == nil {
+			continue
+		}
+		if owner != nil {
+			return nil, fmt.Errorf("multiple original attachments cannot become one owner: %w", model.ErrInvalid)
+		}
+		owner = &file
+	}
+	return owner, nil
+}
+
+func (s *Service) removePackage(gameID string, file model.GameFile) error {
+	err := s.Storage.Remove(file.StorageKey)
+	if file.ExtInfo.ConversionInfo != nil && file.ExtInfo.ConversionInfo.OriginInfo != nil {
+		err = errors.Join(err, s.Storage.RemoveOrigin(gameID, file.ID))
+	}
+	return err
 }
 
 func wrap(err error) error {

@@ -198,11 +198,11 @@ func (s *Service) importGame(ctx context.Context,
 	defer closeRoot(selected)
 	id := uuid.NewString()
 	defer s.removeStaging(id)
-	files, err := s.content(ctx, selected, id, candidate.Files, directory, inventory)
+	source, err := s.content(ctx, selected, id, candidate.Files, directory, inventory)
 	if err != nil {
 		return err
 	}
-	files, err = s.normalize(ctx, id, directory.PlatformID, files)
+	files, err := s.normalize(ctx, id, directory.PlatformID, source.Files)
 	if err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func (s *Service) importGame(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	physical, err := s.finalizeContent(ctx, id, directory, config, files)
+	physical, err := s.finalizeSourceContent(ctx, id, id, directory, config, files, source)
 	if err != nil {
 		return err
 	}
@@ -233,7 +233,7 @@ func (s *Service) importGame(ctx context.Context,
 	imported := scan.ImportedCount
 	err = s.commitGame(ctx, p, game, scan)
 	if !errors.Is(err, persistence.ErrCommitUncertain) && (err != nil || scan.ImportedCount == imported) {
-		s.removePrepared(physical)
+		s.removePrepared(id, physical)
 	}
 	return err
 }

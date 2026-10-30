@@ -33,7 +33,7 @@ func (s *Service) prepareReplacement(ctx context.Context, task *replacementTask)
 	physical := game.Files
 	if err = s.beginReplacementPublication(ctx, task, physical[0].ID,
 		model.ContentReplacementResult{Version: version + 1, ContentHash: game.ContentHash}); err != nil {
-		s.removePrepared(physical)
+		s.removePrepared(id, physical)
 		return err
 	}
 	err = s.Repository.Transaction(ctx, func(r *persistence.Repository) error {
@@ -58,14 +58,14 @@ func (s *Service) buildReplacement(ctx context.Context, task *replacementTask,
 	defer closeRoot(root)
 	operation := task.session.Progress.ID
 	defer s.removeStaging(operation)
-	files, err := s.content(ctx, root, operation, []string{filepath.ToSlash(name)}, directory, nil)
+	source, err := s.content(ctx, root, operation, []string{filepath.ToSlash(name)}, directory, nil)
 	if err != nil {
 		return model.PreparedGame{}, err
 	}
 	if err = s.replacementPhase(ctx, task, "normalizing"); err != nil {
 		return model.PreparedGame{}, err
 	}
-	files, err = s.normalize(ctx, operation, directory.PlatformID, files)
+	files, err := s.normalize(ctx, operation, directory.PlatformID, source.Files)
 	if err != nil {
 		return model.PreparedGame{}, err
 	}
@@ -87,7 +87,8 @@ func (s *Service) buildReplacement(ctx context.Context, task *replacementTask,
 	if err = s.replacementPhase(ctx, task, "packaging"); err != nil {
 		return model.PreparedGame{}, err
 	}
-	physical, err := s.finalizeContent(ctx, task.session.Progress.GameID, directory, config, files)
+	physical, err := s.finalizeSourceContent(ctx, operation, task.session.Progress.GameID,
+		directory, config, files, source)
 	if err != nil {
 		return model.PreparedGame{}, err
 	}
@@ -113,6 +114,6 @@ func (s *Service) finishReplacement(ctx context.Context, id string, files []mode
 			return nil
 		}
 	}
-	s.removePrepared(files)
+	s.removePrepared(id, files)
 	return wrap(commitErr)
 }

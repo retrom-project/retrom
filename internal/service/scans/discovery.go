@@ -21,48 +21,55 @@ type contentReference struct {
 	Optional     bool   `json:"optional"`
 }
 
-func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string, files []model.ContentFile,
+func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string, content *sourceContent,
 	origins map[string]string, directory model.Directory, inventory *sourceInventory,
-) ([]model.ContentFile, error) {
+) error {
+	files := content.Files
 	locators := make(map[string]runtimeclient.Locator, len(files))
 	seen := make(map[string]bool, len(files))
 	for _, file := range files {
 		absolute, err := s.Storage.Absolute(file.StorageKey)
 		if err != nil {
-			return nil, wrap(err)
+			return wrap(err)
 		}
 		locators[file.LogicalKey] = runtimeclient.Locator{Path: absolute, Offset: file.Offset, SizeBytes: file.SizeBytes}
 		seen[file.LogicalKey] = true
 	}
 	output, err := s.contentReferences(ctx, root, files, locators, directory, inventory)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if len(output.Files) > maximumGameFiles {
-		return nil, model.ErrInvalid
+		return model.ErrInvalid
 	}
 	for _, reference := range output.Files {
 		if !validContentReference(reference, locators) {
-			return nil, model.ErrInvalid
+			return model.ErrInvalid
 		}
 		if seen[reference.LogicalKey] {
 			continue
 		}
 		source, exists := origins[reference.RelativeTo]
 		if !exists && reference.SourcePath == "" || len(files) >= maximumGameFiles {
-			return nil, model.ErrInvalid
+			return model.ErrInvalid
 		}
 		file, err := s.copyReference(ctx, root, id, reference, source)
 		if reference.Optional && errors.Is(err, os.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			return nil, err
+			return err
+		}
+		if directory.PlatformID == "kirikiri" {
+			input := file
+			input.LogicalKey = referenceSource(reference, source)
+			content.Inputs = append(content.Inputs, input)
 		}
 		files = append(files, file)
 		seen[reference.LogicalKey] = true
 	}
-	return files, nil
+	content.Files = files
+	return nil
 }
 
 func validContentReference(reference contentReference, locators map[string]runtimeclient.Locator) bool {
@@ -79,10 +86,7 @@ func validContentReference(reference contentReference, locators map[string]runti
 func (s *Service) copyReference(ctx context.Context, root *os.Root, id string, reference contentReference,
 	source string,
 ) (model.ContentFile, error) {
-	name := reference.SourcePath
-	if name == "" {
-		name = path.Join(path.Dir(source), reference.RelativePath)
-	}
+	name := referenceSource(reference, source)
 	file, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK|syscall.O_NOFOLLOW, 0)
 	if err != nil {
 		return model.ContentFile{}, fmt.Errorf("open referenced source content: %w", err)
@@ -126,4 +130,11 @@ func (s *Service) contentReferences(ctx context.Context, root *os.Root, files []
 		}
 	}
 	return output, nil
+}
+
+func referenceSource(reference contentReference, source string) string {
+	if reference.SourcePath != "" {
+		return reference.SourcePath
+	}
+	return path.Join(path.Dir(source), reference.RelativePath)
 }

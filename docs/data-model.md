@@ -18,7 +18,7 @@
 | platform_instance_tab | 人工创建的目录 |
 | platform_instance_core_tab | 目录允许的核心及排序 |
 | game_tab | 资料、排序名与标题字母序、runtime配置、contentHash、来源、生命周期 |
-| game_file_tab | Game 独占的物理内容文件及退休状态；项目包只有一条活动记录 |
+| game_file_tab | Game 独占的物理内容文件及退休状态；项目包只有一条活动记录；ext_info 保存内部附件描述 |
 | game_file_member_tab | 不可变 STORE ZIP 的逻辑路径、偏移、大小、SHA 和 MIME；归属物理包 |
 | game_media_tab | 封面、截图和其他媒体 |
 | save_tab | User/Game私人存档、extinfo、最后commitId及CAS |
@@ -42,5 +42,9 @@ Game状态pending_review→published→deleted→purged；拒绝待审直接dele
 标题字母序：title_initial 是字母分组 A–Z 或 #（拉丁字母取基础字母，忽略大小写、重音和全角；汉字取 CLDR 中文排序的拼音首字母；数字、符号、假名等归 #）。title_sort_key（COLLATE "C"）为“分组序号 + 中文排序键”，A–Z 依次在前、# 最后，同一字母内拉丁与汉字标题相邻。title_sort_name 是管理员可选的排序名，非空时代替标题参与分组和排序，用于修正多音字。title_order_version 记录计算规则版本：新增和修改 Game 在同一写入中算好三列；后端启动、对外服务前只把版本不一致的行分批重算（升级、回滚后再升级、从旧备份恢复或直接改库时才会命中），不递增 Game 版本。storage_key和save screenshot_key的(key,status)普通索引服务活动引用与退休归属复核，清理不逐文件全表扫描。所有关系查询在SQL中限定当前user_id及可见状态。
 
 项目包的 game_file_tab.role 为 project_package，size_bytes/sha256 描述整个物理 ZIP。成员表以 (game_file_id, logical_path COLLATE "C") 为复合主键，保存 data_offset、size_bytes、sha256、media_type；没有成员 UUID、role、status、JSON 清单或独立生命周期。原生 ROM/ZIP 仍是普通物理文件，不按扩展名展开成员。一个活动项目包不能与其他活动内容文件混合。
+
+`game_file_tab.ext_info` 为非空 JSONB，默认为 `{}`，由 Go `GameFileTabExtInfo` 编解码。`conversion_info` 将转换相关信息封装在一起：可选 `origin_info` 含 `storage_key`、`logical_key`、`size_bytes`、`sha256`，可选 `fingerprint` 当前不生成、不参与身份判断。历史记录保持 `{}`，不回填无法取得的原档。扩展信息不进入公开 GameFile JSON、逻辑成员或运行配置。
+
+仅 KRKR 导入或外部替换中，规范化前后逻辑文件的路径、大小或 SHA 改变时，项目包独占一份原档附件，固定在 `games/<game-id>/origins/<game-file-id>/original`；应用校验规范 UUID、同一拥有者、逻辑名称、大小和摘要。附件没有独立行或生命周期，不跨文件记录共享；按路径中的文件主键和 Game ID 查询 active/deleted 归属，沿用现有主键，不增加 JSON 引用索引、外键或转换任务表。原档与产物、成员和扫描成功进度在同一事务提交。KRKR 内容未改写或其他平台只重打包时不生成原档描述和附件。
 
 成员按 1000 行一批在包发布事务内插入；点查及路径游标分页使用复合主键。普通游戏列表与详情不加载整个成员表，配置解释和启动通过逻辑内容目录读取，进程目录缓存最多 16 包、估算 32 MiB。包的物理摘要及打包排列不进入项目 ROM 身份。退休包的物理删除成功后，成员索引每轮最多删除 1000 行；父记录保留以支持中断后继续清理。

@@ -38,10 +38,15 @@ func (r *Repository) CreateGame(ctx context.Context, userID string, game model.P
 
 func (r *Repository) InsertFiles(ctx context.Context, gameID string, files []model.GameFile, now int64) error {
 	for _, file := range files {
+		if err := model.ValidateGameFileExtInfo(gameID, file); err != nil {
+			return failure("validate game file extensions", err)
+		}
 		if err := r.Execute(ctx, `INSERT INTO game_file_tab
- (id,game_id,logical_key,role,storage_key,size_bytes,sha256,status,active_slot,package_slot,created_at_ms,updated_at_ms)
- VALUES($1,$2,$3,$4,$5,$6,$7,'active',1,CASE WHEN $4='project_package' THEN 1 END,$8,$8)`,
-			file.ID, gameID, file.LogicalKey, file.Role, file.StorageKey, file.SizeBytes, file.SHA256, now); err != nil {
+ (id,game_id,logical_key,role,storage_key,size_bytes,sha256,status,active_slot,package_slot,
+ created_at_ms,updated_at_ms,ext_info)
+ VALUES($1,$2,$3,$4,$5,$6,$7,'active',1,CASE WHEN $4='project_package' THEN 1 END,$8,$8,$9)`,
+			file.ID, gameID, file.LogicalKey, file.Role, file.StorageKey, file.SizeBytes,
+			file.SHA256, now, file.ExtInfo); err != nil {
 			return err
 		}
 		if err := r.insertMembers(ctx, file); err != nil {

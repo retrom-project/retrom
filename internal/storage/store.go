@@ -190,6 +190,14 @@ func (s *Store) Remove(key string) error {
 	if err := s.root.Remove(key); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove managed file: %w", err)
 	}
+	if gameID, _, ok := model.ParseOriginStorageKey(key); ok {
+		for _, directory := range []string{path.Dir(key), "games/" + gameID + "/origins", "games/" + gameID} {
+			if err := s.removeEmptyDirectory(directory); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	parts := strings.Split(key, "/")
 	if len(parts) != 3 {
 		return nil
@@ -198,7 +206,11 @@ func (s *Store) Remove(key string) error {
 	if !valid {
 		return nil
 	}
-	if err := s.root.Remove(owner); err != nil && !errors.Is(err, os.ErrNotExist) &&
+	return s.removeEmptyDirectory(owner)
+}
+
+func (s *Store) removeEmptyDirectory(key string) error {
+	if err := s.root.Remove(key); err != nil && !errors.Is(err, os.ErrNotExist) &&
 		!errors.Is(err, syscall.ENOTEMPTY) && !errors.Is(err, syscall.EEXIST) {
 		return fmt.Errorf("remove empty managed owner: %w", err)
 	}

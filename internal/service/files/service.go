@@ -96,9 +96,19 @@ func (s *Service) removeRetired(ctx context.Context, file model.RetiredFile) err
 		return wrap(err)
 	}
 	if referenced {
+		// Main payload references do not share the retired row's private attachments.
+		if file.Table == "game_file_tab" {
+			return wrap(s.Storage.RemoveOrigin(file.GameID, file.ID))
+		}
 		return nil
 	}
-	return wrap(s.Storage.Remove(file.Key))
+	if err = s.Storage.Remove(file.Key); err != nil {
+		return wrap(err)
+	}
+	if file.Table == "game_file_tab" {
+		return wrap(s.Storage.RemoveOrigin(file.GameID, file.ID))
+	}
+	return nil
 }
 
 func (s *Service) game(ctx context.Context, id string) error {
