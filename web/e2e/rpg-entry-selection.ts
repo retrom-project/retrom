@@ -1,7 +1,8 @@
 import { expect } from "@playwright/test";
 import type { Page, TestInfo } from "@playwright/test";
 import type { Schema } from "../lib/api/types";
-import { request } from "./clean-refactor-support";
+import { leavePlayer, request, revealPlayerControls } from "./clean-refactor-support";
+import { ensurePlayerLandscape } from "./nes-playback";
 
 async function importGames(page: Page, source: string) {
   const directories = await request<Schema<"DirectoryList">>(page, "/api/v1/admin/platform-instances");
@@ -52,6 +53,32 @@ async function expectFieldLayout(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 }
 
+async function verifyTouchGamepadToolbar(page: Page, info: TestInfo, gameId: string) {
+  await page.goto(`/admin/reviews/${gameId}`);
+  const launch = page.getByRole("button", {name: "运行游戏", exact: true});
+  await launch.click();
+  await page.waitForURL(/\/play\//u);
+  await ensurePlayerLandscape(page);
+  await revealPlayerControls(page);
+  await expect(page.getByRole("button", {name: "暂停", exact: true})).toBeEnabled({timeout: 60_000});
+  const desktop = await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches);
+  await expect(page.getByRole("button", {name: /虚拟手柄/u})).toHaveCount(desktop ? 0 : 1);
+  await page.screenshot({path: info.outputPath("touch-gamepad-toolbar.png")});
+  if (desktop) {
+    await page.setViewportSize({width: 1000, height: 700});
+    await revealPlayerControls(page);
+    await expect(page.getByRole("button", {name: /虚拟手柄/u})).toHaveCount(0);
+    await page.screenshot({path: info.outputPath("touch-gamepad-toolbar-narrow-desktop.png")});
+  } else {
+    await page.getByRole("button", {name: "隐藏虚拟手柄", exact: true}).click();
+    await expect(page.getByRole("button", {name: "显示虚拟手柄", exact: true})).toHaveAttribute("aria-pressed", "false");
+    await page.screenshot({path: info.outputPath("touch-gamepad-toolbar-disabled.png")});
+    await page.getByRole("button", {name: "显示虚拟手柄", exact: true}).click();
+    await expect(page.getByRole("button", {name: "隐藏虚拟手柄", exact: true})).toHaveAttribute("aria-pressed", "true");
+  }
+  await leavePlayer(page);
+}
+
 export async function verifyRPGEntrySelection(page: Page, info: TestInfo) {
   const source = process.env.RETROM_BROWSER_RPG_SOURCE_PATH;
   if (!source) { throw new Error("The public RPG entry fixture path is required."); }
@@ -90,6 +117,7 @@ export async function verifyRPGEntrySelection(page: Page, info: TestInfo) {
     expect((await saved).status()).toBe(200);
     await page.reload();
     await expect(select).toHaveValue("www/index.html");
+    await verifyTouchGamepadToolbar(page, info, single.id);
   } finally {
     for (const game of games) {
       const path = `/api/v1/admin/reviews/${game.id}`;

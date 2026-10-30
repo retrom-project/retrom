@@ -10,6 +10,12 @@ import { PlayerToolbar } from "./player-toolbar";
 
 afterEach(cleanup);
 
+it.each([true, false])("hides the touch gamepad toggle on desktop when enabled is %s", (enabled) => {
+  const toggle = vi.fn();
+  render(<PlayerToolbar {...toolbarProps()} menu={false} state="RUNNING" desktopPointer touchGamepad={{enabled, toggle}} />);
+  expect(screen.queryByRole("button", {name: /虚拟手柄/})).not.toBeInTheDocument();
+});
+
 it("keeps the touch gamepad toggle in the top toolbar in both preference states", () => {
   const toggle = vi.fn(), props = toolbarProps();
   const view = render(<PlayerToolbar {...props} menu={false} state="RUNNING" touchGamepad={{enabled: true, toggle}} />);
