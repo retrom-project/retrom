@@ -28,7 +28,7 @@ GameDetail.files 表示受管物理文件，项目的单条记录 role 为 proje
 
 PFB 开发资源采用 `/runtime/providers/{providerId}/{bundleSha256}/dev/{moduleSha256}/{asset}`，精确匹配当前开发模块摘要，返回 `private, no-store, no-transform`。覆盖层未修改的资源读取同一已安装 Bundle；旧开发摘要返回 404。Envelope 的 runtime base、入口模块和 bridge 必须属于同一正式或开发路径，正式 URL 不读取开发覆盖层。
 
-存档checkpoint payload保持不透明。可选截图接受实际PNG/JPEG字节，检查大小及图像尺寸后原样保存；不以上传文件名推断格式，不把JPEG伪报为PNG。截图读取按实际字节返回MediaType；设为游戏封面沿用公共媒体上传边界。multipart metadata仍按权威SaveCommitMetadata校验，包括必需但可为null的slot。
+存档checkpoint payload保持不透明。可选截图接受实际PNG/JPEG字节，检查大小及图像尺寸后原样保存；覆盖存档时省略截图保留当前截图（Provider以checkpoint `screenshot: "UNCHANGED"`标记未新增玩家存档点的导出，画面不代表该进度）；不以上传文件名推断格式，不把JPEG伪报为PNG。截图读取按实际字节返回MediaType；设为游戏封面沿用公共媒体上传边界。multipart metadata仍按权威SaveCommitMetadata校验，包括必需但可为null的slot。
 
 管理员邀请URL为/register#token=...，重置为/reset-password#token=...；token只由匿名页面读取并提交inspect/consume。管理员链接列表只返回脱敏摘要，筛选active/consumed/revoked/expired与total采用同条件；撤销需版本，重置链接显式expiresInHours。创建目录/Tag/Folder请求没有version，编辑请求要求version≥1。
 

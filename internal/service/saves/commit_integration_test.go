@@ -23,6 +23,36 @@ func TestConcurrentSaveCASAndDeletedGameFence(t *testing.T) {
 	assertCommitRetryAndDeletionFence(t, f, s, current)
 }
 
+func TestSaveUpdateWithoutScreenshotKeepsCurrentImage(t *testing.T) {
+	f := testsupport.Library(t)
+	f.Publish(t)
+	s := &Service{Repository: f.Repository, Now: time.Now}
+	save := createCommitFixture(t, f, s)
+	commitScreenshot := func(key string) string {
+		t.Helper()
+		save.LastCommitID = uuid.NewString()
+		save.PayloadHash, save.ScreenshotKey = save.LastCommitID, key
+		if err := s.commit(t.Context(), save, false); err != nil {
+			t.Fatal(err)
+		}
+		current, err := f.Repository.Save(t.Context(), save.UserID, save.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		save = current
+		return current.ScreenshotKey
+	}
+	if key := commitScreenshot("saves/shot-1"); key != "saves/shot-1" {
+		t.Fatalf("screenshot=%q", key)
+	}
+	if key := commitScreenshot(""); key != "saves/shot-1" {
+		t.Fatalf("update without screenshot replaced the current image: %q", key)
+	}
+	if key := commitScreenshot("saves/shot-2"); key != "saves/shot-2" {
+		t.Fatalf("screenshot=%q", key)
+	}
+}
+
 func createCommitFixture(t *testing.T, f testsupport.Fixture, s *Service) model.Save {
 	t.Helper()
 	save := model.Save{ID: uuid.NewString(), UserID: f.Principal.User.ID, Game: model.Game{ID: f.Game.ID}, Kind: "checkpoint", Name: "First", SizeBytes: 3, StorageKey: "saves/first", PayloadHash: "first", LastCommitID: uuid.NewString(), Extinfo: model.Extinfo{CoreID: "fceumm", ProviderID: "emulatorjs", TargetID: "fceumm", CoreFingerprint: "fingerprint", ROMHash: f.Game.ContentHash, CheckpointFormat: "format", Content: json.RawMessage(`{"kind":"SINGLE_FILE","entryFile":"game.nes"}`), RuntimeOptions: json.RawMessage(`{}`)}}

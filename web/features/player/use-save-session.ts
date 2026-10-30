@@ -9,6 +9,7 @@ import type {
 } from "./runtime/contract";
 import { makeDraft, putDraft, uploadDraft } from "./save-drafts";
 import type { SaveDraft } from "./save-drafts";
+import { checkpointScreenshot } from "./runtime/dispose-runtime";
 import { reclaimProviderContentCache } from "./runtime/provider-dispatcher";
 type SaveFeedback = "FOREGROUND" | "BACKGROUND";
 export function useSaveSession(
@@ -58,6 +59,10 @@ export function useSaveSession(
       return false;
     }
   }, [userId, native, notify, reclaimCache]);
+  const writableTarget = useCallback((target: Schema<"Save"> | null) => {
+    const chosen = native ? selectedSave.current : target;
+    return chosen?.id === protectedSourceId ? null : chosen;
+  }, [native, protectedSourceId]);
   const commit = useCallback(
     async (
       snapshot: RuntimeFinalSnapshotV1,
@@ -78,15 +83,14 @@ export function useSaveSession(
         throw new Error("运行模块生成了不匹配的存档格式。");
       }
       if (native && pending.current && await sameDraftCheckpoint(pending.current, snapshot.checkpoint)) { return false; }
-      const chosen = native ? selectedSave.current : target;
-      const writable = chosen?.id === protectedSourceId ? null : chosen;
+      const writable = writableTarget(target);
       const record = makeDraft(userId, run, snapshot.checkpoint, snapshot.screenshot, writable, native);
       setDraft(record);
       pending.current = record;
       await putDraft(record, reclaimCache);
       return persist(record, snapshot.checkpoint, runtime, feedback);
     },
-    [run, userId, native, notify, persist, protectedSourceId, reclaimCache],
+    [run, userId, native, notify, persist, writableTarget, reclaimCache],
   );
   const captureWork = useCallback(
     async (
@@ -108,7 +112,8 @@ export function useSaveSession(
         do {
           queued.current = false;
           const checkpoint = await runtime.checkpoint({ intent });
-          const screenshot = await runtime.screenshot().catch(() => null);
+          // A record without an image still takes the current frame.
+          const screenshot = await checkpointScreenshot(runtime, checkpoint, Boolean(writableTarget(target)?.screenshotUrl));
           const committed = await commit({ checkpoint, screenshot }, runtime, target, feedback);
           if (!committed) { return false; }
           intent = "EXPORT";
@@ -133,7 +138,7 @@ export function useSaveSession(
         setBackground(false);
       }
     },
-    [commit, native, notify],
+    [commit, native, notify, writableTarget],
   );
   const capture = useCallback((runtime: PlayerRuntimeV1, intent: "CAPTURE" | "EXPORT" = "CAPTURE", target: Schema<"Save"> | null = null, feedback: SaveFeedback = "FOREGROUND") => {
     if (inFlight.current) { queued.current = true; return inFlight.current; }
