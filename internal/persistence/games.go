@@ -136,7 +136,7 @@ func (r *Repository) GameRuntimeDetail(ctx context.Context, userID, id, status s
 }
 
 func (r *Repository) GameFiles(ctx context.Context, id string) ([]model.GameFile, error) {
-	rows, err := r.db.Query(ctx, `SELECT id,logical_key,role,size_bytes,sha256,storage_key
+	rows, err := r.db.Query(ctx, `SELECT id,logical_key,role,size_bytes,sha256,storage_key,ext_info
  FROM game_file_tab WHERE game_id=$1 AND status='active' ORDER BY logical_key`, id)
 	if err != nil {
 		return nil, failure("list game files", err)
@@ -150,8 +150,11 @@ func (r *Repository) GameFiles(ctx context.Context, id string) ([]model.GameFile
 			&file.Role,
 			&file.SizeBytes,
 			&file.SHA256,
-			&file.StorageKey); err != nil {
+			&file.StorageKey, &file.ExtInfo); err != nil {
 			return nil, fmt.Errorf("read game file: %w", err)
+		}
+		if err = model.ValidateGameFileExtInfo(id, file); err != nil {
+			return nil, fmt.Errorf("read game file extensions: %w", err)
 		}
 		files = append(files, file)
 	}

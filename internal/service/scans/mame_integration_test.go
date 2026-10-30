@@ -35,7 +35,7 @@ func TestMameCompanionCopyUsesOnlyTheMetadataDirectory(t *testing.T) {
 			defer closeRoot(root)
 			service := &Service{Repository: f.Repository, Runtime: client, Storage: store, Now: time.Now}
 			selected := model.Directory{PlatformID: "arcade", DefaultCoreID: "mame_arcade", CoreIDs: []string{"mame_arcade"}}
-			files, err := service.content(t.Context(), root, f.Game.ID, []string{"A/shikigam.zip"}, selected, &sourceInventory{})
+			source, err := service.content(t.Context(), root, f.Game.ID, []string{"A/shikigam.zip"}, selected, &sourceInventory{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -43,10 +43,10 @@ func TestMameCompanionCopyUsesOnlyTheMetadataDirectory(t *testing.T) {
 			if inside {
 				want = 2
 			}
-			if len(files) != want {
-				t.Fatalf("files=%+v", files)
+			if len(source.Files) != want {
+				t.Fatalf("files=%+v", source.Files)
 			}
-			f.Game.Files, err = service.finalizeContent(t.Context(), f.Game.ID, model.Directory{PlatformID: "arcade", DefaultCoreID: "mame_arcade"}, json.RawMessage(`{"content":{"kind":"ARCADE","entryFile":"shikigam.zip"}}`), files)
+			f.Game.Files, err = service.finalizeContent(t.Context(), f.Game.ID, model.Directory{PlatformID: "arcade", DefaultCoreID: "mame_arcade"}, json.RawMessage(`{"content":{"kind":"ARCADE","entryFile":"shikigam.zip"}}`), source.Files)
 			if err != nil {
 				t.Fatal(err)
 			}

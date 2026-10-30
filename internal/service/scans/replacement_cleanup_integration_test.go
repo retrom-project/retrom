@@ -34,6 +34,8 @@ func TestConfirmedNormalizedReplacementRetiresOnlyOldManagedContent(t *testing.T
 	}
 	assertManagedPresent(t, s.Storage, old.StorageKey)
 	assertManagedPresent(t, s.Storage, current.StorageKey)
+	assertManagedPresent(t, s.Storage, old.ExtInfo.ConversionInfo.OriginInfo.StorageKey)
+	assertManagedPresent(t, s.Storage, current.ExtInfo.ConversionInfo.OriginInfo.StorageKey)
 	cleaner := &filemaintenance.Service{
 		Repository: f.Repository, Storage: s.Storage, Grace: 24 * time.Hour,
 		Now: func() time.Time { return s.Now().Add(25 * time.Hour) },
@@ -49,6 +51,14 @@ func TestConfirmedNormalizedReplacementRetiresOnlyOldManagedContent(t *testing.T
 		t.Fatal("retired original managed copy survived its grace")
 	}
 	assertManagedPresent(t, s.Storage, current.StorageKey)
+	assertManagedPresent(t, s.Storage, current.ExtInfo.ConversionInfo.OriginInfo.StorageKey)
+	original, err := s.Storage.Read(old.ExtInfo.ConversionInfo.OriginInfo.StorageKey)
+	if original != nil {
+		closeFile(original)
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("retired original attachment survived its owner's grace")
+	}
 	if count, err := f.Repository.Count(t.Context(), "SELECT count(*) FROM game_file_tab WHERE id=$1 AND status='active'", current.ID); err != nil || count != 1 {
 		t.Fatalf("active normalized package=%d err=%v", count, err)
 	}
@@ -60,12 +70,20 @@ func TestRejectedReplacementRemovesNewPackageAndKeepsCurrentContent(t *testing.T
 		t.Fatalf("conflict=%v", err)
 	}
 	assertManagedPresent(t, s.Storage, old.StorageKey)
+	assertManagedPresent(t, s.Storage, old.ExtInfo.ConversionInfo.OriginInfo.StorageKey)
 	file, err := s.Storage.Read(current.StorageKey)
 	if file != nil {
 		closeFile(file)
 	}
 	if !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("uncommitted replacement package survived a known rejection")
+	}
+	original, err := s.Storage.Read(current.ExtInfo.ConversionInfo.OriginInfo.StorageKey)
+	if original != nil {
+		closeFile(original)
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("uncommitted original attachment survived a known rejection")
 	}
 }
 
@@ -79,6 +97,8 @@ func TestUnconfirmedReplacementPreservesBothPackagesForReconciliation(t *testing
 	}
 	assertManagedPresent(t, s.Storage, old.StorageKey)
 	assertManagedPresent(t, s.Storage, current.StorageKey)
+	assertManagedPresent(t, s.Storage, old.ExtInfo.ConversionInfo.OriginInfo.StorageKey)
+	assertManagedPresent(t, s.Storage, current.ExtInfo.ConversionInfo.OriginInfo.StorageKey)
 }
 
 func replacementCleanupFixture(t *testing.T) (*Service, testsupport.Fixture, model.GameFile, model.GameFile) {
@@ -101,6 +121,7 @@ func replacementCleanupFixture(t *testing.T) (*Service, testsupport.Fixture, mod
 		ID: uuid.NewString(), Role: "content", LogicalKey: "game.nes",
 		StorageKey: source.Key, SHA256: source.SHA256, SizeBytes: source.Size,
 	}
+	attachOriginal(t, store, f.Game.ID, &old)
 	f.Game.Files = []model.GameFile{old}
 	f.Publish(t)
 	staged, err := store.Stage(t.Context(), uuid.NewString(), strings.NewReader("normalized complete bytes"))
@@ -113,6 +134,7 @@ func replacementCleanupFixture(t *testing.T) (*Service, testsupport.Fixture, mod
 	if err != nil {
 		t.Fatal(err)
 	}
+	attachOriginal(t, store, f.Game.ID, &current)
 	now := time.Now()
 	return &Service{Repository: f.Repository, Storage: store, Now: func() time.Time { return now }}, f, old, current
 }

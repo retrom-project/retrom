@@ -56,12 +56,16 @@ func (r *Repository) RetiredFiles(ctx context.Context, before int64) ([]model.Re
 	for _, table := range []string{"game_file_tab", "game_media_tab", "bios_file_tab", "save_tab"} {
 		screenshot := "''"
 		key := "storage_key"
+		gameID := "''"
+		if table == "game_file_tab" {
+			gameID = "game_id"
+		}
 		if table == "save_tab" {
 			screenshot = "COALESCE(screenshot_key,'')"
 			key = "''"
 		}
 		query := `SELECT jsonb_build_object('Table',$2::text,'ID',id,'Key',` + key +
-			`,'ScreenshotKey',` + screenshot + `) FROM ` + table +
+			`,'ScreenshotKey',` + screenshot + `,'GameID',` + gameID + `) FROM ` + table +
 			` WHERE status='deleted' AND updated_at_ms<$1 ORDER BY updated_at_ms,id LIMIT 100`
 		items, err := listJSON[model.RetiredFile](ctx, r, query, before, table)
 		if err != nil {
@@ -93,6 +97,11 @@ func (r *Repository) Referenced(ctx context.Context, key string) (bool, error) {
 // the bounded retirement cleanup succeeds; their physical mtime does not start the retirement grace.
 func (r *Repository) OwnsFile(ctx context.Context, key string) (bool, error) {
 	var owned bool
+	if gameID, fileID, ok := model.ParseOriginStorageKey(key); ok {
+		err := r.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM game_file_tab
+ WHERE id=$1 AND game_id=$2 AND status IN ('active','deleted'))`, fileID, gameID).Scan(&owned)
+		return owned, failure("read original attachment ownership", err)
+	}
 	err := r.db.QueryRow(ctx, `SELECT EXISTS(
  SELECT 1 FROM game_file_tab WHERE storage_key=$1 AND status IN ('active','deleted')
  UNION ALL SELECT 1 FROM game_media_tab WHERE storage_key=$1 AND status IN ('active','deleted')

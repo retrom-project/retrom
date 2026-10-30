@@ -14,6 +14,8 @@ ZIP成员名优先遵循UTF-8标志；未标记时，先采用版本及原始文
 
 准备完成后创建同一pending_review Game、文件、媒体和Tag关系，并与processed/imported计数同一个短事务提交。重复目录+contentHash跳过（不承诺并行强去重）；失败计数独立提交。COMMIT结果不明时按本次分配Game/BIOS ID与进度核对，无法确认则interrupted，不盲目重建或把已提交项计failed。进度满足processed=imported+skipped+failed。
 
+仅 KRKR 规范化实际改变内部文件的路径、大小或 SHA 时，另存本款游戏转换前的原档供维护者离线分析；KRKR 未改写内容及其他平台重打包不留档；单归档保留原字节，目录/多文件及配套输入保存为标准 ZIP。它不出现在页面和运行成员中，审核与正式游玩仍使用转换后的当前内容，不提供在线重转换或切换入口。浏览器上传暂存结束后正常删除，已经入库的原档在受管根独立保留，随所属产物退休及游戏删除回收。首次导入失败不永久留存原档，详见[受管文件与数据库](storage-and-database.md)。
+
 pending_review是共享管理员审核队列，来自所有来源，不按扫描结果反查或划分批次。批准前在事务外使用当前配置和所选允许核心重新检查必需内容，版本CAS提交时仍只改变同一Game状态，文件不再复制；拒绝标记deleted交给维护worker。试玩使用同一公共运行接口、管理员purpose=review，不建立持久普通存档；临时checkpoint由浏览器public LOCAL restore消费。
 
 审核详情的“运行条件检查”保留runtime返回的不支持媒体、未知ROM集、缺少ROM/Parent/启动文件等明确错误码及操作提示，不将这些问题显示为缺BIOS。未知内部异常使用REVIEW_READINESS_UNAVAILABLE，不向页面暴露原始异常或服务器路径。检查失败时biosSatisfied为null，快速审批跳过；CRC不匹配保持提示，由管理员手动决定是否批准，试玩不作强制门禁。

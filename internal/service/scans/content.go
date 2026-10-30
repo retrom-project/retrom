@@ -19,6 +19,14 @@ import (
 
 const maximumGameFiles = 50_000
 
+// Inputs are operation-owned copies before extraction or runtime normalization.
+// They describe only this candidate, including any discovered companion inputs.
+type sourceContent struct {
+	Files  []model.ContentFile
+	Inputs []model.ContentFile
+	Bundle bool
+}
+
 type entry struct {
 	name string
 	size int64
@@ -32,75 +40,125 @@ func (s *Service) content(ctx context.Context,
 	root *os.Root,
 	id string,
 	files []string,
-	directory model.Directory, inventory *sourceInventory) ([]model.ContentFile,
+	directory model.Directory, inventory *sourceInventory) (sourceContent,
 	error,
 ) {
 	ctx = context.WithValue(ctx, contentBudgetKey{}, &contentBudget{})
 	if len(files) == 0 || len(files) > 64 {
-		return nil, model.ErrInvalid
+		return sourceContent{}, model.ErrInvalid
 	}
-	result := make([]model.ContentFile, 0)
+	result := sourceContent{}
 	origins := make(map[string]string)
 	for _, name := range files {
 		part, sources, err := s.contentFile(ctx, root, id, name, directory)
 		if err != nil {
-			return nil, err
+			return sourceContent{}, err
 		}
-		result = append(result, part...)
+		result.Files = append(result.Files, part.Files...)
+		result.Inputs = append(result.Inputs, part.Inputs...)
+		result.Bundle = result.Bundle || part.Bundle
+		if err = result.limitOriginals(); err != nil {
+			return sourceContent{}, err
+		}
 		for key, source := range sources {
 			origins[key] = source
 		}
 	}
-	if len(result) > maximumGameFiles {
-		return nil, model.ErrInvalid
+	if len(result.Files) > maximumGameFiles {
+		return sourceContent{}, model.ErrInvalid
 	}
-	result, err := s.discoverContent(ctx, root, id, result, origins, directory, inventory)
+	err := s.discoverContent(ctx, root, id, &result, origins, directory, inventory)
 	if err != nil {
-		return nil, err
+		return sourceContent{}, err
 	}
-	if err = storage.ValidateContent(result); err != nil {
-		return nil, wrap(err)
+	if err = storage.ValidateContent(result.Files); err != nil {
+		return sourceContent{}, wrap(err)
 	}
+	if err = result.limitOriginals(); err != nil {
+		return sourceContent{}, err
+	}
+	result.Bundle = result.Bundle || len(result.Inputs) != 1
 	return result, nil
+}
+
+func (c *sourceContent) limitOriginals() error {
+	if len(c.Inputs) > maximumGameFiles {
+		return model.ErrInvalid
+	}
+	var total int64
+	seen := make(map[string]model.ContentFile, len(c.Inputs))
+	unique := make([]model.ContentFile, 0, len(c.Inputs))
+	for _, input := range c.Inputs {
+		if previous, exists := seen[input.LogicalKey]; exists {
+			if previous.SHA256 != input.SHA256 || previous.SizeBytes != input.SizeBytes {
+				return model.ErrInvalid
+			}
+			continue
+		}
+		if input.SizeBytes < 0 || input.SizeBytes > storage.MaximumPackageSize-total {
+			return model.ErrInvalid
+		}
+		total += input.SizeBytes
+		seen[input.LogicalKey] = input
+		unique = append(unique, input)
+	}
+	c.Inputs = unique
+	return nil
 }
 
 func (s *Service) contentFile(ctx context.Context, root *os.Root, id, name string,
 	directory model.Directory,
-) ([]model.ContentFile, map[string]string, error) {
+) (sourceContent, map[string]string, error) {
 	name = strings.TrimPrefix(name, "./")
 	if name != "." && !storage.SafeRelative(name) {
-		return nil, nil, model.ErrInvalid
+		return sourceContent{}, nil, model.ErrInvalid
 	}
 	info, err := root.Stat(name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("source file: %w", err)
+		return sourceContent{}, nil, fmt.Errorf("source file: %w", err)
 	}
 	if info.IsDir() {
 		files, walkErr := s.walk(ctx, root, id, name, name)
 		origins := make(map[string]string, len(files))
+		inputs := make([]model.ContentFile, 0, len(files))
 		for _, file := range files {
-			origins[file.LogicalKey] = path.Join(name, file.LogicalKey)
+			source := path.Join(name, file.LogicalKey)
+			origins[file.LogicalKey] = source
+			file.LogicalKey = source
+			if directory.PlatformID == "kirikiri" {
+				inputs = append(inputs, file)
+			}
 		}
-		return files, origins, walkErr
+		return sourceContent{Files: files, Inputs: inputs, Bundle: true}, origins, walkErr
 	}
 	if !info.Mode().IsRegular() {
-		return nil, nil, model.ErrInvalid
+		return sourceContent{}, nil, model.ErrInvalid
 	}
 	ext := strings.ToLower(path.Ext(name))
 	if (ext == ".zip" || ext == ".7z") && !s.keepArchive(directory, ext) {
+		if directory.PlatformID == "kirikiri" {
+			files, input, archiveErr := s.archiveSource(ctx, root, id, name, ext)
+			return sourceContent{Files: files, Inputs: []model.ContentFile{input}}, nil, archiveErr
+		}
 		files, archiveErr := s.archive(ctx, root, id, name, ext)
-		return files, nil, archiveErr
+		return sourceContent{Files: files}, nil, archiveErr
 	}
 	file, err := root.Open(name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("open source game: %w", err)
+		return sourceContent{}, nil, fmt.Errorf("open source game: %w", err)
 	}
 	defer closeFile(file)
 	stored, err := s.copy(ctx, id, path.Base(name), file)
 	if err != nil {
-		return nil, nil, err
+		return sourceContent{}, nil, err
 	}
-	return []model.ContentFile{stored}, map[string]string{stored.LogicalKey: name}, nil
+	result := sourceContent{Files: []model.ContentFile{stored}}
+	if directory.PlatformID == "kirikiri" {
+		input := stored
+		input.LogicalKey = name
+		result.Inputs = []model.ContentFile{input}
+	}
+	return result, map[string]string{stored.LogicalKey: name}, nil
 }
 
 func (s *Service) keepArchive(directory model.Directory, extension string) bool {
@@ -190,6 +248,36 @@ func (s *Service) copy(ctx context.Context, id, name string, reader io.Reader) (
 		nil
 }
 
+func (s *Service) archiveSource(ctx context.Context, root *os.Root, id, name, ext string,
+) ([]model.ContentFile, model.ContentFile, error) {
+	source, err := root.Open(name)
+	if err != nil {
+		return nil, model.ContentFile{}, fmt.Errorf("open archive: %w", err)
+	}
+	defer closeFile(source)
+	info, err := source.Stat()
+	if err != nil {
+		return nil, model.ContentFile{}, fmt.Errorf("stat archive: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, model.ContentFile{}, model.ErrInvalid
+	}
+	staged, err := s.Storage.StageOrigin(ctx, id, source, info.Size())
+	if err != nil {
+		return nil, model.ContentFile{}, wrap(err)
+	}
+	input := model.ContentFile{LogicalKey: name, StorageKey: staged.Key, SizeBytes: staged.Size, SHA256: staged.SHA256}
+	file, err := s.Storage.Read(staged.Key)
+	if err != nil {
+		return nil, model.ContentFile{}, wrap(err)
+	}
+	defer closeFile(file)
+	files, err := s.archiveFile(ctx, id, file, staged.Size, ext)
+	return files, input, err
+}
+
+// Ordinary imports continue reading the selected outer archive directly. Only
+// KRKR needs an immutable outer source while its internal files may be changed.
 func (s *Service) archive(ctx context.Context, root *os.Root, id, name, ext string) ([]model.ContentFile, error) {
 	file, err := root.Open(name)
 	if err != nil {
@@ -200,16 +288,22 @@ func (s *Service) archive(ctx context.Context, root *os.Root, id, name, ext stri
 	if err != nil {
 		return nil, fmt.Errorf("stat archive: %w", err)
 	}
+	return s.archiveFile(ctx, id, file, info.Size(), ext)
+}
+
+func (s *Service) archiveFile(ctx context.Context, id string, file *os.File, size int64,
+	ext string,
+) ([]model.ContentFile, error) {
 	var entries []entry
+	var err error
 	if ext == ".zip" {
-		entries, err = zipEntries(file, info.Size())
+		entries, err = zipEntries(file, size)
 	} else {
-		entries, err = sevenEntries(file, info.Size())
+		entries, err = sevenEntries(file, size)
 	}
 	if err != nil {
 		return nil, err
 	}
-
 	return s.extract(ctx, id, entries)
 }
 

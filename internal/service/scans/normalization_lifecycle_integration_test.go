@@ -54,6 +54,9 @@ func assertNormalizedGamePackage(t *testing.T, f testsupport.Fixture) {
 	if err != nil || len(detail.Files) != 1 || detail.Files[0].Role != "project_package" {
 		t.Fatalf("managed package=%+v err=%v", detail.Files, err)
 	}
+	if detail.Files[0].ExtInfo.ConversionInfo != nil {
+		t.Fatal("non-KRKR conversion unexpectedly retained an original")
+	}
 	logical, err := f.Repository.ContentFiles(t.Context(), detail.Files)
 	if err != nil || len(logical) != 2 {
 		t.Fatalf("logical files=%+v err=%v", logical, err)

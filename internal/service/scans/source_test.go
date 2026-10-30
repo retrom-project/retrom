@@ -62,12 +62,12 @@ func TestAbsoluteReplacementSourceCopiesFileAndLinkedProject(t *testing.T) {
 		if openErr != nil {
 			t.Fatal(openErr)
 		}
-		files, _, copyErr := s.contentFile(t.Context(), root, "11111111-1111-4111-8111-111111111111", name, model.Directory{})
+		content, _, copyErr := s.contentFile(t.Context(), root, "11111111-1111-4111-8111-111111111111", name, model.Directory{})
 		closeErr := root.Close()
-		if copyErr != nil || closeErr != nil || len(files) != 1 || files[0].LogicalKey != "game.nes" {
-			t.Fatalf("selected=%s files=%+v copy=%v close=%v", selected, files, copyErr, closeErr)
+		if copyErr != nil || closeErr != nil || len(content.Files) != 1 || content.Files[0].LogicalKey != "game.nes" {
+			t.Fatalf("selected=%s files=%+v copy=%v close=%v", selected, content.Files, copyErr, closeErr)
 		}
-		assertStoredBytes(t, store, files[0].StorageKey, payload)
+		assertStoredBytes(t, store, content.Files[0].StorageKey, payload)
 	}
 	actual, err := os.ReadFile(source)
 	if err != nil || !bytes.Equal(actual, payload) {
