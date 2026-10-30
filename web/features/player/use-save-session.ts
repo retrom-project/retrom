@@ -9,6 +9,7 @@ import type {
 } from "./runtime/contract";
 import { makeDraft, putDraft, uploadDraft } from "./save-drafts";
 import type { SaveDraft } from "./save-drafts";
+import { prepareSaveScreenshot } from "./save-screenshot";
 import { checkpointScreenshot } from "./runtime/dispose-runtime";
 import { reclaimProviderContentCache } from "./runtime/provider-dispatcher";
 type SaveFeedback = "FOREGROUND" | "BACKGROUND";
@@ -84,7 +85,8 @@ export function useSaveSession(
       }
       if (native && pending.current && await sameDraftCheckpoint(pending.current, snapshot.checkpoint)) { return false; }
       const writable = writableTarget(target);
-      const record = makeDraft(userId, run, snapshot.checkpoint, snapshot.screenshot, writable, native);
+      const screenshot = await prepareSaveScreenshot(snapshot.screenshot);
+      const record = makeDraft(userId, run, snapshot.checkpoint, screenshot, writable, native);
       setDraft(record);
       pending.current = record;
       await putDraft(record, reclaimCache);
