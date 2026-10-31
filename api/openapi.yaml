@@ -240,6 +240,9 @@
     },
     "/api/v1/admin/games/{gameId}/runtime-options/launches": {
       "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1runtime-options~1launches"
+    },
+    "/api/v1/admin/games/{gameId}/runtime-options/kirikiri": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1runtime-options~1kirikiri"
     }
   },
   "components": {
@@ -559,6 +562,9 @@
       },
       "LaunchOptions": {
         "$ref": "./components/common.yaml#/components/schemas/LaunchOptions"
+      },
+      "ProjectEntryPage": {
+        "$ref": "./components/common.yaml#/components/schemas/ProjectEntryPage"
       }
     }
   }

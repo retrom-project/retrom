@@ -1,11 +1,7 @@
 .admin-game-library, .review-library { min-width: 0; }
 .runtime-content-fields { align-items: start; }
 .content-entry-selector { min-width: 0; }
-.content-file-browser { margin-top: var(--space-3); }
-.content-file-list { display: grid; gap: var(--space-2); max-height: 320px; overflow-y: auto; margin: 0; padding: var(--space-2); list-style: none; }
-.content-file-list li { min-width: 0; }
-.content-file-list .button { width: 100%; display: flex; flex-wrap: wrap; justify-content: space-between; text-align: left; }
-.content-file-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.content-entry-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 :is(.dos-entry-selector, .rom-set-selector) { position: relative; min-width: 0; }
 :is(.dos-entry-selector, .rom-set-selector) small { display: block; margin-top: 6px; color: var(--muted); font-size: var(--text-caption); }
 :is(.dos-entry-selector, .rom-set-selector) > p { margin-top: 8px; color: var(--danger); font-size: var(--text-caption); overflow-wrap: anywhere; }

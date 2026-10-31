@@ -3320,6 +3320,30 @@
             }
           }
         }
+      },
+      "ProjectEntryPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "entries",
+          "nextCursor"
+        ],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1024
+          }
+        }
       }
     }
   }

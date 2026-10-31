@@ -28,6 +28,11 @@ type ContentPage struct {
 	NextCursor *string       `json:"nextCursor"`
 }
 
+type ProjectEntryPage struct {
+	Entries    []string `json:"entries"`
+	NextCursor *string  `json:"nextCursor"`
+}
+
 func StandaloneFiles(files []GameFile) []ContentFile {
 	result := make([]ContentFile, 0, len(files))
 	for _, file := range files {

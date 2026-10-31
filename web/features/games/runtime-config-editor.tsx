@@ -180,8 +180,8 @@ function ContentFields({
         key={`${gameId}:${files.map(file => `${file.id}:${file.sha256}`).join(",")}`}
         gameId={gameId} engine={value.content.engine} value={value.content.entryFile ?? ""}
         onSelect={path => onEdit("entryFile", path)}
-      /> : files.some(file => file.role === "project_package") && value.content.kind !== "SCUMMVM_PROJECT" ? <ContentEntrySelector
-        key={`${gameId}:${files[0]?.id}`} gameId={gameId} value={value.content.entryFile ?? ""}
+      /> : (value.content.kind === "KIRIKIRI_PROJECT" || files.some(file => file.role === "project_package")) && value.content.kind !== "SCUMMVM_PROJECT" ? <ContentEntrySelector
+        key={`${gameId}:${files[0]?.id}`} gameId={gameId} kind={value.content.kind} value={value.content.entryFile ?? ""}
         onSelect={path => onEdit("entryFile", path)}
       /> : value.content.kind !== "SCUMMVM_PROJECT" ? (
         <label className="field">
