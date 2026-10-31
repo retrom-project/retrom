@@ -237,6 +237,9 @@
     },
     "/api/v1/admin/games/{gameId}/content-replacement/{operationId}/cancel": {
       "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1content-replacement~1{operationId}~1cancel"
+    },
+    "/api/v1/admin/games/{gameId}/runtime-options/launches": {
+      "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1runtime-options~1launches"
     }
   },
   "components": {
@@ -553,6 +556,9 @@
       },
       "ContentReplacementError": {
         "$ref": "./components/common.yaml#/components/schemas/ContentReplacementError"
+      },
+      "LaunchOptions": {
+        "$ref": "./components/common.yaml#/components/schemas/LaunchOptions"
       }
     }
   }

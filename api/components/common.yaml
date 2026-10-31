@@ -3280,6 +3280,46 @@
             "minimum": 0
           }
         }
+      },
+      "LaunchOptions": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "selectedId"
+        ],
+        "properties": {
+          "selectedId": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "label",
+                "configuration"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "label": {
+                  "type": "string",
+                  "maxLength": 1024
+                },
+                "configuration": {
+                  "$ref": "#/components/schemas/RuntimeConfig"
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
