@@ -28,6 +28,8 @@ var contentMessages = map[string]string{
 	"RUNTIME_PARENT_MISSING":              "缺少当前核心所需的 Parent 父包，请补齐父包后重新检查。",
 	"RUNTIME_ENTRY_MISSING":               "已保存的启动文件不存在，请重新选择游戏启动文件。",
 	"RUNTIME_RPG_ENTRY_INVALID":           "所选文件不是当前 RPG Maker 版本的有效入口，请重新选择入口文件。",
+	"RUNTIME_PATCH_MANIFEST_INVALID":      "资源补丁清单与当前游戏文件不一致，请检查补丁内容后重新导入。",
+	"RUNTIME_LAUNCH_REQUIRED":             "发现多个启动方案，请明确选择需要使用的资源方案。",
 	"RUNTIME_CONTENT_UNAVAILABLE":         "无法读取游戏内容，请检查文件后重新检查。",
 	"RUNTIME_CONTENT_UNSUPPORTED":         "当前核心不支持此游戏内容，请检查游戏文件和核心选择。",
 }

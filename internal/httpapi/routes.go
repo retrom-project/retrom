@@ -23,6 +23,8 @@ func (s *Server) routes(mux *http.ServeMux) {
 		{"POST /api/v1/admin/games/{gameId}/runtime-options/scummvm", s.scummvmCandidates, true},
 		{"GET /api/v1/admin/games/{gameId}/runtime-options/dos", s.dosEntryCandidates, true},
 		{"GET /api/v1/admin/games/{gameId}/runtime-options/rpgmaker", s.rpgEntryCandidates, true},
+		{"GET /api/v1/admin/games/{gameId}/runtime-options/kirikiri", s.kirikiriEntryCandidates, true},
+		{"POST /api/v1/admin/games/{gameId}/runtime-options/launches", s.launchOptions, true},
 		{"GET /api/v1/admin/games/{gameId}/content", s.contentPage, true},
 		{"GET /api/v1/admin/games/{gameId}/runtime-options/arcade", s.arcadeParentOptions, true},
 		{"GET /api/v1/admin/games/{gameId}/runtime-options/rom-sets", s.romSetOptions, true},

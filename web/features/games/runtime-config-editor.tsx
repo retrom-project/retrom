@@ -1,9 +1,11 @@
 "use client";
+import {useState} from "react";
 import { ArcadeParentFiles } from "./arcade-parent-files";
 import { ScummvmSelection } from "./scummvm-selection";
 import { DOSEntrySelector } from "./dos-entry-selector";
 import { RPGEntrySelector } from "./rpg-entry-selector";
 import { ContentEntrySelector } from "./content-entry-selector";
+import { LaunchSchemeSelector } from "./launch-scheme-selector";
 import { ROMSetSelector } from "./rom-set-selector";
 import { api, result } from "@/lib/api/client";
 import type { Schema } from "@/lib/api/types";
@@ -38,6 +40,7 @@ export function RuntimeConfigEditor({
   files: Schema<"GameFile">[];
   onChange: (value: Schema<"RuntimeConfig">) => void;
 }) {
+  const [hasLaunchOptions, setHasLaunchOptions] = useState(false);
   const catalog = useResource(loadCatalog);
   const binding = catalog.data?.bindings.find(
     (item) =>
@@ -49,7 +52,9 @@ export function RuntimeConfigEditor({
     .find((item) => item.providerId === binding?.providerId)
     ?.targets.find((item) => item.id === binding?.targetId);
   const core = value.cores?.[coreId] ?? {};
-  const fields = optionDescriptors(target?.targetOptionsSchema ?? {}).filter(field => !binding?.romSetSelection || field.key !== "machine");
+  const fields = optionDescriptors(target?.targetOptionsSchema ?? {}).filter(field =>
+    (!binding?.romSetSelection || field.key !== "machine") &&
+    !(value.content.kind === "KIRIKIRI_PROJECT" && hasLaunchOptions && field.key === "overlayRoot"));
   function content(key: "entryFile" | "entryPath" | "engine", text: string) {
     const next = { ...value.content };
     if (text) {
@@ -94,6 +99,10 @@ export function RuntimeConfigEditor({
           onSelect={(options) => updateCore({ ...core, options })}
         />
       ) : null}
+      {value.content.kind === "KIRIKIRI_PROJECT" ? <LaunchSchemeSelector
+        key={`${gameId}:${version}:${files.map(file => file.id).join(",")}`} gameId={gameId} value={value}
+        onChange={onChange} onAvailable={setHasLaunchOptions}
+      /> : null}
       <RuntimeOptionFields
         fields={fields}
         options={core.options ?? {}}
@@ -171,8 +180,8 @@ function ContentFields({
         key={`${gameId}:${files.map(file => `${file.id}:${file.sha256}`).join(",")}`}
         gameId={gameId} engine={value.content.engine} value={value.content.entryFile ?? ""}
         onSelect={path => onEdit("entryFile", path)}
-      /> : files.some(file => file.role === "project_package") && value.content.kind !== "SCUMMVM_PROJECT" ? <ContentEntrySelector
-        key={`${gameId}:${files[0]?.id}`} gameId={gameId} value={value.content.entryFile ?? ""}
+      /> : (value.content.kind === "KIRIKIRI_PROJECT" || files.some(file => file.role === "project_package")) && value.content.kind !== "SCUMMVM_PROJECT" ? <ContentEntrySelector
+        key={`${gameId}:${files[0]?.id}`} gameId={gameId} kind={value.content.kind} value={value.content.entryFile ?? ""}
         onSelect={path => onEdit("entryFile", path)}
       /> : value.content.kind !== "SCUMMVM_PROJECT" ? (
         <label className="field">

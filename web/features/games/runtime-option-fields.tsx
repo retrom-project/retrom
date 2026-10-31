@@ -113,7 +113,7 @@ function OptionField({
           <option value="">使用默认值</option>
           {field.choices.map((choice) => (
             <option key={choice} value={choice}>
-              {field.key === "language" ? (languageChoices[choice] ?? choice) : choice}
+              {optionChoices[field.key]?.[choice] ?? choice}
             </option>
           ))}
         </select>
@@ -130,8 +130,14 @@ function OptionField({
     </label>
   );
 }
-const languageChoices: Record<string, string> = {chs: "简体中文（汉化资源）", original: "原版资源"};
+const optionChoices: Record<string, Record<string, string>> = {
+  language: {chs: "简体中文（汉化资源）", original: "原版资源"},
+  engineMode: {KIRIKIRI2: "吉里吉里 2", KIRIKIRI_Z: "吉里吉里 Z"},
+  steamService: {DISABLED: "禁用", LOCAL: "本地兼容服务"},
+};
 const optionLabels: Record<string, string> = {
+  engineMode: "引擎模式",
+  steamService: "Steam 服务",
   engineId: "引擎",
   gameId: "游戏版本",
   root: "游戏资源目录",

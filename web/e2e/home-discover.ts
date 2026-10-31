@@ -3,6 +3,8 @@ import type { Page } from "@playwright/test";
 import type { Schema } from "../lib/api/types";
 
 export async function verifyHomeDiscover(page: Page) {
+  // Discard requests from the login redirect before observing this navigation.
+  await page.goto("about:blank");
   const response = page.waitForResponse(value => {
     const url = new URL(value.url());
     return url.pathname === "/api/v1/games" && url.searchParams.get("sort") === "random";
