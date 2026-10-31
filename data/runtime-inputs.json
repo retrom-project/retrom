@@ -1,45 +1,45 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/retrom-project/retrom-runtime",
-  "sourceTreeSha256": "24d61eb0d61a4eee0d134b5e28c65bbc4364f07b9a8cb9bb06142061976e1aa8",
+  "sourceTreeSha256": "1b10efd034999f0194abfd347ff2d0dbb1b8037c7607d51103541182b4ceb12c",
   "release": {
     "repository": "https://github.com/retrom-project/retrom-runtime",
-    "tag": "v0.96.0",
-    "commit": "ffa2dfad7b1e0c8a2090ff071abdd37e7d1eb99d"
+    "tag": "v0.97.0",
+    "commit": "a18f1fa99d13430a0d4a063fb4fdbbc380bbcd5f"
   },
   "tool": {
-    "archive": "retrom-runtime-host-tool-0.96.0.tar.gz",
-    "sizeBytes": 11627799,
-    "sha256": "9c06b195174fa067ec6537a4691645c7dfd65972a15f0cc55880fa6c6d92100e"
+    "archive": "retrom-runtime-host-tool-0.97.0.tar.gz",
+    "sizeBytes": 11642292,
+    "sha256": "289e0e519f60317d8b4fcc7e7285808e06bf2a70c40cf3bff1f9620f7ca0d067"
   },
   "providers": [
     {
-      "bundleSha256": "9ae74e4bd6133a7fb6479f8df313991914c4d9887114fe4907531003c90e402d",
+      "bundleSha256": "f9b258ce24b3c16e28e521995e158b6a9bcce835d4bf2a399094efbc228c497f",
       "chunkManifest": {
-        "asset": "emulatorjs-chunks-0.96.0.json",
-        "sha256": "fedf82ea9b26e20fdce256e542b39abf376cb4652c3d79db2756e1543236f4f4",
+        "asset": "emulatorjs-chunks-0.97.0.json",
+        "sha256": "2859bbe6b79771ec7e171a5629bcfe978fab2f4f21591a220d838d5c7933adf4",
         "sizeBytes": 100793
       },
       "fileCount": 270,
-      "manifestSha256": "ca964e08e75434a926bd16458c7b1b8eb49610b8624766cb6bcc0f9b830937e1",
-      "moduleSha256": "60f3495ce1cca1b7012072cd33bc5e5b2552bb0e1cdb49c028af40a696c8ebe3",
+      "manifestSha256": "47edd559d60d500b7e25df2ef78f55ec7a6d30c39f5b08055e8b827ed1e0f2ef",
+      "moduleSha256": "a5cce0ab4185d472d2553243bf9a7c269db334bd250c5824dbf8077e361748a4",
       "providerId": "emulatorjs",
-      "providerVersion": "0.96.0",
+      "providerVersion": "0.97.0",
       "unpackedSizeBytes": 366790900
     },
     {
-      "bundleSha256": "07768bf9c614f335b7eb2b54dea47e5490003b411abee0010924e9a685009c61",
+      "bundleSha256": "5e470413dd0d40a2753b2e084b857fae28a7bbca67ae5bf8b9b7a7448865c5ed",
       "chunkManifest": {
-        "asset": "retrom-runtime-chunks-0.96.0.json",
-        "sha256": "07ee4706099dbd69276db2bcd437c4b2bf55206821dab8a142e277d5d7b58dee",
+        "asset": "retrom-runtime-chunks-0.97.0.json",
+        "sha256": "70710d432dddbd911781be72a39b51a8786568c66b1620c5260a5d26d327a557",
         "sizeBytes": 133541
       },
       "fileCount": 549,
-      "manifestSha256": "c13ba86758b5165c1da3c0a4bfdd56635f5de092b328ff7b8a7f74a45021254f",
-      "moduleSha256": "8c90f4d8e1aa8008a77e1fbd4cb990d9bb6c85377a2ae857244569cd3be9a395",
+      "manifestSha256": "612b2a5170a97400a883ba455a17e35104f1f71192f3c710cf2e5e8ae1864e67",
+      "moduleSha256": "681d1470353c582b5eb31bd9a0802fb627405cba0397d85cfc692dbf9ac29b3c",
       "providerId": "retrom-runtime",
-      "providerVersion": "0.96.0",
-      "unpackedSizeBytes": 928176445
+      "providerVersion": "0.97.0",
+      "unpackedSizeBytes": 928238991
     }
   ]
 }
