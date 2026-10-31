@@ -16,6 +16,8 @@ Redis只保存两小时临时run：窄header和被允许的file/index hash字段
 
 保存multipart metadata+payload+可选PNG/JPEG截图。commitId为浏览器持久草稿ID：创建save ID取commitId；覆盖保存last_commit_id。相同commit/payload hash/extinfo重试返回同一版本，其他提交按CAS竞争。IO完成后短事务锁Game确认published，再保存CAS；游戏删除后不能提交新存档。列表按distinct game/core一次batch-identity和一次batch-restorable，不逐存档调用Prepare/Node。筛选分页与count采用同条件。
 
+正式游玩新生成的存档截图在写入浏览器草稿前统一编码为JPEG，质量参数0.95，高度最多540像素、宽度等比取整，仅缩小、不放大；透明区域以黑色填充。状态存档、原生存档后台同步、核心自带保存点图片和退出最终截图共用此处理。重试复用草稿中的已编码字节；无新增保存点时继续保留已有截图。图片解码或编码失败仅省略本次截图，不阻止进度保存。服务端仍校验并原样保存收到的PNG/JPEG，不转换已有截图。
+
 退出立即撤销PG会话、清cookie和释放运行资源，不整站Clear-Site-Data storage。未同步IndexedDB/OPFS草稿按User隔离，只有服务端明确成功或用户丢弃才删除。网络失败、Redis失效或响应丢失不能假成功、删除草稿或提前ack。
 
 保存草稿只有在 IndexedDB 事务完成后才算持久化，不能以单次 put 请求成功代替。实际 `QuotaExceededError` 可触发一次已校验 Provider Module 的 `reclaimContentCache`，然后重试同一份草稿；存储估算不能代替真实写入结果。Provider 只回收未被活动运行租约占用、可重新下载的 Content I/O 缓存，不访问存档、草稿、挂载来源或其他缓存。该入口不依赖仍存活的 PlayerRuntime，退出后的最终存档也适用。回收和重试失败保留原错误原因、同一 commitId 与可导出的内存副本；其他写入错误不触发回收，用户重试仍先确认本地持久化。本地草稿清理失败也保留内存副本，服务端提交重试继续使用原 commitId。

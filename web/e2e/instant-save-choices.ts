@@ -9,6 +9,23 @@ import {
 } from "./clean-refactor-support";
 import { ensurePlayerLandscape, nesFrame, sendNesInput } from "./nes-playback";
 
+async function verifySaveScreenshot(page: Page, save: Schema<"Save">) {
+  if (!save.screenshotUrl) { throw new Error("Saved progress is missing its screenshot."); }
+  const image = await page.evaluate(async (url) => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const bitmap = await createImageBitmap(blob);
+    try {
+      return { status: response.status, type: blob.type, width: bitmap.width, height: bitmap.height };
+    } finally { bitmap.close(); }
+  }, save.screenshotUrl);
+  expect(image.status).toBe(200);
+  expect(image.type).toBe("image/jpeg");
+  expect(image.width).toBeGreaterThan(0);
+  expect(image.height).toBeGreaterThan(0);
+  expect(image.height).toBeLessThanOrEqual(540);
+}
+
 export async function newInstantSave(page: Page, existing: Schema<"Save">) {
   await revealPlayerControls(page);
   const persisted = page.waitForResponse(
@@ -26,6 +43,7 @@ export async function newInstantSave(page: Page, existing: Schema<"Save">) {
   const save = (await response.json()) as Schema<"Save">;
   expect(save.id).not.toBe(existing.id);
   expect(save.version).toBe(1);
+  await verifySaveScreenshot(page, save);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(
     page.getByRole("status").filter({ hasText: "存档已同步。" }),
@@ -55,6 +73,7 @@ export async function overwriteInstantSave(page: Page, save: Schema<"Save">) {
   expect(updated.id).toBe(save.id);
   expect(updated.name).toBe(save.name);
   expect(updated.version).toBe(save.version + 1);
+  await verifySaveScreenshot(page, updated);
   await expect(
     page.getByRole("status").filter({ hasText: "存档已同步。" }),
   ).toBeVisible();
