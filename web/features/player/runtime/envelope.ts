@@ -14,6 +14,19 @@ const token = /^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$/u;
 const semver =
   /^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?$/u;
 
+export type ProviderModuleReference = Pick<LaunchEnvelopeV1["runtime"],
+  "providerId" | "providerVersion" | "providerApiVersion" | "bundleSha256" | "moduleSha256" | "moduleUrl" | "runtimeBaseUrl">;
+
+export function validateProviderModuleReference(value: unknown): ProviderModuleReference {
+  if (!record(value) || !exactKeys(value, ["bundleSha256", "moduleSha256", "moduleUrl", "providerApiVersion", "providerId", "providerVersion", "runtimeBaseUrl"]) ||
+    value.providerApiVersion !== 1 || !validIdentity(value.providerId) || typeof value.providerVersion !== "string" ||
+    !semver.test(value.providerVersion) || !validDigest(value.bundleSha256) || !validDigest(value.moduleSha256) ||
+    typeof value.moduleUrl !== "string" || typeof value.runtimeBaseUrl !== "string") {return invalid();}
+  const reference = value as unknown as ProviderModuleReference;
+  if (!validProviderModuleURLs(reference)) {return invalid();}
+  return reference;
+}
+
 export function parseLaunchEnvelopeJSON(source: string): LaunchEnvelopeV1 {
   try {
     return validateLaunchEnvelopeBoundary(parseCanonicalJSON(source));
@@ -99,15 +112,19 @@ function validEnvelopeBody(
   value: Record<string, unknown>,
   runtime: LaunchEnvelopeV1["runtime"],
 ) {
-  const base = `/runtime/providers/${runtime.providerId}/${runtime.bundleSha256}/`;
   return (
-    [base, `${base}dev/${runtime.moduleSha256}/`].includes(runtime.runtimeBaseUrl) &&
-    runtime.moduleUrl === `${runtime.runtimeBaseUrl}client.mjs` &&
+    validProviderModuleURLs(runtime) &&
     validResources(value.resources) &&
     validResourceBridges(value.resources, runtime.runtimeBaseUrl) &&
     validTargetOptions(value.targetOptions) &&
     validRestore(value.restore, runtime.checkpoint)
   );
+}
+
+function validProviderModuleURLs(runtime: ProviderModuleReference) {
+  const base = `/runtime/providers/${runtime.providerId}/${runtime.bundleSha256}/`;
+  return [base, `${base}dev/${runtime.moduleSha256}/`].includes(runtime.runtimeBaseUrl) &&
+    runtime.moduleUrl === `${runtime.runtimeBaseUrl}client.mjs`;
 }
 
 function validSession(value: unknown) {

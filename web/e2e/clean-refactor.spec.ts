@@ -17,6 +17,7 @@ import { verifyHomeFeatured } from "./home-featured";
 import { verifyGameDetailLayout } from "./game-detail-layout";
 import { verifyDetailTitle } from "./detail-title";
 import { verifyContentReplacement } from "./content-replacement";
+import { verifyBrowserStorage } from "./browser-storage";
 import {
   instantConflict,
   newInstantSave,
@@ -240,6 +241,7 @@ test("shared review, real NES save and new-instance restore", async ({
   );
   expect(saves.items.length).toBeGreaterThan(0);
   expect(saves.items[0].restorable).toBe(true);
+  await verifyBrowserStorage(page, test.info(), saves.items[0].id);
   await page
     .locator(".save-library-card")
     .first()

@@ -243,6 +243,9 @@
     },
     "/api/v1/admin/games/{gameId}/runtime-options/kirikiri": {
       "$ref": "./domains/library.yaml#/paths/~1api~1v1~1admin~1games~1{gameId}~1runtime-options~1kirikiri"
+    },
+    "/api/v1/runtime/providers": {
+      "$ref": "./domains/catalog.yaml#/paths/~1api~1v1~1runtime~1providers"
     }
   },
   "components": {
@@ -565,6 +568,12 @@
       },
       "ProjectEntryPage": {
         "$ref": "./components/common.yaml#/components/schemas/ProjectEntryPage"
+      },
+      "RuntimeProviderModule": {
+        "$ref": "./components/common.yaml#/components/schemas/RuntimeProviderModule"
+      },
+      "RuntimeProviderModuleList": {
+        "$ref": "./components/common.yaml#/components/schemas/RuntimeProviderModuleList"
       }
     }
   }

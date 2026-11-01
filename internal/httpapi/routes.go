@@ -36,6 +36,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 		{"GET /api/v1/admin/games/{gameId}/content-replacement/{operationId}", s.contentReplacement, true},
 		{"POST /api/v1/admin/games/{gameId}/content-replacement/{operationId}/cancel", s.cancelContentReplacement, true},
 		{"GET /api/v1/runtime/catalog", s.catalog, false},
+		{"GET /api/v1/runtime/providers", s.providerModules, false},
 		{"GET /api/v1/platform-instances", s.directories, false},
 		{"GET /api/v1/admin/platform-instances", s.directories, true},
 		{"POST /api/v1/admin/platform-instances", s.writeDirectory, true},

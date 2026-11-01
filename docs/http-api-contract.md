@@ -1,5 +1,7 @@
 # HTTP 契约
 
+已登录用户可通过 GET `/api/v1/runtime/providers` 获取 `{items:[{providerId,providerVersion,providerApiVersion,bundleSha256,moduleSha256,moduleUrl,runtimeBaseUrl}]}`。它只投影已安装且验证过的 Provider 模块引用，开发模式沿用当前 revision URL，不暴露磁盘路径，不创建 Run 或最近游玩。浏览器缓存管理复用这些模块的大小限制、同源路径与 SHA-256 校验后执行；容量和清理发生在当前浏览器，服务端不保存浏览器容量账本。
+
 /api/v1为唯一业务路径，字段、状态枚举、请求体和分页细节以api/openapi.yaml及其domains/components为准。生成Go代码是构建输入，TypeScript类型由同份bundle生成。服务对已授权请求执行OpenAPI验证，不能以自定义解码绕过schema；编码斜杠作为BIOS requirementKey的一个路径段解析一次。UUID必须规范，JSON拒绝重复字段、无效UTF8、未知字段和尾随内容。
 
 错误统一{code,message}。分页items,total,offset,limit有界（limit≤100、offset≤100000），总数不由当前页面推算。存档q匹配游戏或存档名，kind筛类型，sort选择recent/title；gameCount为同一过滤条件COUNT DISTINCT game_id。GET /api/v1/saves 的 groupByGame=true 在筛选后、分页前按游戏取最近更新的一份存档，同时间按 Save ID 升序稳定选择；此时 total/offset/limit 以游戏为单位，gameCount 与 total 相同。普通存档查询仍以每份存档分页，单游戏的存档由 gameId 查询完整分页结果。收藏folderId与unclassified互斥。
