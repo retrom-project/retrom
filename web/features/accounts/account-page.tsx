@@ -6,6 +6,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { PageHeader, FeedbackBanner, StatusBadge } from "@/components/ui";
 import { useToast } from "@/components/toast-provider";
 import { PwaSettings } from "@/features/pwa/pwa-controls";
+import { BrowserStorageSettings } from "./browser-storage-settings";
 export function AccountPage() {
   const { context } = useAuth();
   const { notify } = useToast();
@@ -119,6 +120,7 @@ export function AccountPage() {
         </section>
       </div>
       <PwaSettings />
+      <BrowserStorageSettings />
     </>
   );
 }

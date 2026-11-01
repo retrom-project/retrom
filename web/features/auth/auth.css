@@ -38,6 +38,11 @@
 .account-facts > div:last-child { border-bottom: 0; }
 .account-facts dt { color: var(--muted); font-size: var(--text-small); }
 .account-facts dd { margin: 0; font-weight: var(--weight-semibold); }
+.browser-storage-settings { margin-top: var(--space-5); }
+.browser-storage-facts { display: grid; gap: var(--space-4); margin: 0; }
+.browser-storage-facts > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.browser-storage-facts dt { color: var(--muted); }
+.browser-storage-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 .account-password-form { margin-top: 0; }
 @media (max-width: 900px) {
   .account-settings-grid { grid-template-columns: 1fr; }

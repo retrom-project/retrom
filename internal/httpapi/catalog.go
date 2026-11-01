@@ -11,6 +11,10 @@ func (s *Server) catalog(w http.ResponseWriter, _ *http.Request, _ model.Princip
 	return respond(w, s.Runtime.Catalog)
 }
 
+func (s *Server) providerModules(w http.ResponseWriter, _ *http.Request, _ model.Principal) error {
+	return respond(w, model.List[model.RuntimeProviderModule]{Items: s.Runtime.ProviderModules()})
+}
+
 func (s *Server) directories(w http.ResponseWriter, r *http.Request, _ model.Principal) error {
 	items, err := s.Directory.List(r.Context(), strings.Contains(r.URL.Path, "/admin/"))
 	if err != nil {

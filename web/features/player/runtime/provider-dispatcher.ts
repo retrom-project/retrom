@@ -6,7 +6,7 @@ import type {
   ProviderModuleV1,
   RuntimeHostV1,
 } from "./contract";
-import { validateLaunchEnvelopeBoundary } from "./envelope";
+import { validateLaunchEnvelopeBoundary, validateProviderModuleReference, type ProviderModuleReference } from "./envelope";
 import { PlayerRuntimeError, playerRuntimeError } from "./errors";
 
 export type ProviderImporter = (url: string) => Promise<unknown>;
@@ -34,7 +34,7 @@ export async function loadProviderRuntime(
   ) {
     throw playerRuntimeError("PLAYER_RUNTIME_THREADS_UNAVAILABLE");
   }
-  const provider = await loadProviderModule(envelope, host.signal, importer, dispatcher);
+  const provider = await loadProviderModule(envelope.runtime, host.signal, importer, dispatcher);
   const runtime = await provider.createRuntime(envelope, host);
   validatePlayerRuntime(runtime, envelope);
   return runtime;
@@ -52,20 +52,33 @@ export async function reclaimProviderContentCache(
     ...(request.signal ? [request.signal] : []),
   ]);
   signal.throwIfAborted();
-  const provider = await loadProviderModule(envelope, signal, importer, dispatcherEnvironment(environment));
+  const provider = await loadProviderModule(envelope.runtime, signal, importer, dispatcherEnvironment(environment));
   signal.throwIfAborted();
   // Await the Provider's safe cancellation boundary; never release its locks
   // through a race while storage deletion is still in progress.
   return provider.reclaimContentCache({ ...request, signal });
 }
 
+export async function loadInstalledProviderModule(
+  reference: unknown,
+  signal: AbortSignal,
+  importer: ProviderImporter = importProviderModule,
+  environment: Partial<DispatcherEnvironment> = {},
+): Promise<ProviderModuleV1> {
+  signal.throwIfAborted();
+  const runtime = validateProviderModuleReference(reference);
+  const provider = await loadProviderModule(runtime, signal, importer, dispatcherEnvironment(environment));
+  signal.throwIfAborted();
+  return provider;
+}
+
 async function loadProviderModule(
-  envelope: LaunchEnvelopeV1,
+  runtime: ProviderModuleReference,
   signal: AbortSignal | undefined,
   importer: ProviderImporter,
   dispatcher: DispatcherEnvironment,
 ) {
-  const moduleBytes = await fetchProviderModule(envelope, signal, dispatcher);
+  const moduleBytes = await fetchProviderModule(runtime, signal, dispatcher);
   const moduleUrl = dispatcher.createModuleUrl(
     new Blob([moduleBytes], {
       type: "text/javascript; charset=utf-8",
@@ -79,7 +92,7 @@ async function loadProviderModule(
   } finally {
     dispatcher.revokeModuleUrl(moduleUrl);
   }
-  return validateProviderModule(imported, envelope);
+  return validateProviderModule(imported, runtime);
 }
 
 function dispatcherEnvironment(
@@ -99,12 +112,12 @@ function dispatcherEnvironment(
 }
 
 async function fetchProviderModule(
-  envelope: LaunchEnvelopeV1,
+  runtime: ProviderModuleReference,
   signal: AbortSignal | undefined,
   environment: DispatcherEnvironment,
 ) {
   try {
-    const response = await environment.fetcher(envelope.runtime.moduleUrl, {
+    const response = await environment.fetcher(runtime.moduleUrl, {
       cache: "default",
       credentials: "same-origin",
       redirect: "error",
@@ -132,7 +145,7 @@ async function fetchProviderModule(
     ) {
       throw invalidModule();
     }
-    if ((await environment.sha256(bytes)) !== envelope.runtime.moduleSha256) {
+    if ((await environment.sha256(bytes)) !== runtime.moduleSha256) {
       throw playerRuntimeError("PLAYER_PROVIDER_MODULE_DIGEST_INVALID");
     }
     return bytes;
@@ -185,21 +198,25 @@ async function digestSha256(bytes: Uint8Array) {
 
 function validateProviderModule(
   value: unknown,
-  envelope: LaunchEnvelopeV1,
+  runtime: ProviderModuleReference,
 ): ProviderModuleV1 {
   if (
     !record(value) ||
     !exactKeys(value, [
+      "clearContentCache",
       "createRuntime",
+      "inspectContentCache",
       "providerApiVersion",
       "providerId",
       "providerVersion",
       "reclaimContentCache",
     ]) ||
-    value.providerId !== envelope.runtime.providerId ||
-    value.providerVersion !== envelope.runtime.providerVersion ||
-    value.providerApiVersion !== envelope.runtime.providerApiVersion ||
+    value.providerId !== runtime.providerId ||
+    value.providerVersion !== runtime.providerVersion ||
+    value.providerApiVersion !== runtime.providerApiVersion ||
     typeof value.createRuntime !== "function" ||
+    typeof value.inspectContentCache !== "function" ||
+    typeof value.clearContentCache !== "function" ||
     typeof value.reclaimContentCache !== "function"
   ) {
     throw invalidModule();

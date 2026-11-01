@@ -11,6 +11,8 @@ function fixture() {
     providerVersion: envelope.runtime.providerVersion,
     providerApiVersion: 1,
     createRuntime: vi.fn(),
+    inspectContentCache: vi.fn(),
+    clearContentCache: vi.fn(),
     reclaimContentCache: vi.fn().mockResolvedValue({ reclaimedBytes: 123456, removedObjects: 1 }),
   };
   const importer = vi.fn().mockResolvedValue(provider);
@@ -25,6 +27,18 @@ function fixture() {
 }
 
 describe("verified Provider content-cache recovery", () => {
+  it("loads an installed module reference without fabricating a game launch", async () => {
+    const f = fixture();
+    const {providerId, providerVersion, providerApiVersion, bundleSha256, moduleSha256, moduleUrl, runtimeBaseUrl} = f.envelope.runtime;
+    const reference = {providerId, providerVersion, providerApiVersion, bundleSha256, moduleSha256, moduleUrl, runtimeBaseUrl};
+    await expect(dispatcher.loadInstalledProviderModule(reference, new AbortController().signal, f.importer, f.environment)).resolves.toBe(f.provider);
+    expect(f.provider.createRuntime).not.toHaveBeenCalled();
+    reference.moduleUrl = "https://untrusted.test/client.mjs";
+    f.environment.fetcher.mockClear();
+    await expect(dispatcher.loadInstalledProviderModule(reference, new AbortController().signal, f.importer, f.environment)).rejects.toThrow();
+    expect(f.environment.fetcher).not.toHaveBeenCalled();
+  });
+
   it("recovers without a PlayerRuntime, iframe, threads or Wasm after a final snapshot", async () => {
     const f = fixture();
     f.envelope.runtime.capabilities.requiresThreads = true;
