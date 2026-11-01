@@ -367,6 +367,23 @@ export type ContentCacheReclaimResultV1 = {
   removedObjects: number;
 };
 
+export type ContentCacheInspectRequestV1 = { signal?: AbortSignal };
+export type ContentCacheSummaryV1 = {
+  // Receipted content bytes, including retained generations; not physical disk usage.
+  cachedBytes: number;
+  objectCount: number;
+  canClear: boolean;
+};
+export type ContentCacheClearRequestV1 = {
+  // Exclusive object-key cursor returned by the previous bounded batch.
+  afterKey?: string;
+  signal?: AbortSignal;
+};
+export type ContentCacheClearResultV1 = ContentCacheReclaimResultV1 & {
+  skippedObjects: number;
+  nextKey: string | null;
+};
+
 export interface ProviderModuleV1 {
   providerId: string;
   providerVersion: string;
@@ -375,4 +392,6 @@ export interface ProviderModuleV1 {
   // Only idle, reconstructible Content I/O cache; never native saves or drafts.
   // Independent of a PlayerRuntime, including after its final snapshot/exit.
   reclaimContentCache(request: ContentCacheReclaimRequestV1): Promise<ContentCacheReclaimResultV1>;
+  inspectContentCache(request?: ContentCacheInspectRequestV1): Promise<ContentCacheSummaryV1>;
+  clearContentCache(request: ContentCacheClearRequestV1): Promise<ContentCacheClearResultV1>;
 }

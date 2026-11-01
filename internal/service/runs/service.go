@@ -235,7 +235,7 @@ func (s *Service) envelope(ctx context.Context,
 	if !exists {
 		return model.ErrUnavailable
 	}
-	base := s.providerBaseURL(provider)
+	base := s.Runtime.ProviderBaseURL(provider)
 	run.Run.ProviderModuleURL = base + "client.mjs"
 	var config struct {
 		Content json.RawMessage `json:"content"`

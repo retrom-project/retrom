@@ -3344,6 +3344,62 @@
             "maxLength": 1024
           }
         }
+      },
+      "RuntimeProviderModule": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "providerId",
+          "providerVersion",
+          "providerApiVersion",
+          "bundleSha256",
+          "moduleSha256",
+          "moduleUrl",
+          "runtimeBaseUrl"
+        ],
+        "properties": {
+          "providerId": {
+            "type": "string"
+          },
+          "providerVersion": {
+            "type": "string"
+          },
+          "providerApiVersion": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "bundleSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "moduleSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "moduleUrl": {
+            "type": "string"
+          },
+          "runtimeBaseUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "RuntimeProviderModuleList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeProviderModule"
+            }
+          }
+        }
       }
     }
   }
