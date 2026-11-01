@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"syscall"
 
 	"retrom/internal/model"
@@ -35,7 +36,7 @@ func (s *Service) discoverContent(ctx context.Context, root *os.Root, id string,
 		locators[file.LogicalKey] = runtimeclient.Locator{Path: absolute, Offset: file.Offset, SizeBytes: file.SizeBytes}
 		seen[file.LogicalKey] = true
 	}
-	output, err := s.contentReferences(ctx, root, files, locators, directory, inventory)
+	output, err := s.contentReferences(ctx, root, files, locators, directory, inventory, origins)
 	if err != nil {
 		return err
 	}
@@ -104,15 +105,50 @@ func (s *Service) copyReference(ctx context.Context, root *os.Root, id string, r
 
 type discoveredContent struct {
 	Files        []contentReference `json:"files"`
+	Trees        []string           `json:"trees"`
 	SourceSearch *sourceSearch      `json:"sourceSearch"`
+}
+
+// Runtime asks for a companion tree by an already copied entry. Source roots
+// stay host-owned, so the request cannot choose an unrelated directory.
+func contentTreeReferences(root *os.Root, origins map[string]string, trees []string) ([]contentReference, error) {
+	result := make([]contentReference, 0)
+	for _, entry := range trees {
+		source, exists := origins[entry]
+		if !exists || !storage.SafeRelative(source) {
+			return nil, model.ErrInvalid
+		}
+		base := path.Dir(source)
+		names, err := sourceFiles(root, base, 0)
+		if err != nil {
+			return nil, err
+		}
+		for _, name := range names {
+			relative := name
+			if base != "." {
+				relative = strings.TrimPrefix(name, base+"/")
+			}
+			result = append(result, contentReference{SourcePath: name, LogicalKey: path.Join(path.Dir(entry), relative)})
+			if len(result) > maximumGameFiles {
+				return nil, model.ErrInvalid
+			}
+		}
+	}
+	return result, nil
 }
 
 func (s *Service) contentReferences(ctx context.Context, root *os.Root, files []model.ContentFile,
 	locators map[string]runtimeclient.Locator, directory model.Directory, inventory *sourceInventory,
+	origins map[string]string,
 ) (*discoveredContent, error) {
 	output := &discoveredContent{}
+	sourceEntries := make([]string, 0, len(origins))
+	for entry := range origins {
+		sourceEntries = append(sourceEntries, entry)
+	}
 	input := map[string]any{
 		"files": runtimeclient.Files(files), "locators": locators,
+		"sourceEntries": sourceEntries,
 		"directory":     map[string]any{"platformId": directory.PlatformID, "defaultCoreId": directory.DefaultCoreID},
 		"providerRoots": s.Runtime.ProviderRoots(),
 	}
@@ -129,6 +165,11 @@ func (s *Service) contentReferences(ctx context.Context, root *os.Root, files []
 			return nil, wrap(err)
 		}
 	}
+	treeFiles, err := contentTreeReferences(root, origins, output.Trees)
+	if err != nil {
+		return nil, err
+	}
+	output.Files = append(output.Files, treeFiles...)
 	return output, nil
 }
 
