@@ -1,9 +1,10 @@
 import type { Schema } from "@/lib/api/types";
+import {useState} from "react";
 type Value = Schema<"RuntimeOptionValue">;
 export type OptionDescriptor = {
   key: string;
   label: string;
-  type: "string" | "integer" | "boolean";
+  type: "string" | "integer" | "boolean" | "string-array";
   required: boolean;
   choices: string[];
   minimum?: number;
@@ -20,9 +21,10 @@ export function optionDescriptors(schema: {
   }
   const required = Array.isArray(schema.required) ? schema.required : [];
   return Object.entries(schema.properties).flatMap(([key, value]) => {
+    const stringArray = record(value) && value.type === "array" && record(value.items) && value.items.type === "string";
     if (
       !record(value) ||
-      !["string", "integer", "boolean"].includes(String(value.type))
+      !stringArray && !["string", "integer", "boolean"].includes(String(value.type))
     ) {
       return [];
     }
@@ -33,7 +35,7 @@ export function optionDescriptors(schema: {
           typeof value.title === "string"
             ? value.title
             : (optionLabels[key] ?? key),
-        type: value.type as OptionDescriptor["type"],
+        type: stringArray ? "string-array" : value.type as OptionDescriptor["type"],
         required: required.includes(key),
         choices: Array.isArray(value.enum)
           ? value.enum.filter(
@@ -60,7 +62,8 @@ export function RuntimeOptionFields({
     if (text === "") {
       delete next[field.key];
     } else {
-      next[field.key] = field.type === "integer" ? Number(text) : text;
+      next[field.key] = field.type === "string-array" ? String(text).split(/\r?\n/u).filter(item => item !== "")
+        : field.type === "integer" ? Number(text) : text;
     }
     onChange(next);
   }
@@ -100,6 +103,9 @@ function OptionField({
       </label>
     );
   }
+  if (field.type === "string-array") {
+    return <StringArrayField field={field} value={value} onChange={onChange} />;
+  }
   const text = value === undefined || value === null ? "" : String(value);
   return (
     <label className="field">
@@ -130,6 +136,19 @@ function OptionField({
     </label>
   );
 }
+function StringArrayField({field, value, onChange}: {
+  field: OptionDescriptor; value: Value | undefined; onChange: (value: string) => void;
+}) {
+  // Keep a trailing newline while typing the next item; empty lines are not
+  // persisted as archive paths or engine arguments.
+  const [draft, setDraft] = useState<string | null>(null);
+  return <label className="field">
+    {field.label}
+    <textarea rows={3} value={draft ?? (Array.isArray(value) ? value.join("\n") : "")} required={field.required}
+      onChange={(event) => {setDraft(event.target.value); onChange(event.target.value);}}
+      onBlur={() => setDraft(null)} />
+  </label>;
+}
 const optionChoices: Record<string, Record<string, string>> = {
   language: {chs: "简体中文（汉化资源）", original: "原版资源"},
   engineMode: {KIRIKIRI2: "吉里吉里 2", KIRIKIRI_Z: "吉里吉里 Z"},
@@ -137,6 +156,8 @@ const optionChoices: Record<string, Record<string, string>> = {
 };
 const optionLabels: Record<string, string> = {
   engineMode: "引擎模式",
+  overlayArchives: "资源补丁归档（每行一个路径，后者优先）",
+  engineArguments: "引擎启动参数（每行一项）",
   steamService: "Steam 服务",
   engineId: "引擎",
   gameId: "游戏版本",
