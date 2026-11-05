@@ -80,6 +80,7 @@ type (
 		BridgeAssetPath string            `json:"bridgeAssetPath,omitempty"`
 		Encoding        string            `json:"encoding,omitempty"`
 		Paths           map[string]string `json:"paths,omitempty"`
+		PreloadPaths    map[string]string `json:"preloadPaths,omitempty"`
 	}
 	Prepared struct {
 		CoreID           string            `json:"coreId"`

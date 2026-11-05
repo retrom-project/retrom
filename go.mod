@@ -8,7 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/oapi-codegen/runtime v1.6.0
 	github.com/redis/go-redis/v9 v9.23.0
-	github.com/retrom-project/retrom-runtime v0.104.1-0.20261104230019-be9a01930d92
+	github.com/retrom-project/retrom-runtime v0.104.1-0.20261105121508-5689f5b0e373
 	golang.org/x/crypto v0.54.0
 )
 

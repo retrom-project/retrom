@@ -31,15 +31,17 @@ type (
 		Now               func() time.Time
 	}
 	Blob struct {
-		ID             string `json:"id"`
-		Filename       string `json:"filename"`
-		Key            string `json:"key"`
-		LogicalPath    string `json:"logicalPath"`
-		SHA256         string `json:"sha256"`
-		SizeBytes      int64  `json:"sizeBytes"`
-		MediaType      string `json:"mediaType"`
-		Offset         int64  `json:"offset"`
-		PackageID      string `json:"packageId,omitempty"`
+		ID          string `json:"id"`
+		Filename    string `json:"filename"`
+		Key         string `json:"key"`
+		LogicalPath string `json:"logicalPath"`
+		SHA256      string `json:"sha256"`
+		SizeBytes   int64  `json:"sizeBytes"`
+		MediaType   string `json:"mediaType"`
+		Offset      int64  `json:"offset"`
+		PackageID   string `json:"packageId,omitempty"`
+		// PreloadPath is the engine path of a file the Target reads before start, as runtime Prepare decided.
+		PreloadPath    string `json:"preloadPath,omitempty"`
 		PackageSize    int64  `json:"-"`
 		PackageMembers int    `json:"-"`
 		PackageSHA256  string `json:"-"`

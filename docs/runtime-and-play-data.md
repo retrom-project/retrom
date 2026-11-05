@@ -8,6 +8,8 @@
 
 准备得到coreId/providerId/targetId/coreFingerprint/romHash、Target options、checkpoint能力和通用资源计划。ROMHash覆盖整份活动Game运行文件集合，各核心一致；单普通文件是原始SHA，多文件/项目由runtime规范TREE算法计算。Target指纹只覆盖Provider/Target身份及显式声明的核心文件内容摘要，不包含runtime版本、adapter/公共codec源码、输入/UI/加载辅助代码或部署路径。已正式生效的存档编码或恢复语义发生不兼容变化时，由runtime显式修改checkpointFormat；尚在开发中的功能遵循[开发期契约规则](engineering-quality-and-testing.md#开发期契约)，直接修改当前定义，不因PFB中间数据迭代格式版本。Bundle/Module摘要继续用于产物完整性校验。游戏自带引擎由完整ROMHash覆盖。Go验证安装bytes/proof/integrity并装配部署URL。
 
+Host只执行资源计划，不解读其规则：文件树与Web资源的索引条目为 `{path, url, sha256, sizeBytes, mediaType}`；计划的 `paths` 改写条目路径，`preloadPaths` 原样作为条目的 `preloadPath` 发布，供 Target 在启动前同步读取（如 MV 桌面插件剧本）。浏览器只读取带该字段的条目，不另行推导选择规则；非安全相对路径的 `preloadPath` 拒绝准备。
+
 Redis只保存两小时临时run：窄header和被允许的file/index hash字段，读取资源不反序列化整份项目。PG登录会话、Game和save不因Redis丢失消失。上下文丢失返回CONTEXT_EXPIRED；浏览器以冻结身份重建同样run后可重新提交草稿，身份变化则明确拒绝自动续传。
 
 按需读取（Range）默认使用 2 MiB 网络窗口，内部缓存块仍为 256 KiB；5 MiB 及以下的小文件整取。实际读取越过当前窗口一半时，可在预算允许时预取相邻窗口，每个 Session 最多一个纯预取。单次读取以连续 15 秒没有有效数据进度判超时，HTTP、调度、Reader、异步和同步桥按该请求的实际数据进度续期；总下载超过 15 秒仍可完成。隔离网页的 Service Worker 以 `READ_STARTED` 区分排队和活动读取，以递增的 `READ_PROGRESS` 计数续期；重复通知、元数据和其他活动读取不延长某个活动请求。

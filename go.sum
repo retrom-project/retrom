@@ -112,6 +112,8 @@ github.com/redis/go-redis/v9 v9.23.0 h1:/TTVdJa8BRNsybwwGGnmiYktHNlUXtbOQxlWpHBP
 github.com/redis/go-redis/v9 v9.23.0/go.mod h1:EWP2UUk+XDaI1s5nQB5mablZN6vccXlmBQTyfnF87D0=
 github.com/retrom-project/retrom-runtime v0.104.1-0.20261104230019-be9a01930d92 h1:Rxf6RibHFazfW11p45Z75kBGZS7mc4xy8+t9frfBwaM=
 github.com/retrom-project/retrom-runtime v0.104.1-0.20261104230019-be9a01930d92/go.mod h1:gWT+gXimmnZ4BNUB31/PH3WkESixDnfw0F396JqaCWc=
+github.com/retrom-project/retrom-runtime v0.104.1-0.20261105121508-5689f5b0e373 h1:YvT7ndliIZItMoxnhtaLvlCJLPz2B2nbVAKJl/d+yaw=
+github.com/retrom-project/retrom-runtime v0.104.1-0.20261105121508-5689f5b0e373/go.mod h1:gWT+gXimmnZ4BNUB31/PH3WkESixDnfw0F396JqaCWc=
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ=

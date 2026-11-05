@@ -102,3 +102,34 @@ func TestParentFileSetPreservesEachOriginalArchive(t *testing.T) {
 		}
 	}
 }
+
+func TestTreeResourceCarriesRuntimePreloadPathsIntoTheIndex(t *testing.T) {
+	t.Parallel()
+	files := []Blob{
+		{ID: "entry", LogicalPath: "Game/www/index.html"},
+		{ID: "scenario", LogicalPath: "Game/scenario/En/001.sl"},
+	}
+	plan := runtimeclient.Resource{
+		Kind: "FILE_TREE", Files: []string{"Game/www/index.html", "Game/scenario/En/001.sl"},
+		PreloadPaths: map[string]string{"Game/scenario/En/001.sl": "scenario/En/001.sl"},
+	}
+	run := &Context{Run: model.Run{ID: "run-id"}, Indexes: map[string][]Blob{}}
+	resource := map[string]any{}
+	if err := (&Service{}).resourcePlan(context.Background(), run, resource, files, plan,
+		runtimeclient.Prepared{}); err != nil {
+		t.Fatal(err)
+	}
+	var index []Blob
+	for _, value := range run.Indexes {
+		index = value
+	}
+	if len(index) != 2 || index[0].PreloadPath != "scenario/En/001.sl" || index[1].PreloadPath != "" {
+		t.Fatalf("runtime preload decision was not published: %#v", index)
+	}
+	plan.PreloadPaths = map[string]string{"Game/scenario/En/001.sl": "../escape.sl"}
+	unsafe := &Context{Run: model.Run{ID: "run-id"}, Indexes: map[string][]Blob{}}
+	if err := (&Service{}).resourcePlan(context.Background(), unsafe, map[string]any{}, files, plan,
+		runtimeclient.Prepared{}); !errors.Is(err, model.ErrInvalid) {
+		t.Fatalf("unsafe preload path accepted: %v", err)
+	}
+}

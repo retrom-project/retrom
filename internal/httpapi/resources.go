@@ -71,10 +71,14 @@ func (s *Server) runIndex(w http.ResponseWriter, r *http.Request, p model.Princi
 	}
 	files := make([]map[string]any, 0, len(index))
 	for _, file := range index {
-		files = append(files, map[string]any{
+		entry := map[string]any{
 			"path": file.LogicalPath, "url": runs.ResourceURL(r.PathValue("runId"), file),
 			"sha256": file.SHA256, "sizeBytes": file.SizeBytes, "mediaType": file.MediaType,
-		})
+		}
+		if file.PreloadPath != "" {
+			entry["preloadPath"] = file.PreloadPath
+		}
+		files = append(files, entry)
 	}
 	return respond(w, map[string]any{"schemaVersion": 1, "files": files})
 }

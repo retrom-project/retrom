@@ -113,6 +113,12 @@ func (s *Service) treeResource(run *Context, resource map[string]any, selected [
 ) error {
 	index := uuid.NewString()
 	for i := range selected {
+		if preload := plan.PreloadPaths[selected[i].LogicalPath]; preload != "" {
+			if !storage.SafeRelative(preload) {
+				return model.ErrInvalid
+			}
+			selected[i].PreloadPath = preload
+		}
 		if mapped := plan.Paths[selected[i].LogicalPath]; mapped != "" {
 			selected[i].LogicalPath = mapped
 		}
