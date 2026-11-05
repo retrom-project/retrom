@@ -4,43 +4,28 @@ import copy
 import functools
 import hashlib
 import http.server
-import io
 import json
-import tarfile
 import tempfile
 import threading
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
-
-from runtime_input_manifest import REPOSITORY, load_manifest, validate_manifest
+from runtime_input_manifest import REPOSITORY, check_module_pin, module_version, validate_manifest
 from runtime_inputs import prepare, verify_prepared
 from runtime_input_transport import transport_base
 from test_runtime_providers import chunk_release, fixture_bundle
 
 
 def paired_fixture(root, *, formal=True, source="c" * 64):
-    """A runtime release directory (tool archive, Provider chunks) and its pin."""
+    """A runtime release directory (Provider chunks) and its pin."""
     archives = root / "inputs"
     providers = chunk_release(archives, [fixture_bundle(provider_id=provider_id, runtime_source=source)
                                          for provider_id in ("emulatorjs", "retrom-runtime")])
-    files = {"host-tool.json": json.dumps({"schemaVersion": 1, "version": "1.0.0", "sourceTreeSha256": source}).encode(),
-             "package.json": b'{"dependencies":{"fixture":"1.0.0"}}', "node_modules/fixture/index.js": b"export {}",
-             "dist/runtime/index.js": b"export {}", "scripts/runtime-cli.mjs": b"console.log('{}');"}
-    tool = archives / "retrom-runtime-host-tool-1.0.0.tar.gz"
-    with tarfile.open(tool, "w:gz") as stream:
-        for name, data in files.items():
-            entry = tarfile.TarInfo("package/" + name)
-            entry.size, entry.mode = len(data), 0o644
-            stream.addfile(entry, io.BytesIO(data))
-    manifest = {"schemaVersion": 1, "repository": REPOSITORY, "sourceTreeSha256": source,
+    manifest = {"schemaVersion": 2, "repository": REPOSITORY, "sourceTreeSha256": source,
                 "release": {"repository": REPOSITORY, "tag": "v1.0.0", "commit": "a" * 40} if formal else None,
-                "providers": providers, "tool": {"archive": tool.name, "sizeBytes": tool.stat().st_size,
-                                                   "sha256": hashlib.sha256(tool.read_bytes()).hexdigest()}}
+                "providers": providers}
     pin = root / "runtime-inputs.json"
     pin.write_text(json.dumps(manifest))
-    downloads = {tool.name: tool.read_bytes()}
-    return pin, archives, manifest, downloads
+    return pin, archives, manifest
 
 
 @contextlib.contextmanager
@@ -67,28 +52,21 @@ def serve_release(directory):
         server.server_close()
 
 
-def tool_fetch(base, downloads):
-    return Mock(side_effect=lambda url, maximum: downloads[url.removeprefix(base + "/")])
-
-
 class RuntimeInputsTests(unittest.TestCase):
     def test_formal_cold_then_offline_preparation_and_candidate_local_use_one_shape(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            pin, archives, manifest, downloads = paired_fixture(root)
+            pin, archives, manifest = paired_fixture(root)
             with serve_release(archives) as (base, counts):
-                fetch = tool_fetch(base, downloads)
-                prepared = prepare(pin, root / "output", root / "cache", base_url=base, fetch=fetch)
-                self.assertEqual(fetch.call_count, 1)
+                prepared = prepare(pin, root / "output", root / "cache", base_url=base)
                 cold = counts["chunks"]
                 self.assertGreater(cold, 0)
+                self.assertEqual(sorted(path.name for path in prepared.iterdir()), ["providers", "runtime-inputs.json"])
                 self.assertEqual(json.loads((prepared / "providers/active.json").read_text())["release"],
                                  manifest["release"])
-                offline = Mock(side_effect=AssertionError("must reuse pinned cache"))
-                self.assertEqual(prepare(pin, root / "output", root / "cache", base_url=base, fetch=offline), prepared)
-                second = prepare(pin, root / "second", root / "cache", base_url=base, fetch=offline)
+                self.assertEqual(prepare(pin, root / "output", root / "cache", base_url=base), prepared)
+                second = prepare(pin, root / "second", root / "cache", base_url=base)
                 verify_prepared(second, manifest)
-                offline.assert_not_called()
                 # The second consumer installs every Provider file from the shared chunk cache.
                 self.assertEqual(counts["chunks"], cold)
             manifest["release"] = None
@@ -99,8 +77,11 @@ class RuntimeInputsTests(unittest.TestCase):
     def test_invalid_manifest_fields_and_cross_source_artifacts_never_publish(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            pin, archives, manifest, _ = paired_fixture(root, formal=False)
-            for field, value in (("sourceTreeSha256", "bad"), ("schemaVersion", True), ("release", {"tag": "v1.0.0"})):
+            pin, archives, manifest = paired_fixture(root, formal=False)
+            for field, value in (("sourceTreeSha256", "bad"), ("schemaVersion", True), ("schemaVersion", 1),
+                                 ("release", {"tag": "v1.0.0"}),
+                                 ("tool", {"archive": "retrom-runtime-host-tool-1.0.0.tar.gz", "sizeBytes": 1,
+                                           "sha256": "a" * 64})):
                 changed = copy.deepcopy(manifest)
                 changed[field] = value
                 with self.assertRaises(ValueError):
@@ -125,29 +106,21 @@ class RuntimeInputsTests(unittest.TestCase):
             self.assertEqual(list((root / "output").glob("[0-9a-f]*")), [])
             self.assertEqual(list((root / "output").glob(".prepare-*")), [])
 
-    def test_corrupt_download_and_repeated_output_validation_fail_closed(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            pin, archives, manifest, _ = paired_fixture(root)
-            with self.assertRaisesRegex(ValueError, "ARTIFACT_DIGEST_INVALID"):
-                prepare(pin, root / "bad", root / "bad-cache", fetch=lambda *args: b"bad")
-            self.assertEqual(list((root / "bad-cache").rglob("*.tar.gz")), [])
-            tool_size = manifest["tool"]["sizeBytes"]
-            with self.assertRaisesRegex(ValueError, "ARTIFACT_DIGEST_INVALID"):
-                prepare(pin, root / "wrong-hash", root / "wrong-hash-cache", fetch=lambda *args: b"x" * tool_size)
-            self.assertEqual(list((root / "wrong-hash-cache").rglob("*.tar.gz")), [])
-            prepared = prepare(pin, root / "output", root / "cache", archive_root=archives)
-            (prepared / "tool/dist/runtime/index.js").write_text("export const stillRunnable = true;")
-            # A locally regenerated checksum file is not an authority for the archive's bytes.
-            (prepared / "tool-integrity.json").write_text(json.dumps({"dist/runtime/index.js": "forged"}))
-            with self.assertRaisesRegex(ValueError, "TOOL_ARCHIVE_MISMATCH"):
-                prepare(pin, root / "output", root / "cache", fetch=Mock(side_effect=AssertionError("offline")))
-            self.assertEqual(load_manifest(pin), manifest)
+    def test_formal_pin_and_host_module_share_one_release_tag(self):
+        go_mod = "module retrom\n\nrequire (\n\tgithub.com/retrom-project/retrom-runtime v1.0.0\n)\n"
+        self.assertEqual(module_version(go_mod), "v1.0.0")
+        formal = {"release": {"repository": REPOSITORY, "tag": "v1.0.0", "commit": "a" * 40}}
+        check_module_pin(formal, go_mod)
+        check_module_pin({"release": None}, go_mod.replace("v1.0.0", "v1.0.1-0.20260101000000-abcdefabcdef"))
+        with self.assertRaisesRegex(ValueError, "MODULE_MISMATCH"):
+            check_module_pin(formal, go_mod.replace("v1.0.0", "v1.0.1"))
+        with self.assertRaisesRegex(ValueError, "MODULE_REQUIRED"):
+            check_module_pin(formal, "module retrom\n")
 
     def test_corrupt_chunk_never_publishes_a_prepared_set(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            pin, archives, manifest, _ = paired_fixture(root, formal=False)
+            pin, archives, manifest = paired_fixture(root, formal=False)
             # Corrupt a chunk only the first Provider has: an identical chunk of another Provider
             # shares its content identity and may already be verified in the cache.
             manifests = [json.loads((archives / provider["chunkManifest"]["asset"]).read_text())
@@ -163,11 +136,10 @@ class RuntimeInputsTests(unittest.TestCase):
     def test_unpublished_missing_transport_has_no_old_release_fallback(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            pin, _, _, _ = paired_fixture(root, formal=False)
-            fetch = Mock(side_effect=AssertionError("must not request a historical release"))
-            with self.assertRaisesRegex(ValueError, "TRANSPORT_REQUIRED"):
-                prepare(pin, root / "output", root / "cache", fetch=fetch)
-            fetch.assert_not_called()
+            pin, _, _ = paired_fixture(root, formal=False)
+            with self.assertRaisesRegex(ValueError, "PROVIDER_SOURCE_REQUIRED"):
+                prepare(pin, root / "output", root / "cache")
+            self.assertEqual(list((root / "output").glob("[0-9a-f]*")), [])
 
     def test_only_loopback_mirrors_may_use_plain_http(self):
         manifest = {"repository": REPOSITORY, "release": None}
@@ -180,7 +152,7 @@ class RuntimeInputsTests(unittest.TestCase):
     def test_edited_integrity_file_is_not_the_pinned_bundle(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            pin, archives, manifest, _ = paired_fixture(root, formal=False)
+            pin, archives, manifest = paired_fixture(root, formal=False)
             prepared = prepare(pin, root / "output", root / "cache", archive_root=archives)
             provider = manifest["providers"][0]
             installed = prepared / "providers/installed" / provider["providerId"] / provider["bundleSha256"]

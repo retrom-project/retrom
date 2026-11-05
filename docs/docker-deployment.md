@@ -48,7 +48,7 @@ curl --fail --location \
 mkdir -p data certs
 ```
 
-两张应用镜像分别为 `xxxsen/retrom:<版本标签>` 和 `xxxsen/retrom-web:<版本标签>`。后端镜像包含配套 runtime 工具，但不含 Provider（各平台核心）。后端首次启动时按镜像固定的版本，从 runtime 的 GitHub Release 下载全部 Provider 分块，逐块校验后安装到数据目录的 `providers/`（解包后约 1.2 GiB），日志显示进度，安装完成后才对外服务；之后重启不再下载，升级镜像只下载内容变化的分块，runtime 版本不变时下载量为 0。服务器需能访问 GitHub，或用 `RETROM_RUNTIME_INPUT_BASE_URL` 指向镜像源或本地目录。服务器无需另行克隆或构建核心。
+两张应用镜像分别为 `xxxsen/retrom:<版本标签>` 和 `xxxsen/retrom-web:<版本标签>`。后端镜像是不含 Node 或 shell 的静态镜像，配套 runtime 宿主模块直接编入后端程序，但不含 Provider（各平台核心）。后端首次启动时按镜像固定的版本，从 runtime 的 GitHub Release 下载全部 Provider 分块，逐块校验后安装到数据目录的 `providers/`（解包后约 1.2 GiB），日志显示进度，安装完成后才对外服务；之后重启不再下载，升级镜像只下载内容变化的分块，runtime 版本不变时下载量为 0。服务器需能访问 GitHub，或用 `RETROM_RUNTIME_INPUT_BASE_URL` 指向镜像源或本地目录。服务器无需另行克隆或构建核心。
 
 后续命令均在 `~/retrom-deploy` 中执行。
 
@@ -142,8 +142,7 @@ PostgreSQL 和 Redis 的健康检查通过后，后端才会启动。健康检�
 
 ```bash
 docker compose --env-file .env exec -T nginx nginx -t
-docker compose --env-file .env exec -T retrom node -e \
-  'fetch("http://127.0.0.1:8080/health/ready").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'
+docker compose --env-file .env exec -T retrom retrom health
 ```
 
 健康接口仅用于内部依赖检查。继续打开实际域名，验证登录、导入和游戏游玩。

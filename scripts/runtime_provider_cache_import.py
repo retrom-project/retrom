@@ -1,4 +1,4 @@
-"""Import one verified prepared input set (tool archive and Provider chunks) into shared cache."""
+"""Import one verified prepared input set's Provider chunks into the shared cache."""
 from __future__ import annotations
 
 import argparse
@@ -8,13 +8,11 @@ import tempfile
 from pathlib import Path
 
 if __package__:
-    from scripts.runtime_input_manifest import artifact_records, load_manifest
-    from scripts.runtime_input_transport import artifact
+    from scripts.runtime_input_manifest import load_manifest
     from scripts.runtime_inputs import verify_prepared
     from scripts.runtime_provider_sync import sync_providers
 else:
-    from runtime_input_manifest import artifact_records, load_manifest
-    from runtime_input_transport import artifact
+    from runtime_input_manifest import load_manifest
     from runtime_inputs import verify_prepared
     from runtime_provider_sync import sync_providers
 
@@ -23,8 +21,6 @@ def import_provider_cache(source_root: Path, cache_root: Path) -> dict:
     manifest = load_manifest(source_root / "runtime-inputs.json")
     # Verify the whole input set first: damage cannot publish a partial imported set.
     verify_prepared(source_root, manifest)
-    for record in artifact_records(manifest):
-        artifact(record, cache_root, source_root / "archives", "")
     cache_root.mkdir(parents=True, exist_ok=True)
     # The source's installed bundles seed every chunk; no transport is configured, so nothing downloads.
     staging = Path(tempfile.mkdtemp(prefix=".import-", dir=cache_root))
@@ -33,7 +29,7 @@ def import_provider_cache(source_root: Path, cache_root: Path) -> dict:
                                 cache=cache_root / "chunks", seeds=[source_root / "providers"])
     finally:
         shutil.rmtree(staging, ignore_errors=True)
-    return {"cacheRoot": str(cache_root.resolve()), "inputSets": 1, "archives": len(artifact_records(manifest)),
+    return {"cacheRoot": str(cache_root.resolve()), "inputSets": 1,
             "chunks": result["SeededChunks"] + result["DownloadedChunks"]}
 
 

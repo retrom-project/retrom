@@ -3,14 +3,18 @@
 package runs
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/retrom-project/retrom-runtime/host"
 
 	"retrom/internal/model"
 	"retrom/internal/runtimeclient"
@@ -21,10 +25,10 @@ const originalOptions = `{"difficulty":"original"}`
 
 func TestLaunchAndRestoreOptionsShareOneSaveProjection(t *testing.T) {
 	t.Parallel()
-	f, s, detail, directory := launchPreparationFixture(t)
+	f, s, detail, directory, recorder := launchPreparationFixture(t)
 	input := model.RunInput{GameID: f.Game.ID, Purpose: "play"}
 	ordinary, noSave, err := s.prepare(t.Context(), f.Principal, input, detail, directory)
-	assertOrdinaryPreparation(t, s.Runtime.Root, ordinary, noSave, err)
+	assertOrdinaryPreparation(t, recorder, ordinary, noSave, err)
 	save := model.Save{
 		ID: uuid.NewString(), UserID: f.Principal.User.ID, Game: detail.Game, Kind: "checkpoint",
 		Name: "Original options", StorageKey: "saves/original", PayloadHash: "original-payload",
@@ -44,7 +48,7 @@ func TestLaunchAndRestoreOptionsShareOneSaveProjection(t *testing.T) {
 		prepared.CoreID != save.Extinfo.CoreID {
 		t.Fatalf("restored options=%s save=%v error=%v", prepared.TargetOptions, projection, err)
 	}
-	assertSavedContext(t, recordedPrepare(t, s.Runtime.Root), save.Extinfo)
+	assertSavedContext(t, recordedPrepare(t, recorder), save.Extinfo)
 	// A concurrent overwrite between preparation and envelope assembly must not
 	// combine the previous context with a second read of the replacement payload.
 	replacement := save
@@ -65,13 +69,15 @@ func TestLaunchAndRestoreOptionsShareOneSaveProjection(t *testing.T) {
 	assertPreparationWrites(t, f, detail, replacement)
 }
 
-func launchPreparationFixture(t *testing.T) (testsupport.Fixture, *Service, model.GameDetail, model.Directory) {
+func launchPreparationFixture(t *testing.T) (testsupport.Fixture, *Service, model.GameDetail, model.Directory,
+	*prepareHost,
+) {
 	t.Helper()
 	f := testsupport.Library(t)
 	f.Game.Input.RuntimeConfig = json.RawMessage(`{"content":{"kind":"SINGLE_FILE","entryFile":"game.nes"},` +
 		`"cores":{"fceumm":{"options":{"difficulty":"current"}}}}`)
 	f.Publish(t)
-	client, _ := prepareRuntimeFixture(t)
+	client, recorder := prepareRuntimeFixture(t)
 	s := &Service{Repository: f.Repository, Runtime: client}
 	detail, err := f.Repository.GameRuntimeDetail(t.Context(), f.Principal.User.ID, f.Game.ID, "published")
 	if err != nil {
@@ -81,15 +87,15 @@ func launchPreparationFixture(t *testing.T) (testsupport.Fixture, *Service, mode
 	if err != nil {
 		t.Fatal(err)
 	}
-	return f, s, detail, directory
+	return f, s, detail, directory, recorder
 }
 
-func assertOrdinaryPreparation(t *testing.T, root string, prepared runtimeclient.Prepared, save *model.Save, err error) {
+func assertOrdinaryPreparation(t *testing.T, recorder *prepareHost, prepared runtimeclient.Prepared, save *model.Save, err error) {
 	t.Helper()
 	if err != nil || save != nil || string(prepared.TargetOptions) != `{"difficulty":"current"}` {
 		t.Fatalf("ordinary options=%s save=%v error=%v", prepared.TargetOptions, save, err)
 	}
-	if _, exists := recordedPrepare(t, root)["savedContext"]; exists {
+	if _, exists := recordedPrepare(t, recorder)["savedContext"]; exists {
 		t.Fatal("ordinary launch sent a saved context")
 	}
 }
@@ -149,24 +155,21 @@ func assertSavedContext(t *testing.T, request map[string]json.RawMessage, expect
 	}
 }
 
-func recordedPrepare(t *testing.T, root string) map[string]json.RawMessage {
+func recordedPrepare(t *testing.T, recorder *prepareHost) map[string]json.RawMessage {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(root, "prepare-input.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	recorder.mutex.Lock()
+	raw := recorder.prepared
+	recorder.mutex.Unlock()
 	var request map[string]json.RawMessage
-	if err = json.Unmarshal(raw, &request); err != nil {
+	if err := json.Unmarshal(raw, &request); err != nil {
 		t.Fatal(err)
 	}
 	return request
 }
 
-func prepareRuntimeFixture(t *testing.T) (*runtimeclient.Client, string) {
+func prepareRuntimeFixture(t *testing.T) (*runtimeclient.Client, *prepareHost) {
 	t.Helper()
 	root := t.TempDir()
-	writePrepareFile(t, root, "dist/runtime/index.js", []byte("test runtime tool entry"))
-	writePrepareFile(t, root, "scripts/runtime-cli.mjs", []byte(prepareWorker))
 	fingerprint := hex.EncodeToString(make([]byte, 32))
 	provider := runtimeclient.Provider{
 		ProviderID: "emulatorjs", ProviderVersion: "test", BundleSHA256: fingerprint,
@@ -185,12 +188,13 @@ func prepareRuntimeFixture(t *testing.T) (*runtimeclient.Client, string) {
 	}
 	writePrepareJSON(t, installed, "integrity.json", map[string]any{"files": entries})
 	writePrepareJSON(t, root, "providers/active.json", map[string]any{"providers": []runtimeclient.Provider{provider}})
-	client, err := runtimeclient.Open(t.Context(), root, "python3", filepath.Join(root, "providers"))
+	recorder := &prepareHost{}
+	client, err := runtimeclient.Open(t.Context(), filepath.Join(root, "providers"), runtimeclient.UseHost(recorder))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(client.Close)
-	return client, root
+	return client, recorder
 }
 
 func writePrepareJSON(t *testing.T, root, name string, value any) {
@@ -213,30 +217,94 @@ func writePrepareFile(t *testing.T, root, name string, raw []byte) {
 	}
 }
 
-// The child models only the runtime IPC boundary, not core execution. Runtime's
-// own tests verify content/options interpretation and identity rejection.
-const prepareWorker = `import json, pathlib, sys
-root = pathlib.Path(__file__).resolve().parent.parent
-for line in sys.stdin:
-    request = json.loads(line)
-    command, value = request['command'], request['input']
-    if command == 'catalog':
-        result = {'cores': [], 'platforms': [], 'bindings': [], 'providers': [], 'biosRequirements': []}
-    elif command == 'prepare':
-        (root / 'prepare-input.json').write_text(json.dumps(value))
-        saved = value.get('savedContext')
-        core = value.get('coreId', value['directory']['defaultCoreId'])
-        config = value['config']
-        options = saved['runtimeOptions'] if saved else config['cores'][core]['options']
-        content = saved['content'] if saved else config['content']
-        result = {'coreId': core, 'providerId': 'emulatorjs', 'targetId': core,
-            'coreFingerprint': value['fingerprints']['emulatorjs/' + core],
-            'romHash': value['files'][0]['sha256'], 'config': {'content': content},
-            'targetOptions': options, 'capabilities': {}, 'resources': [], 'biosRequirements': [],
-            'checkpoint': {'writeFormat': 'state', 'readFormats': ['state'], 'maxBytes': 1024, 'semantics': 'INSTANT'}}
-    elif command == 'restorable':
-        result = {'restorable': value['current']['runtimeOptions'] == value['context']['runtimeOptions'], 'reason': None, 'warning': 'CORE_CHANGED' if value['current']['coreFingerprint'] != value['context']['coreFingerprint'] else None}
-    else:
-        raise ValueError(command)
-    print(json.dumps({'id': request['id'], 'result': result}, separators=(',', ':')), flush=True)
-`
+// prepareHost models only the runtime host boundary, not core execution. Runtime's own tests verify
+// content/options interpretation and identity rejection.
+type prepareHost struct {
+	mutex    sync.Mutex
+	prepared json.RawMessage
+}
+
+type prepareValue struct {
+	Directory struct {
+		DefaultCoreID string `json:"defaultCoreId"`
+	} `json:"directory"`
+	CoreID string          `json:"coreId"`
+	Config json.RawMessage `json:"config"`
+	Files  []struct {
+		SHA256 string `json:"sha256"`
+	} `json:"files"`
+	Fingerprints map[string]string `json:"fingerprints"`
+	SavedContext *struct {
+		RuntimeOptions json.RawMessage `json:"runtimeOptions"`
+		Content        json.RawMessage `json:"content"`
+	} `json:"savedContext"`
+}
+
+func (h *prepareHost) Call(_ context.Context, command string, input []byte) (json.RawMessage, error) {
+	switch command {
+	case "catalog":
+		return json.RawMessage(`{"cores":[],"platforms":[],"bindings":[],"providers":[],"biosRequirements":[]}`), nil
+	case "prepare":
+		h.mutex.Lock()
+		h.prepared = append(json.RawMessage(nil), input...)
+		h.mutex.Unlock()
+		return preparedResult(input)
+	case "restorable":
+		return restorableResult(input)
+	}
+	return nil, &host.Error{Code: "RUNTIME_COMMAND_INVALID"}
+}
+
+func preparedResult(input []byte) (json.RawMessage, error) {
+	var value prepareValue
+	if err := json.Unmarshal(input, &value); err != nil {
+		return nil, err
+	}
+	core := value.CoreID
+	if core == "" {
+		core = value.Directory.DefaultCoreID
+	}
+	var config struct {
+		Content json.RawMessage `json:"content"`
+		Cores   map[string]struct {
+			Options json.RawMessage `json:"options"`
+		} `json:"cores"`
+	}
+	if err := json.Unmarshal(value.Config, &config); err != nil {
+		return nil, err
+	}
+	options, content := config.Cores[core].Options, config.Content
+	if value.SavedContext != nil {
+		options, content = value.SavedContext.RuntimeOptions, value.SavedContext.Content
+	}
+	return json.Marshal(map[string]any{
+		"coreId": core, "providerId": "emulatorjs", "targetId": core,
+		"coreFingerprint": value.Fingerprints["emulatorjs/"+core], "romHash": value.Files[0].SHA256,
+		"config": map[string]any{"content": content}, "targetOptions": options, "capabilities": map[string]any{},
+		"resources": []any{}, "biosRequirements": []any{},
+		"checkpoint": map[string]any{
+			"writeFormat": "state", "readFormats": []string{"state"}, "maxBytes": 1024,
+			"semantics": "INSTANT",
+		},
+	})
+}
+
+func restorableResult(input []byte) (json.RawMessage, error) {
+	var value struct {
+		Current, Context struct {
+			RuntimeOptions  any    `json:"runtimeOptions"`
+			CoreFingerprint string `json:"coreFingerprint"`
+		}
+	}
+	if err := json.Unmarshal(input, &value); err != nil {
+		return nil, err
+	}
+	var warning any
+	if value.Current.CoreFingerprint != value.Context.CoreFingerprint {
+		warning = "CORE_CHANGED"
+	}
+	return json.Marshal(map[string]any{
+		"restorable": reflect.DeepEqual(value.Current.RuntimeOptions, value.Context.RuntimeOptions), "reason": nil,
+		"warning": warning,
+	})
+}

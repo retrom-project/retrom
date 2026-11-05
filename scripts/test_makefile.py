@@ -39,7 +39,7 @@ class MakefileDependencyTests(unittest.TestCase):
 
     def test_contracts_include_previously_unwired_and_migration_checks(self) -> None:
         output = self.dry_run("ci-contracts")
-        for script in ("test_pfb_runtime_tool.py", "test_pfb_server_data.py", "test_runtime_origin_topology.py",
+        for script in ("test_pfb_server_data.py", "test_runtime_origin_topology.py",
                        "test_migrations.py", "migrations.py check"):
             self.assertIn(f"python3 scripts/{script}", output)
 

@@ -11,6 +11,8 @@ from test_runtime_inputs import paired_fixture
 
 import image_input_digest
 
+GO_MOD = "module retrom\n\nrequire github.com/retrom-project/retrom-runtime {version}\n"
+
 
 class ImagePinTests(unittest.TestCase):
     def test_generated_go_is_not_a_docker_source_input(self):
@@ -35,27 +37,41 @@ class ImagePinTests(unittest.TestCase):
     def test_explicit_contexts_match_repository_pin_and_authentic_archives(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            pin, archives, manifest, _ = paired_fixture(root, formal=False)
+            pin, archives, manifest = paired_fixture(root, formal=False)
             prepared = prepare(pin, root / "output", root / "cache", archive_root=archives)
             (root / "data").mkdir()
             (root / "data/runtime-inputs.json").write_bytes(pin.read_bytes())
-            environment = {"RETROM_RUNTIME_TOOL_INPUT": str(prepared / "tool"), "RETROM_PROVIDER_INPUT": str(prepared / "providers")}
+            (root / "go.mod").write_text(GO_MOD.format(version="v1.0.1-0.20260101000000-abcdefabcdef"))
+            environment = {"RETROM_PROVIDER_INPUT": str(prepared / "providers")}
             with patch.object(image_input_digest, "ROOT", root), patch.dict(os.environ, environment):
-                self.assertEqual(image_input_digest.inputs()[:2], (prepared / "tool", prepared / "providers"))
-                (prepared / "tool/dist/runtime/index.js").write_text("export const version = 'another valid tool';")
-                with self.assertRaisesRegex(ValueError, "TOOL_ARCHIVE_MISMATCH"):
+                self.assertEqual(image_input_digest.inputs()[0], prepared / "providers")
+                active = prepared / "providers/active.json"
+                active.write_text(active.read_text().replace('"candidate"', '"production"'))
+                with self.assertRaisesRegex(ValueError, "ACTIVE_MISMATCH"):
+                    image_input_digest.inputs()
+
+    def test_formal_pin_requires_the_host_module_of_the_same_tag(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pin, _, _ = paired_fixture(root)
+            (root / "data").mkdir()
+            (root / "data/runtime-inputs.json").write_bytes(pin.read_bytes())
+            (root / "go.mod").write_text(GO_MOD.format(version="v1.0.1-0.20260101000000-abcdefabcdef"))
+            with patch.object(image_input_digest, "ROOT", root), patch.dict(os.environ, {"RETROM_PROVIDER_INPUT": ""}):
+                with self.assertRaisesRegex(ValueError, "MODULE_MISMATCH"):
                     image_input_digest.inputs()
 
     def test_mutable_manifest_environment_cannot_replace_checked_in_pin(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            pin, archives, manifest, _ = paired_fixture(root, formal=False)
+            pin, archives, manifest = paired_fixture(root, formal=False)
             prepared = prepare(pin, root / "output", root / "cache", archive_root=archives)
             manifest["sourceTreeSha256"] = "d" * 64
             (root / "data").mkdir()
             (root / "data/runtime-inputs.json").write_text(json.dumps(manifest))
+            (root / "go.mod").write_text(GO_MOD.format(version="v1.0.0"))
             with patch.object(image_input_digest, "ROOT", root), patch.dict(os.environ, {
-                    "RETROM_RUNTIME_TOOL_INPUT": str(prepared / "tool"), "RETROM_PROVIDER_INPUT": str(prepared / "providers"),
+                    "RETROM_PROVIDER_INPUT": str(prepared / "providers"),
                     "RETROM_RUNTIME_INPUT_MANIFEST": str(pin)}):
                 with self.assertRaisesRegex(ValueError, "PREPARED_PIN_MISMATCH"):
                     image_input_digest.inputs()

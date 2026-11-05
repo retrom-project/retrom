@@ -15,7 +15,7 @@ Retrom 为个人和可信朋友提供共享游戏库。User 是唯一账号和�
 
 Home是读取投影；扫描进度、运行和文件维护是内部能力。它们没有通用Job/Input/Event/Lease持久模型。Game只记录来源类型，不保存扫描或批次ID；扫描进度不保存来源映射、结果列表或恢复游标。BIOS与游戏扫描分别执行，不借用彼此的审核逻辑。两类入口与进度统一位于来源扫描页；游戏扫描启动后待审核页可按scanId展示该任务的临时进度，不按它筛选Game或建立批次关系。运行依赖页仅管理当前安装。管理员以服务进程可见的绝对路径浏览和选择来源，不使用配置来源根或rootId；来源只读，复制接收后的受管所有权不变。
 
-HTTP只处理认证、请求验证与响应；应用入口在cmd/retrom组装服务。internal/model保存领域字段和纯验证，internal/service拥有用例，internal/persistence拥有SQL及短事务，internal/storage拥有受管文件，internal/temporary拥有窄Redis能力，internal/runtimeclient调用统一runtime工具。业务和基础层不反向依赖HTTP；runtime/存档不依赖扫描服务。
+HTTP只处理认证、请求验证与响应；应用入口在cmd/retrom组装服务。internal/model保存领域字段和纯验证，internal/service拥有用例，internal/persistence拥有SQL及短事务，internal/storage拥有受管文件，internal/temporary拥有窄Redis能力，internal/runtimeclient在进程内调用统一runtime宿主模块。业务和基础层不反向依赖HTTP；runtime/存档不依赖扫描服务。
 
 retrom-runtime负责内容归一化与配置解释、平台/核心/Target声明、BIOS识别、街机Parent、指纹、浏览器执行、内容桥、checkpoint和恢复判定。Go只传受控文件事实和宿主locator，消费通用资源计划，不维护引擎分支或第二份静态核心/BIOS/DAT事实。
 

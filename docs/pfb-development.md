@@ -48,7 +48,7 @@ make -C "$TASK_RETROM_ROOT" pfb-validate PFB="$PFB"
 make -C "$TASK_RETROM_ROOT" pfb-build PFB="$PFB"
 ```
 
-`pfb-build` 准备开发镜像、依赖、生成代码，并发布不可变 `runtime-tools/<sha>` 工具快照；不构建核心或 Provider 分块。再次显式 build 复用未变化的镜像和依赖，仍会构建／发布所选 runtime 工具。当前 app 运行时拒绝 build，需要先停止当前 PFB。
+`pfb-build` 准备开发镜像、依赖（含 Provider watcher 所需的 runtime npm 依赖）和生成代码；不构建核心或 Provider 分块，也没有 runtime 工具快照。后端经 PFB 工作区生成的 `go.work` 直接使用同一 PFB 的 runtime worktree 源码，runtime 宿主模块的 Go 修改只需 `pfb-restart`。再次显式 build 复用未变化的镜像和依赖。当前 app 运行时拒绝 build，需要先停止当前 PFB。
 
 将下面两个占位值分别替换为初始化返回的实际 ID，以及准备命令输出的 Provider 目录：
 
@@ -96,7 +96,7 @@ make -C "$TASK_RETROM_ROOT" pfb-verify PFB="$PFB"
 
 同一PFB中的契约调整先按[开发期契约规则](engineering-quality-and-testing.md#开发期契约)判断正式生效边界，再直接修改当前定义与调用方；本地提交、分支镜像和上一轮验收数据不构成版本演进的依据。
 
-联合验收可在显式 `pfb-build` 时传 `RETROM_RUNTIME_TOOL_INPUT=<本 PFB 的自足工具目录>`，将完整 production 依赖复制到不可变快照；输入不得越出同一命名 PFB。工具清理后运行进程仍固定已发布的 resolved 路径。
+联合验收的后端同样经 `go.work` 使用本 PFB 的 runtime worktree，输入不得越出同一命名 PFB。
 
 核心变更先在本 PFB 准备 core worktree，并在停止态使用相同的 `pfb-init` 参数追加 `CORE_ROOTS` JSON 映射，例如 `CORE_ROOTS='{"<core-id>":"<同一 PFB 内核心 worktree 的绝对路径>"}'`，替换占位值后使用；存在核心时必须保留同树 `RUNTIME_ROOT`。`pfb-core-build PFB=<name> CORE=<id>` 只构建／验证该核心，输出 `.pfb/workspace/core-builds/<id>/current`，不会自动切换运行资源。按[核心接入流程](platform-cores-integration.md)装配同源候选和导入基座后，应核对实际 Run 的核心资产与 Target 指纹再记录验收。
 

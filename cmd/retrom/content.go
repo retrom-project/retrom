@@ -65,8 +65,7 @@ func contentCLI(ctx context.Context, args []string) error {
 			slog.Error("close managed content", "error", closeErr)
 		}
 	}()
-	runtime, err := runtimeclient.Open(ctx, environment("RETROM_RUNTIME_ROOT", "../retrom-runtime"),
-		environment("RETROM_NODE", "node"), environment("RETROM_PROVIDER_ROOT", ".pfb/workspace/providers"))
+	runtime, err := runtimeclient.Open(ctx, environment("RETROM_PROVIDER_ROOT", ".pfb/workspace/providers"))
 	if err != nil {
 		return fmt.Errorf("open conversion runtime: %w", err)
 	}

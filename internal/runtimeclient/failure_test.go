@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/retrom-project/retrom-runtime/host"
+
 	"retrom/internal/model"
 )
 
@@ -55,9 +57,12 @@ func TestContentFailureKeepsRuntimeReasonAcrossIPC(t *testing.T) {
 
 func decodeFailure(t *testing.T, raw string) error {
 	t.Helper()
-	var response runtimeResponse
+	var response struct {
+		Error        string            `json:"error"`
+		ErrorDetails map[string]string `json:"errorDetails"`
+	}
 	if err := json.Unmarshal([]byte(raw), &response); err != nil {
 		t.Fatal(err)
 	}
-	return runtimeFailure(response.Error, response.ErrorDetails)
+	return hostFailure(&host.Error{Code: response.Error, Details: response.ErrorDetails})
 }

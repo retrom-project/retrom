@@ -255,8 +255,8 @@ def write_candidate(release: Path, version: str) -> None:
     """A local runtime candidate release/ directory with one fixture Provider."""
     records = chunk_release(release, [fixture_bundle(version=version)])
     (release / "runtime-inputs.json").write_text(json.dumps({
-        "schemaVersion": 1, "repository": "https://github.com/retrom-project/retrom-runtime",
-        "sourceTreeSha256": "e" * 64, "release": None, "tool": {}, "providers": records}), encoding="utf-8")
+        "schemaVersion": 2, "repository": "https://github.com/retrom-project/retrom-runtime",
+        "sourceTreeSha256": "e" * 64, "release": None, "providers": records}), encoding="utf-8")
 
 
 def active_fixture(*, version, bundle, read_formats):

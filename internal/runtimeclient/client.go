@@ -4,16 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"slices"
+
+	"github.com/retrom-project/retrom-runtime/host"
 
 	"retrom/internal/model"
 )
 
 type Client struct {
-	Root             string
-	Node             string
 	Catalog          model.Catalog
 	Bindings         []Binding
 	Providers        map[string]Provider
@@ -22,7 +20,8 @@ type Client struct {
 	Overrides        map[string]map[string]DevelopmentAsset
 	BiosRequirements []BiosRequirement
 	Locate           func(string) (string, error)
-	pool             *workerPool
+	pool             *hostPool
+	host             Host
 	// hashFiles rehashes every Provider file at startup; a just-verified install skips it.
 	hashFiles bool
 }
@@ -33,6 +32,9 @@ type Option func(*Client)
 // VerifiedInstall skips per-file hashing for Providers that a chunk sync verified
 // before this start; structure and file sizes are still checked.
 func VerifiedInstall() Option { return func(c *Client) { c.hashFiles = false } }
+
+// UseHost replaces the embedded runtime host, for example with a recording test double.
+func UseHost(runtime Host) Option { return func(c *Client) { c.host = runtime } }
 
 type (
 	Binding struct {
@@ -179,37 +181,38 @@ func (c *Client) Validate(ctx context.Context, platform string, config json.RawM
 }
 func (c *Client) GetCatalog(_ context.Context) (model.Catalog, error) { return c.Catalog, nil }
 
-func Open(ctx context.Context, root, node, providerRoot string, options ...Option) (*Client, error) {
-	for _, name := range []string{"scripts/runtime-cli.mjs", "dist/runtime/index.js"} {
-		if _, err := os.Stat(filepath.Join(root, name)); err != nil {
-			return nil, fmt.Errorf("runtime tool root: %w", err)
-		}
-	}
+// Open verifies the installed Providers and starts the in-process runtime host for their release.
+func Open(ctx context.Context, providerRoot string, options ...Option) (*Client, error) {
 	c := &Client{
-		Root:         root,
-		Node:         node,
 		Providers:    make(map[string]Provider),
 		Fingerprints: make(map[string]string),
 		Assets:       make(map[string]map[string]bool),
 		Overrides:    make(map[string]map[string]DevelopmentAsset),
-		pool:         newWorkerPool(ctx, root, node),
 		hashFiles:    true,
 	}
 	for _, option := range options {
 		option(c)
 	}
-	ready := false
-	defer func() {
-		if !ready {
-			c.Close()
-		}
-	}()
 	if err := c.loadProviders(providerRoot); err != nil {
 		return nil, err
 	}
 	if err := c.loadDevelopment(providerRoot); err != nil {
 		return nil, err
 	}
+	if c.host == nil {
+		service, err := host.New(c.providerVersion())
+		if err != nil {
+			return nil, fmt.Errorf("runtime host: %w", err)
+		}
+		c.host = service
+	}
+	c.pool = newHostPool(ctx, c.host)
+	ready := false
+	defer func() {
+		if !ready {
+			c.Close()
+		}
+	}()
 	var catalog struct {
 		Cores []struct {
 			ID          string   `json:"id"`

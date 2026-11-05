@@ -70,7 +70,6 @@ type Inputs struct {
 	Repository       string           `json:"repository"`
 	SourceTreeSHA256 string           `json:"sourceTreeSha256"`
 	Release          *Release         `json:"release"`
-	Tool             json.RawMessage  `json:"tool"`
 	Providers        []ProviderRecord `json:"providers"`
 	// Digest is the SHA-256 of the exact descriptor bytes; it keys the completion marker.
 	Digest string `json:"-"`
@@ -121,7 +120,7 @@ func LoadInputs(path string) (*Inputs, error) {
 }
 
 func (inputs *Inputs) validate() error {
-	if inputs.SchemaVersion != 1 || !lowerDigest.MatchString(inputs.SourceTreeSHA256) || len(inputs.Providers) == 0 {
+	if inputs.SchemaVersion != 2 || !lowerDigest.MatchString(inputs.SourceTreeSHA256) || len(inputs.Providers) == 0 {
 		return ErrInputsInvalid
 	}
 	if inputs.Release != nil && (!strings.HasPrefix(inputs.Release.Repository, "https://") ||

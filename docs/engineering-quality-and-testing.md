@@ -26,17 +26,17 @@ PR 的 `quality` 聚合 contracts、backend、integration、web、browser-ui 和
 
 风险集成用真实PostgreSQL覆盖：Game/文件写入后失败与progress一起回滚、commit响应丢失按分配ID核对；两save同版本竞争仅一胜、同commit重试不增版本、Game删除后保存拒绝；BIOS自动安装遇并发手动安装只skip；真实文件移除失败保留deleted，active引用保护字节。纯回归覆盖可信代理链/伪造XFF、严格JSON、UUID和编码斜杠、目录有界迭代与并发消失、共享常驻runtime并发关联、单请求取消、异常退出后的恢复。
 
-Playwright通过正常HTTP建立合法MIT NES来源、扫描、共享审核、运行、保存和新实例恢复，页面无error/溢出；保留桌面/移动/4K视口。浏览器CI必须提供同版runtime工具/Provider明确输入，不能用旧正式release冒充新契约。私有素材验收只在授权目录读取并复制，证据和素材不提交。
+Playwright通过正常HTTP建立合法MIT NES来源、扫描、共享审核、运行、保存和新实例恢复，页面无error/溢出；保留桌面/移动/4K视口。浏览器CI必须提供与 go.mod 宿主模块同版的Provider明确输入，不能用旧正式release冒充新契约。私有素材验收只在授权目录读取并复制，证据和素材不提交。
 
 测试按实际风险选择，不为每个低影响CRUD机械复制实现。最终稳定源码仍需全量格式/lint/tests/schema与浏览器门禁；局部通过不能代表整体P7完成。
 
-`make acceptance-prepare` 验证配套输入，`make acceptance-case CASE=ACC-RF-BROWSER` 与 `make web-e2e` 使用同一入口。需 `RETROM_TEST_DATABASE_URL` 作为可创建临时库的连接、`RETROM_RUNTIME_TOOL_INPUT` 和 `RETROM_PROVIDER_INPUT` 自足目录；其余依赖用 `make prepare-deps`。入口只创建／删除自己分配的 DB，Redis 有独立容器，Go／Next 和受管来源有独立目录，300 秒启动预算；准备阶段用只读 GET 预编译被测 Next 开发路由，页面交互的原有超时与断言不变。入口生成项目 MIT NES 来源，并复制项目自有 RPG Maker fixture 组成单入口／多入口来源，覆盖真实 NES 游玩／存档和 RPG 入口选择；按 `web/e2e/clean-refactor.spec.ts` 的全部用例及 Playwright 配置执行四视口，不在文档固定用例数量，无业务 SQL seed。本地入口默认执行全部视口；CI 用 matrix 为 Playwright 配置中的每个视口项目各起一个独立 job，通过 `RETROM_E2E_PROJECT` 只选一个完整项目，矩阵与配置的项目集合由工作流测试保证一致。证据额外保存逐用例耗时（`browser.log` 列表报告与 `playwright-results.json`）。仅修改 Markdown 或 `docs/` 的 PR 由 `change-scope` 判定后跳过该浏览器 job，其余门禁照常执行；`quality` 只在该判定下接受浏览器 job 为 skipped。PR 只能恢复默认分支保存的缓存，因此 `cache-warm` 工作流在每次推送 master 后按与 CI 完全相同的 key 和路径填充 Go、npm、Node 工具链、原生 PostgreSQL 工具与运行依赖缓存；两者的一致性由工作流测试校验。证据在 `.artifacts/acceptance/<id>/cases/acc-rf-browser`，失败同样保留日志，成功／失败均销毁自有资源。
+`make acceptance-prepare` 验证配套输入，`make acceptance-case CASE=ACC-RF-BROWSER` 与 `make web-e2e` 使用同一入口。需 `RETROM_TEST_DATABASE_URL` 作为可创建临时库的连接与 `RETROM_PROVIDER_INPUT` 已准备 Provider 目录；后端按 `go.mod` 固定的宿主模块构建；其余依赖用 `make prepare-deps`。入口只创建／删除自己分配的 DB，Redis 有独立容器，Go／Next 和受管来源有独立目录，300 秒启动预算；准备阶段用只读 GET 预编译被测 Next 开发路由，页面交互的原有超时与断言不变。入口生成项目 MIT NES 来源，并复制项目自有 RPG Maker fixture 组成单入口／多入口来源，覆盖真实 NES 游玩／存档和 RPG 入口选择；按 `web/e2e/clean-refactor.spec.ts` 的全部用例及 Playwright 配置执行四视口，不在文档固定用例数量，无业务 SQL seed。本地入口默认执行全部视口；CI 用 matrix 为 Playwright 配置中的每个视口项目各起一个独立 job，通过 `RETROM_E2E_PROJECT` 只选一个完整项目，矩阵与配置的项目集合由工作流测试保证一致。证据额外保存逐用例耗时（`browser.log` 列表报告与 `playwright-results.json`）。仅修改 Markdown 或 `docs/` 的 PR 由 `change-scope` 判定后跳过该浏览器 job，其余门禁照常执行；`quality` 只在该判定下接受浏览器 job 为 skipped。PR 只能恢复默认分支保存的缓存，因此 `cache-warm` 工作流在每次推送 master 后按与 CI 完全相同的 key 和路径填充 Go、npm、Node 工具链、原生 PostgreSQL 工具与运行依赖缓存；两者的一致性由工作流测试校验。证据在 `.artifacts/acceptance/<id>/cases/acc-rf-browser`，失败同样保留日志，成功／失败均销毁自有资源。
 
 scripts/verify-backend-image.sh <backend-image> <web-image>验证实际两张部署镜像。临时独立网络内以UID/GID1000创建全新PostgreSQL/Redis与合法只读MIT来源，正常HTTP初始化、扫描、批准、创建Run、读取强If-Match/Range、无cookie隔离shell/SW与实际Provider bridge，再关闭Run。Web standalone使用构建时retrom:8080 rewrite连接同一新库，检查登录HTML、健康代理、已初始化匿名账号上下文和受保护catalog的401。无旧checkout挂载或业务SQL种子；任何失败均清理仅本次自有容器/网络/来源副本。此检查证明镜像闭包与部署连接，不替代浏览器真实运行和原生恢复。
 
 来源浏览回归覆盖未配置的绝对目录、正常目录符号链接和超过1000个子目录，扫描保留管理员认证与受管复制。正式浏览器fixture通过 `RETROM_BROWSER_SOURCE_PATH` 提供服务进程可见的绝对目录；inspect/game/bios/replace不再传来源根ID或相对选择目录。
 
-PFB候选浏览器验收可显式设置 `RETROM_ACCEPTANCE_PFB=<当前名称>`，并将 `RETROM_RUNTIME_TOOL_INPUT`、`RETROM_PROVIDER_INPUT` 指向同一PFB已构建的不可变工具快照与已验证基座。入口校验spec、分支、工具内容摘要和完整Provider基座；仍创建独立PG数据库与Redis、经正常导入和审核运行全部视口，不改变正式镜像的配套输入门禁。
+PFB候选浏览器验收可显式设置 `RETROM_ACCEPTANCE_PFB=<当前名称>`，并将 `RETROM_PROVIDER_INPUT` 指向同一PFB已验证基座。入口校验spec、分支和完整Provider基座，以生成的 `go.work` 使用该PFB的runtime worktree构建后端，并把其宿主模块源码摘要计入输入摘要；仍创建独立PG数据库与Redis、经正常导入和审核运行全部视口，不改变正式镜像的配套输入门禁。
 
 ## 内容替换的异步验收
 

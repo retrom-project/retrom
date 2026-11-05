@@ -28,7 +28,11 @@ export RETROM_PROVIDER_DEV_ROOT=/pfb-workspace/providers/dev
 export PFB_PROVIDER_INSTALLED_ROOT="$RETROM_PROVIDER_INSTALLED_ROOT"
 export PFB_PROVIDER_ACTIVE_PATH="$RETROM_PROVIDER_ACTIVE_PATH"
 export PFB_PROVIDER_DEV_ROOT="$RETROM_PROVIDER_DEV_ROOT"
-export RETROM_RUNTIME_ROOT="$(readlink -f /pfb-workspace/runtime-tool)"
+# The backend embeds the runtime host module from this PFB's runtime worktree, so a Go host edit needs only a
+# restart. The workspace file is regenerated on every start and never enters either repository.
+go_version="$(awk '$1 == "go" { print $2; exit }' /workspace/retrom/go.mod)"
+printf 'go %s\n\nuse (\n\t/workspace/retrom\n\t/workspace/runtime\n)\n' "$go_version" > /pfb-workspace/go.work
+export GOWORK=/pfb-workspace/go.work
 mkdir -p /pfb-workspace/acceptance/sources
 export RETROM_PROVIDER_ROOT=/pfb-workspace/providers
 export NEXT_DEV_HOST=0.0.0.0

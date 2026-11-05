@@ -8,7 +8,6 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
 
 from runtime_provider_cache import default_cache_root
 from runtime_provider_cache_import import import_provider_cache
@@ -36,7 +35,7 @@ def create_checkout(root):
 
 
 def prepared_cache(root):
-    pin, archives, manifest, _ = paired_fixture(root)
+    pin, archives, manifest = paired_fixture(root)
     prepared = prepare(pin, root / "source", root / "cache", archive_root=archives)
     return prepared, manifest
 
@@ -85,8 +84,8 @@ class ProviderCacheImportTests(unittest.TestCase):
         build = (REPOSITORY_ROOT / "scripts/build-image.sh").read_text()
         self.assertNotIn("--from=providers", dockerfile)
         self.assertNotIn("providers=", build)
-        self.assertIn("COPY --chmod=0444 data/runtime-inputs.json /opt/retrom/runtime-inputs.json", dockerfile)
-        self.assertIn("COPY --from=runtime-tool / /opt/retrom/runtime-tool/", dockerfile)
+        self.assertIn("COPY data/runtime-inputs.json /layout/opt/retrom/runtime-inputs.json", dockerfile)
+        self.assertNotIn("runtime-tool", dockerfile + build)
         self.assertNotIn("prepare_image_inputs.py", dockerfile)
         self.assertNotIn("COPY data/runtime-providers/release.json", dockerfile)
 
@@ -97,24 +96,24 @@ class ProviderCacheImportTests(unittest.TestCase):
             original = {path.relative_to(source): path.read_bytes() for path in source.rglob("*") if path.is_file()}
             for attempt in range(2):
                 result = import_provider_cache(source, root / "shared")
-                self.assertEqual((result["inputSets"], result["archives"]), (1, 1))
+                self.assertEqual(result["inputSets"], 1)
                 # Every chunk is seeded from the source's installed bundles; the second import adds none.
                 self.assertEqual(result["chunks"] > 0, attempt == 0)
-            offline = Mock(side_effect=AssertionError("must use imported downloads"))
-            prepared = prepare(root / "runtime-inputs.json", root / "second", root / "shared", fetch=offline)
+            # The imported chunk cache serves every chunk; an unreachable transport is never consulted.
+            prepared = prepare(root / "runtime-inputs.json", root / "second", root / "shared",
+                               base_url="http://127.0.0.1:9")
             verify_prepared(prepared, manifest)
-            offline.assert_not_called()
             for relative, contents in original.items():
                 self.assertEqual((source / relative).read_bytes(), contents)
 
-    def test_invalid_source_archive_is_not_published(self):
+    def test_damaged_source_provider_is_not_published(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source, _ = prepared_cache(root)
-            next((source / "archives").glob("*.tar.gz")).write_bytes(b"corrupt")
-            with self.assertRaisesRegex(ValueError, "ARTIFACT_DIGEST_INVALID"):
+            (source / "providers/active.json").write_text("{}")
+            with self.assertRaisesRegex(ValueError, "ACTIVE_MISMATCH"):
                 import_provider_cache(source, root / "shared")
-            self.assertEqual(list((root / "shared").rglob("*.tar.gz")), [])
+            self.assertFalse((root / "shared").exists())
 
     def test_cross_source_descriptor_is_not_published(self):
         with tempfile.TemporaryDirectory() as temporary:

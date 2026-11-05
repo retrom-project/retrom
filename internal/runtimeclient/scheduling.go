@@ -43,7 +43,7 @@ func newRequestLane(concurrency, capacity int) *requestLane {
 
 // Bound simultaneous encoding scratch to one frame per lane, in addition to
 // the accepted-byte budget. Waiting to encode still observes both lifetimes.
-func (lease *requestLease) encode(ctx, lifetime context.Context, id, command string, input any) ([]byte, error) {
+func (lease *requestLease) encode(ctx, lifetime context.Context, input any) ([]byte, error) {
 	select {
 	case lease.lane.encoding <- struct{}{}:
 	case <-ctx.Done():
@@ -58,7 +58,7 @@ func (lease *requestLease) encode(ctx, lifetime context.Context, id, command str
 	if err := lifetime.Err(); err != nil {
 		return nil, fmt.Errorf("runtime lifetime: %w", err)
 	}
-	encoded, err := json.Marshal(map[string]any{"id": id, "command": command, "input": input})
+	encoded, err := json.Marshal(input)
 	if err != nil {
 		return nil, fmt.Errorf("runtime input: %w", err)
 	}

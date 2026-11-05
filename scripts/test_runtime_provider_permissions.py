@@ -4,7 +4,6 @@ import stat
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
 
 from runtime_inputs import prepare
 from test_runtime_inputs import paired_fixture
@@ -16,15 +15,14 @@ class RuntimeProviderPermissionsTest(unittest.TestCase):
         try:
             with tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
-                pin, archives, _, _ = paired_fixture(root)
+                pin, archives, _ = paired_fixture(root)
                 first = prepare(pin, root / "first", root / "cache", archive_root=archives)
                 self.assertEqual(first.stat().st_mode & 0o777, 0o755)
                 self.assert_public_readable(first / "providers/active.json", first / "providers/installed")
-                offline = Mock(side_effect=AssertionError("must reuse verified cache"))
-                second = prepare(pin, root / "second", root / "cache", fetch=offline)
+                # The verified chunk cache serves every chunk; an unreachable transport is never consulted.
+                second = prepare(pin, root / "second", root / "cache", base_url="http://127.0.0.1:9")
                 self.assertEqual((second / "providers/active.json").read_bytes(), (first / "providers/active.json").read_bytes())
                 self.assert_public_readable(second / "providers/active.json", second / "providers/installed")
-                offline.assert_not_called()
         finally:
             os.umask(previous_umask)
 

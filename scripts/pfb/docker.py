@@ -240,24 +240,14 @@ def build_toolchain(root: Path, spec: dict[str, Any]) -> dict[str, Any]:
     marker = paths["root"] / "toolchain.json"
     previous = load_json(marker) if marker.is_file() else None
     dependencies_changed = not isinstance(previous, dict) or previous.get("inputsSha256") != inputs
-    tool_input = os.environ.get("RETROM_RUNTIME_TOOL_INPUT", "")
     runtime_root = Path(spec["runtime"]["root"])
-    if tool_input and not Path(tool_input).resolve().is_relative_to(runtime_root.resolve().parents[1]):
-        raise PFBError("PFB_WORKTREE_INVALID", "runtime-tool-outside-pfb")
     if dependencies_changed:
         _run_dev_command(root, spec, image, paths, root / "web", ["npm", "ci"])
-        if not tool_input:
-            _run_dev_command(root, spec, image, paths, runtime_root, ["npm", "ci"])
+        # The Provider watcher needs the runtime's npm dependencies; the Go host is used from source via go.work.
+        _run_dev_command(root, spec, image, paths, runtime_root, ["npm", "ci"])
         _run_dev_command(root, spec, image, paths, root,
                          ["make", "api-generate-go", "GO_PREPARE_MODE=system", "NODE_PREPARE_MODE=system"])
-    from .runtime_tool import publish_runtime_tool
-    if tool_input:
-        runtime_tool_sha = publish_runtime_tool(Path(tool_input), paths["root"], self_contained=True)
-    else:
-        _run_dev_command(root, spec, image, paths, runtime_root, ["npm", "run", "build"])
-        runtime_tool_sha = publish_runtime_tool(runtime_root, paths["root"])
-    atomic_json(marker, {"schemaVersion": 1, "toolchainSha256": digest, "inputsSha256": inputs,
-                         "runtimeToolSha256": runtime_tool_sha})
+    atomic_json(marker, {"schemaVersion": 1, "toolchainSha256": digest, "inputsSha256": inputs})
     return {"image": image, "toolchainSha256": digest, "inputsSha256": inputs,
             "imageBuilt": image_built, "dependenciesChanged": dependencies_changed}
 
@@ -434,7 +424,9 @@ def _development_inputs_digest(root: Path, spec: dict[str, Any]) -> str:
         "webPackage": sha256_file(root / "web/package.json"), "webLock": sha256_file(root / "web/package-lock.json"),
         "runtimePackage": sha256_file(runtime_root / "package.json"),
         "runtimeLock": sha256_file(runtime_root / "package-lock.json"),
-        "goMod": sha256_file(root / "go.mod"), "goSum": sha256_file(root / "go.sum"), "api": sha256_bytes(api_bytes),
+        "goMod": sha256_file(root / "go.mod"), "goSum": sha256_file(root / "go.sum"),
+        "runtimeGoMod": sha256_file(runtime_root / "go.mod"), "runtimeGoSum": sha256_file(runtime_root / "go.sum"),
+        "api": sha256_bytes(api_bytes),
     }))
 
 

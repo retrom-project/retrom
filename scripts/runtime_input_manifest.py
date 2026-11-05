@@ -1,4 +1,4 @@
-"""One checked-in identity for the paired offline runtime tool and Providers."""
+"""One checked-in identity for the paired Providers of a runtime release; go.mod pins the host module."""
 from __future__ import annotations
 
 import json
@@ -16,7 +16,8 @@ except ImportError:
 REPOSITORY = "https://github.com/retrom-project/retrom-runtime"
 DIGEST = re.compile(r"[0-9a-f]{64}")
 TAG = re.compile(r"v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-rc\.[1-9][0-9]*)?")
-MANIFEST_KEYS = {"schemaVersion", "repository", "sourceTreeSha256", "release", "tool", "providers"}
+MANIFEST_KEYS = {"schemaVersion", "repository", "sourceTreeSha256", "release", "providers"}
+MODULE = "github.com/retrom-project/retrom-runtime"
 PROVIDER_KEYS = INSTALL_RECORD_KEYS | {"chunkManifest", "moduleSha256"}
 MAX_METADATA = 1024 * 1024
 
@@ -34,7 +35,7 @@ def release_identity(value: Any) -> bool:
 
 def validate_manifest(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != MANIFEST_KEYS or type(value["schemaVersion"]) is not int or \
-            value["schemaVersion"] != 1 or value["repository"] != REPOSITORY or not digest(value["sourceTreeSha256"]):
+            value["schemaVersion"] != 2 or value["repository"] != REPOSITORY or not digest(value["sourceTreeSha256"]):
         raise ValueError("RUNTIME_INPUT_MANIFEST_INVALID")
     release = value["release"]
     if release is not None and not release_identity(release):
@@ -57,11 +58,6 @@ def validate_manifest(value: Any) -> dict[str, Any]:
     versions = {provider["providerVersion"] for provider in providers}
     if len(versions) != 1 or release is not None and versions != {release["tag"][1:]}:
         raise ValueError("RUNTIME_INPUT_VERSION_INVALID")
-    tool = value["tool"]
-    if not isinstance(tool, dict) or set(tool) != {"archive", "sizeBytes", "sha256"} or \
-            tool["archive"] != f"retrom-runtime-host-tool-{next(iter(versions))}.tar.gz" or \
-            type(tool["sizeBytes"]) is not int or not 0 < tool["sizeBytes"] <= 8 * 1024**3 or not digest(tool["sha256"]):
-        raise ValueError("RUNTIME_INPUT_TOOL_INVALID")
     return value
 
 
@@ -75,6 +71,22 @@ def manifest_bytes(value: dict[str, Any]) -> bytes:
     return (json.dumps(validate_manifest(value), ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode()
 
 
-def artifact_records(value: dict[str, Any]) -> list[dict[str, Any]]:
-    """Whole archives fetched by Python; Provider chunks belong to `retrom providers sync`."""
-    return [value["tool"]]
+def module_version(go_mod: str) -> str:
+    """The runtime host module version that go.mod requires."""
+    found = []
+    for line in go_mod.splitlines():
+        parts = line.split()
+        if parts[:1] == [MODULE] and len(parts) >= 2:
+            found.append(parts[1])
+        elif parts[:2] == ["require", MODULE] and len(parts) >= 3:
+            found.append(parts[2])
+    if len(found) != 1:
+        raise ValueError("RUNTIME_INPUT_MODULE_REQUIRED")
+    return found[0]
+
+
+def check_module_pin(manifest: dict[str, Any], go_mod: str) -> None:
+    """A formal Provider pin and the embedded host module come from the same immutable release tag."""
+    version = module_version(go_mod)
+    if manifest["release"] is not None and version != manifest["release"]["tag"]:
+        raise ValueError("RUNTIME_INPUT_MODULE_MISMATCH")

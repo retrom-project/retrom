@@ -1,10 +1,10 @@
-"""Digest explicit paired source, self-contained host tool and verified Provider inputs."""
+"""Digest explicit source, the pinned host module and verified Provider inputs."""
 import argparse
 import hashlib
 import json
 import os
 from pathlib import Path
-from runtime_input_manifest import load_manifest, manifest_bytes
+from runtime_input_manifest import check_module_pin, load_manifest, manifest_bytes
 from runtime_inputs import prepare, verify_prepared
 from runtime_provider_cache import default_cache_root
 
@@ -43,37 +43,31 @@ def tree_digest(directory: Path, selected: list[str] | None = None, *, generated
     return digest.hexdigest()
 
 
-def inputs() -> tuple[Path, Path, Path]:
+def inputs() -> tuple[Path, Path]:
     manifest_path = ROOT / "data/runtime-inputs.json"
     manifest = load_manifest(manifest_path)
-    tool_value, providers_value = (os.environ.get(key, "") for key in ("RETROM_RUNTIME_TOOL_INPUT", "RETROM_PROVIDER_INPUT"))
-    if bool(tool_value) != bool(providers_value):
-        raise ValueError("IMAGE_INPUT_PAIRED_DIRECTORIES_REQUIRED")
-    if tool_value:
-        tool, providers = Path(tool_value).resolve(), Path(providers_value).resolve()
-        if tool.name != "tool" or providers.name != "providers" or tool.parent != providers.parent:
+    check_module_pin(manifest, (ROOT / "go.mod").read_text(encoding="utf-8"))
+    providers_value = os.environ.get("RETROM_PROVIDER_INPUT", "")
+    if providers_value:
+        providers = Path(providers_value).resolve()
+        if providers.name != "providers":
             raise ValueError("IMAGE_INPUT_PREPARED_SET_REQUIRED")
-        verify_prepared(tool.parent, manifest)
+        verify_prepared(providers.parent, manifest)
     else:
         archive_root = os.environ.get("RETROM_RUNTIME_INPUT_ARCHIVE_ROOT")
         prepared = prepare(manifest_path, ROOT / ".cache/runtime-inputs", default_cache_root(ROOT),
                            archive_root=Path(archive_root) if archive_root else None,
                            base_url=os.environ.get("RETROM_RUNTIME_INPUT_BASE_URL", ""))
-        tool, providers = prepared / "tool", prepared / "providers"
-    return tool, providers, Path(os.environ.get("RETROM_DEPENDENCY_ROOT", ROOT / "data")).resolve()
+        providers = prepared / "providers"
+    return providers, Path(os.environ.get("RETROM_DEPENDENCY_ROOT", ROOT / "data")).resolve()
 
 
 def value() -> dict[str, object]:
-    tool, _, dependencies = inputs()
-    package = json.loads((tool / "package.json").read_text())
-    if not (tool / "scripts/runtime-cli.mjs").is_file() or not (tool / "dist/runtime/index.js").is_file():
-        raise ValueError("IMAGE_RUNTIME_TOOL_INCOMPLETE")
-    if not package.get("dependencies") or not (tool / "node_modules").is_dir():
-        raise ValueError("IMAGE_RUNTIME_DEPENDENCIES_INCOMPLETE")
+    _, dependencies = inputs()
     source_roots = ["Dockerfile", ".dockerignore", "go.mod", "go.sum", "api", "cmd", "internal", "migrations",
                     "scripts/openapi-bundle", "scripts/build-image.sh", "scripts/image_input_digest.py",
                     "scripts/prepare_image_inputs.py", "scripts/runtime_inputs.py", "scripts/runtime_input_manifest.py",
-                    "scripts/runtime_input_transport.py", "scripts/runtime_input_archive.py",
+                    "scripts/runtime_input_transport.py",
                     "scripts/runtime_provider_bundle.py", "scripts/runtime_provider_contract.py", "scripts/runtime_provider_io.py",
                     "scripts/runtime_provider_sync.py",
                     "web/Dockerfile", "web/.dockerignore", "web/package.json",
@@ -81,11 +75,11 @@ def value() -> dict[str, object]:
                     "web/postcss.config.mjs", "web/proxy.ts", "web/app", "web/features", "web/components",
                     "web/lib", "web/styles", "web/public", "web/e2e", "web/scripts", "web/eslint.config.mjs",
                     "web/next.config.test.ts", "web/playwright.config.ts", "web/vitest.config.ts", "web/vitest.setup.ts"]
+    # go.mod/go.sum pin the embedded host module; Providers are not in the image, the pinned
+    # runtime-inputs.json fixes their chunks.
     return {"schemaVersion": 1, "sourceSha256": tree_digest(ROOT, source_roots, generated_go=True),
             "webBackendOrigin": os.environ.get("NEXT_BACKEND_ORIGIN", "http://retrom:8080"),
             "runtimeInputsSha256": hashlib.sha256(manifest_bytes(load_manifest(ROOT / "data/runtime-inputs.json"))).hexdigest(),
-            # Providers are not in the image; the pinned runtime-inputs.json above fixes their chunks.
-            "runtimeToolSha256": tree_digest(tool),
             "dependencySha256": tree_digest(dependencies, ["auth/password-blocklists"])}
 
 
@@ -95,9 +89,8 @@ def main() -> None:
     args = parser.parse_args()
     result = value()
     if args.check:
-        tool, _, _ = inputs()
-        verify_prepared(tool.parent, load_manifest(ROOT / "data/runtime-inputs.json"),
-                        node=os.environ.get("RETROM_NODE", "node"))
+        providers, _ = inputs()
+        verify_prepared(providers.parent, load_manifest(ROOT / "data/runtime-inputs.json"))
     encoded = json.dumps(result, sort_keys=True, separators=(",", ":")).encode()
     print(hashlib.sha256(encoded).hexdigest())
 

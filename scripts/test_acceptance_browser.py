@@ -42,9 +42,11 @@ class BrowserAcceptanceBoundaryTests(unittest.TestCase):
         self.assertIn('"PLAYWRIGHT_JSON_OUTPUT_FILE": str(evidence / "playwright-results.json")', source)
         self.assertIn('"project":project or "all"', source)
 
-    def test_tool_and_provider_inputs_have_no_old_release_default(self):
+    def test_provider_inputs_have_no_old_release_default_and_no_host_tool(self):
         source = (ROOT / "scripts/acceptance/browser.py").read_text()
-        self.assertIn("RETROM_RUNTIME_TOOL_INPUT", source)
+        self.assertNotIn("RETROM_RUNTIME_TOOL_INPUT", source)
+        self.assertNotIn("RETROM_RUNTIME_ROOT", source)
+        self.assertIn('"GOWORK": inputs["goWork"]', source)
         self.assertIn("RETROM_PROVIDER_INPUT", source)
         self.assertIn("image_input_digest.py", source)
         self.assertNotIn("runtime-provider-prepare-auto", source)

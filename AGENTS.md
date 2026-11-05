@@ -14,7 +14,7 @@ Retrom 是通用游戏平台。方案设计、性能优化和问题修复必须�
 
 Go位于cmd/internal/migrations，Web位于web，契约位于api，长期文档位于docs。workspace/manifest.yaml拥有依赖仓库和维护branch。每个仓库独立Git；PFB内修改本PFB源码，禁止通过旧checkout或另一PFB源码参与执行。
 
-cmd/retrom只组装资源与生命周期。HTTP处理认证、验证与响应，只调用service，不能越过公开Repository读取SQL。model/format是纯事实与解析；persistence拥有SQL和短事务；storage拥有POSIX文件；temporary拥有窄Redis能力；runtimeclient是唯一Host进程调用边界。基础层不依赖业务，runtime/存档不依赖导入服务。
+cmd/retrom只组装资源与生命周期。HTTP处理认证、验证与响应，只调用service，不能越过公开Repository读取SQL。model/format是纯事实与解析；persistence拥有SQL和短事务；storage拥有POSIX文件；temporary拥有窄Redis能力；runtimeclient是唯一runtime宿主模块调用边界（进程内Go模块，不启动Node或子进程服务）。基础层不依赖业务，runtime/存档不依赖导入服务。
 
 产品八模块为游戏库（含收藏）、存档、最近、运行依赖、目录、审核（含游戏导入）、标签、用户。扫描进度、运行和文件维护不发展成第九个业务中心。只保存20业务表当前事实，禁止FK/CHECK/TRIGGER/VIEW以及通用Job/Event/Input/Lease模型。禁止partial index（CREATE INDEX … WHERE），状态等谓词不得写进索引定义；“仅一条活动记录”用可空槽列（活动为1、退休为NULL）参与普通唯一索引，写入时同步维护。目录和核心关系不seed。
 
@@ -24,7 +24,7 @@ cmd/retrom只组装资源与生命周期。HTTP处理认证、验证与响应，
 
 ## 文件、事务与授权
 
-管理员选择的来源路径只读，所有运行使用受管副本。IO/Node准备事务外，短事务内只读写必要领域事实；Game+成功进度、BIOS+成功进度原子提交。提交结果不明按本次分配ID核对，不盲目重做。保存锁Game确认published后CAS；目录按普通查询允许已明确的低概率竞态，不扩成锁协议。
+管理员选择的来源路径只读，所有运行使用受管副本。IO/runtime准备事务外，短事务内只读写必要领域事实；Game+成功进度、BIOS+成功进度原子提交。提交结果不明按本次分配ID核对，不盲目重做。保存锁Game确认published后CAS；目录按普通查询允许已明确的低概率竞态，不扩成锁协议。
 
 User是唯一私有主体。管理员不越权读取其他人的save/favorite/recent。Origin精确保护、已登录CSRF、内网代理信任边界、密码blocklist/围栏、会话撤销和一次消费链接必须保留。Redis丢失不会注销PG身份；退出不清除未同步浏览器草稿。
 

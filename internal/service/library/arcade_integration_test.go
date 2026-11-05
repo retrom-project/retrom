@@ -163,11 +163,7 @@ func parentFixture(t *testing.T) (*Service, testsupport.Fixture, string) {
 	if err = f.Repository.CreateGame(t.Context(), f.Principal.User.ID, f.Game, 1000); err != nil {
 		t.Fatal(err)
 	}
-	node := filepath.Join(os.Getenv("NODE_HOME"), "bin", "node")
-	if os.Getenv("NODE_HOME") == "" {
-		node = "node"
-	}
-	client, err := runtimeclient.Open(t.Context(), os.Getenv("RETROM_RUNTIME_TOOL_INPUT"), node, os.Getenv("RETROM_PROVIDER_INPUT"))
+	client, err := runtimeclient.Open(t.Context(), os.Getenv("RETROM_PROVIDER_INPUT"))
 	if err != nil {
 		t.Fatal(err)
 	}

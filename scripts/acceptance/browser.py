@@ -72,45 +72,48 @@ def warm_browser_routes(origin: str, processes: list[subprocess.Popen], deadline
 
 
 def prepare() -> dict[str, str]:
-    required = ("RETROM_TEST_DATABASE_URL", "RETROM_RUNTIME_TOOL_INPUT", "RETROM_PROVIDER_INPUT")
+    required = ("RETROM_TEST_DATABASE_URL", "RETROM_PROVIDER_INPUT")
     if any(not os.environ.get(key) for key in required):
         raise ValueError("acceptance requires " + ", ".join(required))
-    tool = Path(os.environ["RETROM_RUNTIME_TOOL_INPUT"]).resolve()
     providers = Path(os.environ["RETROM_PROVIDER_INPUT"]).resolve()
     node = str(Path(os.environ.get("NODE_HOME", ROOT / ".cache/tools/node-v24.22.1-linux-x64")) / "bin/node")
     if not Path(node).is_file():
         raise ValueError("the pinned Node.js toolchain must be prepared")
-    environment = {**os.environ, "RETROM_NODE": node}
     if os.environ.get("RETROM_ACCEPTANCE_PFB"):
-        return prepare_pfb(tool, providers, node)
+        return prepare_pfb(providers, node)
     digest = subprocess.check_output(
-        [sys.executable, str(ROOT / "scripts/image_input_digest.py"), "--check"],
-        cwd=ROOT, env=environment, text=True,
+        [sys.executable, str(ROOT / "scripts/image_input_digest.py"), "--check"], cwd=ROOT, text=True,
     ).strip()
-    return {"tool": str(tool), "providers": str(providers), "node": node, "inputDigest": digest}
+    return {"providers": str(providers), "node": node, "inputDigest": digest, "goWork": "off"}
 
 
-def prepare_pfb(tool: Path, providers: Path, node: str) -> dict[str, str]:
-    # PFB uses verified candidate bytes and an immutable tool; the formal image gate remains separate.
+def prepare_pfb(providers: Path, node: str) -> dict[str, str]:
+    # PFB uses verified candidate bytes and this PFB's runtime host module; the formal image gate remains separate.
     sys.path.insert(0, str(ROOT))
     sys.path.insert(0, str(ROOT / "scripts"))
     from scripts.pfb.spec import load_spec
-    from scripts.pfb.runtime_tool import verify_runtime_tool
     from scripts.pfb.cli import _validate_provider_base
     from scripts.image_input_digest import tree_digest
     spec = load_spec(ROOT)
     workspace = ROOT / ".pfb/workspace"
     if spec["name"] != os.environ["RETROM_ACCEPTANCE_PFB"] or spec["runtime"]["mode"] != "branch":
         raise ValueError("acceptance PFB does not match this checkout")
-    verified_tool = verify_runtime_tool(Path(spec["runtime"]["root"]), workspace)
-    if tool != verified_tool or providers != (workspace / "providers").resolve():
-        raise ValueError("acceptance requires this PFB's tool and Providers")
+    if providers != (workspace / "providers").resolve():
+        raise ValueError("acceptance requires this PFB's Providers")
+    runtime = Path(spec["runtime"]["root"]).resolve()
     active = _validate_provider_base(providers / "active.json", providers / "installed")
-    value = {"pfbId": spec["id"], "toolSha256": tool.name, "providers": active,
-        "sourceSha256": tree_digest(ROOT, ["api", "cmd", "internal", "migrations", "web/app", "web/features",
-            "web/components", "web/lib", "web/styles", "web/e2e", "web/scripts"], generated_go=True)}
+    value = {"pfbId": spec["id"], "providers": active,
+        "runtimeHostSha256": tree_digest(runtime, ["go.mod", "go.sum", "facts.go", "host", "src/runtime",
+            "assets/facts"]),
+        "sourceSha256": tree_digest(ROOT, ["go.mod", "go.sum", "api", "cmd", "internal", "migrations", "web/app",
+            "web/features", "web/components", "web/lib", "web/styles", "web/e2e", "web/scripts"], generated_go=True)}
     digest = hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    return {"tool": str(tool), "providers": str(providers), "node": node, "inputDigest": digest}
+    go_version = next(line.split()[1] for line in (ROOT / "go.mod").read_text(encoding="utf-8").splitlines()
+                      if line.startswith("go "))
+    work = workspace / "acceptance/go.work"
+    work.parent.mkdir(parents=True, exist_ok=True)
+    work.write_text(f"go {go_version}\n\nuse (\n\t{ROOT}\n\t{runtime}\n)\n", encoding="utf-8")
+    return {"providers": str(providers), "node": node, "inputDigest": digest, "goWork": str(work)}
 
 
 def source_fixture(directory: Path, marker: str) -> str:
@@ -194,15 +197,15 @@ def run_browser() -> int:
         )
         redis_created = True
         binary = data / "retrom"
-        subprocess.run(["go", "build", "-o", str(binary), "./cmd/retrom"], cwd=ROOT, check=True)
+        subprocess.run(["go", "build", "-o", str(binary), "./cmd/retrom"], cwd=ROOT, check=True,
+                       env={**os.environ, "GOWORK": inputs["goWork"]})
         node_home = str(Path(inputs["node"]).parents[1])
         environment = {**os.environ, "PATH": node_home + "/bin:" + os.environ["PATH"],
             "RETROM_MODE": "release", "RETROM_DATABASE_URL": database_url,
             "RETROM_PFB_ID": "browser-" + marker, "RETROM_REDIS_ADDR": f"127.0.0.1:{redis_port}",
             "RETROM_HTTP_ADDR": f"127.0.0.1:{backend_port}", "RETROM_PUBLIC_ORIGIN": web_origin,
             "RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE": f"http://{{runId}}.rpg.localhost:{backend_port}",
-            "RETROM_DATA_DIR": str(data / "data"), "RETROM_RUNTIME_ROOT": inputs["tool"],
-            "RETROM_PROVIDER_ROOT": inputs["providers"], "RETROM_NODE": inputs["node"],
+            "RETROM_DATA_DIR": str(data / "data"), "RETROM_PROVIDER_ROOT": inputs["providers"],
             "RETROM_DEPENDENCY_ROOT": os.environ.get("RETROM_DEPENDENCY_ROOT", str(ROOT / "data")),
             "NEXT_BACKEND_ORIGIN": backend_origin, "NEXT_WEB_E2E": "true", "NEXT_DIST_DIR": ".next",
             "RETROM_WEB_ORIGIN": web_origin, "RETROM_BROWSER_SOURCE_PATH": str(data / "sources" / "browser"),

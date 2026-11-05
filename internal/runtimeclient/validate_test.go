@@ -1,31 +1,36 @@
 package runtimeclient
 
 import (
+	"context"
 	"encoding/json"
-	"os"
-	"path/filepath"
+	"reflect"
 	"testing"
 )
 
+type identityHost struct{}
+
+func (identityHost) Call(_ context.Context, command string, input []byte) (json.RawMessage, error) {
+	var request struct {
+		Items []struct {
+			Directory map[string]any `json:"directory"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(input, &request); err != nil {
+		return nil, err
+	}
+	valid := command == "batch-identity" && len(request.Items) == 1 && reflect.DeepEqual(request.Items[0].Directory,
+		map[string]any{
+			"platformId": "platform", "defaultCoreId": "multi-target",
+			"allowedCoreIds": []any{"multi-target", "another-core"},
+		})
+	if valid {
+		return json.RawMessage(`[{"error":""}]`), nil
+	}
+	return json.RawMessage(`[{"error":"RUNTIME_CORE_UNAVAILABLE"}]`), nil
+}
+
 func TestValidatePassesEachPlatformCoreOnceAcrossMultipleTargets(t *testing.T) {
-	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "scripts"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	script := `import json, sys
-for line in sys.stdin:
-    request=json.loads(line)
-    directory=request['input']['items'][0]['directory']
-    valid=(request['command']=='batch-identity' and directory=={
-        'platformId':'platform', 'defaultCoreId':'multi-target',
-        'allowedCoreIds':['multi-target', 'another-core']})
-    result=[{'error':'' if valid else 'RUNTIME_CORE_UNAVAILABLE'}]
-    print(json.dumps({'id':request['id'],'result':result}), flush=True)
-`
-	if err := os.WriteFile(filepath.Join(root, "scripts/runtime-cli.mjs"), []byte(script), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	pool := newWorkerPool(t.Context(), root, "python3")
+	pool := newHostPool(t.Context(), identityHost{})
 	t.Cleanup(pool.Close)
 	client := &Client{pool: pool, Bindings: []Binding{
 		{CoreID: "unrelated", PlatformIDs: []string{"another-platform"}},

@@ -1,6 +1,6 @@
 # 配套运行输入
 
-`workspace/manifest.yaml`拥有源码仓库、维护 branch 和依赖边。构建、默认依赖准备和 CI 的唯一配套权威是版本控制的 `data/runtime-inputs.json`，包括实际 runtime 源码树摘要、两个 Provider 的 bundle 身份与分块清单，以及自足 host-tool 的归档名、字节数、SHA256。Provider 和工具必须来自同一次真实源码捕获，不能用版本字段推断配套关系。
+`workspace/manifest.yaml`拥有源码仓库、维护 branch 和依赖边。构建、默认依赖准备和 CI 的唯一配套权威是版本控制的 `data/runtime-inputs.json`（schema 2），包括实际 runtime 源码树摘要和两个 Provider 的 bundle 身份与分块清单；后端嵌入的 runtime 宿主 Go 模块由 `go.mod`/`go.sum` 固定。正式描述的发行 tag 必须等于 `go.mod` 中 `github.com/retrom-project/retrom-runtime` 的版本，Provider 与宿主模块来自同一次正式发行，不能用版本字段之外的推断配套。
 
 ## 正式依赖准备与升级
 
@@ -8,7 +8,7 @@
 
 runtime Release 只以内容寻址的分块发布 Provider：每个 Provider 一份分块清单 `<providerId>-chunks-<版本>.json` 和若干 `<providerId>-chunk-<chunkId>.tar.gz`，不发布 Provider 整包。`bundleSha256` 是 bundle 中 `integrity.json` 的 SHA256；`chunkId` 只由分块内文件的路径、大小和 SHA256 决定，内容不变的核心在不同版本中保持同一分块。
 
-`make runtime-provider-pin-release TAG=<runtime-release-tag>` 先下载该发行的 `runtime-inputs.json`，验证 host-tool 归档和两个 Provider 的全部分块，再更新仓库 pin；验证过的分块留在共享缓存中。默认下载地址由描述中的真实 repository/tag 派生；`RETROM_RUNTIME_INPUT_BASE_URL` 可指定镜像源，只改变运输地址。后续依赖发布同样通过该入口固定，不手工替换摘要或覆盖旧标签。
+`make runtime-provider-pin-release TAG=<runtime-release-tag>` 先下载该发行的 `runtime-inputs.json`，验证两个 Provider 的全部分块，再以 `go get` 把宿主模块固定到同一 tag，最后更新仓库 pin；验证过的分块留在共享缓存中。默认下载地址由描述中的真实 repository/tag 派生；`RETROM_RUNTIME_INPUT_BASE_URL` 可指定镜像源，只改变运输地址。后续依赖发布同样通过该入口固定，不手工替换摘要或覆盖旧标签。
 
 ```sh
 make prepare-deps runtime-provider-prepare
@@ -30,18 +30,18 @@ make prepare-deps runtime-provider-prepare
 
 ## 身份与校验
 
-源码摘要复用 runtime 的 `scripts/provider-release.mjs:sourceTreeSha256`：Git 列出 tracked 与非 ignored untracked 文件，跳过实际已删除项，按 UTF8 路径排序；每项记录 path、Git mode 和实际内容 SHA256（symlink 记录链接目标字节），再对 canonical JSON 计算 SHA256。ignored 构建产物、node_modules 和验收缓存不进入该边界。构建描述、tool 的 host-tool.json、两个 Provider provenance 都必须与同次捕获相等。
+源码摘要复用 runtime 的 `scripts/provider-release.mjs:sourceTreeSha256`：Git 列出 tracked 与非 ignored untracked 文件，跳过实际已删除项，按 UTF8 路径排序；每项记录 path、Git mode 和实际内容 SHA256（symlink 记录链接目标字节），再对 canonical JSON 计算 SHA256。ignored 构建产物、node_modules 和验收缓存不进入该边界。构建描述与两个 Provider provenance 都必须与同次捕获相等。
 
 分块的下载、校验、组装、标记与清理只有一套实现：`internal/providersync`，命令行为 `cmd/retrom-providers sync|verify|gc`（镜像内为 `retrom providers …`，同一代码）。后端启动直接调用它；准备脚本、PFB 候选安装、缓存导入和镜像验证通过同一命令完成，Python 不重复实现。分块清单按 pin 中的摘要校验，可来自镜像源、本地目录或已验证的本地副本；本地种子只有在逐文件 SHA256 与清单一致时才会被链接。
 
-准备先校验 host-tool 归档的大小和 SHA256，再解包无链接的自足工具，并由上述命令安装 Provider。工具实际路径、内容、大小及可执行位逐项匹配认证归档；Provider 的 `integrity.json` 摘要必须等于 pin 中的 `bundleSha256`，再校验全部文件、manifest、闭包、module、来源和 Target 指纹。完整集合原子发布，重复准备仍重新校验。损坏或来源错配不会发布集合。
+准备由上述命令安装 Provider：Provider 的 `integrity.json` 摘要必须等于 pin 中的 `bundleSha256`，再校验全部文件、manifest、闭包、module、来源和 Target 指纹。准备集合只含 `runtime-inputs.json` 与 `providers/`，完整集合原子发布，重复准备仍重新校验。损坏或来源错配不会发布集合。
 
 `make runtime-provider-prepare` 与 `scripts/prepare_image_inputs.py` 执行同一准备链。镜像构建前后计算配套输入摘要；维护 branch、源码摘要、pin 摘要、实际 module 和 Target 指纹分别记录，不能互相冒充。DAT 文件的发行身份只描述事实素材来源，不选择当前运行 Provider；依赖导出不再携带另一份 tag-only 运行 pin。
 
 ## 开发候选
 
-日常 PFB 使用标准 watcher 与显式已验证基座。未发布的候选描述明确 `release:null`，使用 `RETROM_RUNTIME_INPUT_ARCHIVE_ROOT` 指向 runtime 候选构建的 `release/` 目录，或 `RETROM_RUNTIME_INPUT_BASE_URL` 指向 HTTPS（或本机回环 HTTP）运输根；其下是 host-tool 归档、两份分块清单与全部分块的 basename。`make runtime-provider-prepare-candidate RETROM_PROVIDER_CANDIDATE_ROOT=<release 目录>` 在暂存目录组装并通过升级规则后才替换当前开发 Provider，被拒绝的候选不改变现有安装。运输地址不决定身份，所有摘要仍由选定描述决定。
+日常 PFB 使用标准 watcher 与显式已验证基座。未发布的候选描述明确 `release:null`，使用 `RETROM_RUNTIME_INPUT_ARCHIVE_ROOT` 指向 runtime 候选构建的 `release/` 目录，或 `RETROM_RUNTIME_INPUT_BASE_URL` 指向 HTTPS（或本机回环 HTTP）运输根；其下是两份分块清单与全部分块的 basename。`make runtime-provider-prepare-candidate RETROM_PROVIDER_CANDIDATE_ROOT=<release 目录>` 在暂存目录组装并通过升级规则后才替换当前开发 Provider，被拒绝的候选不改变现有安装。运输地址不决定身份，所有摘要仍由选定描述决定。
 
-候选材料只用于对应开发验收，不冒充已发布依赖。没有输入时明确失败，不下载历史版本作为默认替代。初次认证后，完整准备结果及共享分块缓存支持无运输输入的重复准备，不依赖原 PFB、runtime 源码路径或其 node_modules。`make runtime-provider-cache-import SOURCE_ROOT=<已准备集合>` 把其中的 host-tool 归档与全部分块离线导入共享缓存。
+候选材料只用于对应开发验收，不冒充已发布依赖。没有输入时明确失败，不下载历史版本作为默认替代。初次认证后，完整准备结果及共享分块缓存支持无运输输入的重复准备，不依赖原 PFB 或 runtime 源码路径。`make runtime-provider-cache-import SOURCE_ROOT=<已准备集合>` 把其中的全部分块离线导入共享缓存。
 
 逐核心产品验证要求见[运行产品验证边界](core-runtime-validation.md)，完整检查标准见[项目验收](project-acceptance.md)。执行结果随对应 CI、PR、Release 或本地报告提供，发布版本不表示全部 ROM 或存档场景已经验证。

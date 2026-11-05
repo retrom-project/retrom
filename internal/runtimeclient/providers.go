@@ -220,3 +220,16 @@ func (c *Client) targetNames() map[string]string {
 	}
 	return names
 }
+
+// providerVersion is the installed release shared by the paired Providers; it labels the catalog projection.
+func (c *Client) providerVersion() string {
+	versions := make([]string, 0, len(c.Providers))
+	for _, provider := range c.Providers {
+		versions = append(versions, provider.ProviderVersion)
+	}
+	sort.Strings(versions)
+	if len(versions) == 0 {
+		return ""
+	}
+	return versions[len(versions)-1]
+}

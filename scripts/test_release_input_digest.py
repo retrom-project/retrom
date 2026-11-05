@@ -24,10 +24,14 @@ class ProviderInputTests(unittest.TestCase):
         ignore = (SCRIPT.parent.parent / ".dockerignore").read_text(encoding="utf-8")
         # Providers are installed from chunks at startup; the image carries only their pin.
         self.assertNotIn("--from=providers", dockerfile)
-        self.assertIn("COPY --chmod=0444 data/runtime-inputs.json /opt/retrom/runtime-inputs.json", dockerfile)
+        self.assertIn("COPY data/runtime-inputs.json /layout/opt/retrom/runtime-inputs.json", dockerfile)
+        self.assertIn("chmod -R a=rX /layout/opt/retrom", dockerfile)
         self.assertIn("RETROM_PROVIDER_INPUTS=/opt/retrom/runtime-inputs.json", dockerfile)
         self.assertIn("RETROM_PROVIDER_ROOT=/var/lib/retrom/providers", dockerfile)
-        self.assertIn("COPY --from=runtime-tool", dockerfile)
+        # The host module is compiled into the backend: no host tool, no Node base image.
+        self.assertNotIn("runtime-tool", dockerfile)
+        self.assertNotIn("FROM node", dockerfile)
+        self.assertIn("FROM gcr.io/distroless/static-debian12:nonroot@sha256:", dockerfile)
         self.assertNotIn("rpg-runtime/registry", dockerfile)
         for mutable in ("active.json", "candidate-active.json", "installed", "cache", "archive"):
             self.assertIn(f"data/runtime-providers/{mutable}", ignore)
@@ -49,7 +53,7 @@ class ProviderInputTests(unittest.TestCase):
     def test_release_digest_tracks_the_complete_pin_without_reading_pfb_state(self) -> None:
         with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
             root = Path(temporary)
-            pin, _, manifest, _ = paired_fixture(root, formal=False)
+            pin, _, manifest = paired_fixture(root, formal=False)
             config = root / "data/runtime-inputs.json"
             config.parent.mkdir(parents=True)
             config.write_bytes(pin.read_bytes())

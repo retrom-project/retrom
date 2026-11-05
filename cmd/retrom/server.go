@@ -77,13 +77,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	runtime,
-		err := runtimeclient.Open(ctx,
-		environment("RETROM_RUNTIME_ROOT",
-			"../retrom-runtime"),
-		environment("RETROM_NODE",
-			"node"),
-		providerRoot, openOptions...)
+	runtime, err := runtimeclient.Open(ctx, providerRoot, openOptions...)
 	if err != nil {
 		return fmt.Errorf("initialize runtime facts: %w", err)
 	}

@@ -204,7 +204,6 @@ data-check:
 	@python3 -m unittest scripts.test_pfb_upstream_sync
 	@python3 -m unittest scripts.test_pfb_init
 	@python3 -m unittest scripts.test_pfb_data_reset
-	@python3 scripts/test_pfb_runtime_tool.py
 	@python3 scripts/test_pfb_server_data.py
 	@python3 scripts/test_runtime_origin_topology.py
 	@python3 scripts/test_prepare_toolchains.py
@@ -229,8 +228,8 @@ data-check:
 	@python3 scripts/test_release_input_digest.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 
-runtime-provider-prepare: prepare-node
-	@PATH="$(NODE_HOME)/bin:$$PATH" python3 scripts/prepare_image_inputs.py --output-root "$(RETROM_RUNTIME_INPUT_OUTPUT_ROOT)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)"
+runtime-provider-prepare:
+	@python3 scripts/prepare_image_inputs.py --output-root "$(RETROM_RUNTIME_INPUT_OUTPUT_ROOT)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)"
 
 runtime-provider-cache-import:
 	@test -n "$(SOURCE_ROOT)" || { echo 'SOURCE_ROOT is required' >&2; exit 2; }
@@ -242,9 +241,9 @@ runtime-provider-prepare-candidate:
 
 runtime-provider-check: runtime-provider-prepare
 
-runtime-provider-pin-release: prepare-node
+runtime-provider-pin-release: prepare-go
 	@test -n "$(TAG)" || { echo 'TAG is required (for example v0.47.0)' >&2; exit 2; }
-	@PATH="$(NODE_HOME)/bin:$$PATH" python3 scripts/runtime_provider_release.py --tag "$(TAG)" --manifest "$(abspath data/runtime-inputs.json)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)"
+	@python3 scripts/runtime_provider_release.py --tag "$(TAG)" --manifest "$(abspath data/runtime-inputs.json)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)"
 
 runtime-provider-verify-upgrade:
 	@test -n "$(RETROM_PROVIDER_CURRENT)" -a -n "$(RETROM_PROVIDER_CANDIDATE)" -a -n "$(RETROM_PROVIDER_CHECKPOINT_REFERENCES)" || { echo 'RETROM_PROVIDER_CURRENT, RETROM_PROVIDER_CANDIDATE and RETROM_PROVIDER_CHECKPOINT_REFERENCES are required' >&2; exit 2; }
@@ -312,7 +311,6 @@ dev: require-local-user prepare-local-postgres prepare-go api-generate-go web-in
 	 RETROM_DEPENDENCY_ROOT="$(RETROM_DEPENDENCY_ROOT)" \
 	 RETROM_DEPENDENCY_VERSIONS="$(RETROM_DEPENDENCY_VERSIONS)" \
 	 RETROM_ACTIVE_EMULATORJS_VERSION="$(RETROM_ACTIVE_EMULATORJS_VERSION)" \
-	 RETROM_NODE="$(NODE_HOME)/bin/node" \
 	 NEXT_DEV_HOST="$(NEXT_DEV_HOST)" \
 	 NEXT_DEV_PORT="$(NEXT_DEV_PORT)" \
 	 NEXT_BACKEND_ORIGIN="$(NEXT_BACKEND_ORIGIN)" \
@@ -366,8 +364,8 @@ pfb-migrate-storage pfb-remove pfb-destroy: require-local-user
 pfb-gateway-up pfb-gateway-down: require-local-user
 	@python3 -m scripts.pfb.cli "$(@:pfb-%=%)" --root "$(CURDIR)"
 
-build-backend-image: data-check prepare-node
-	@PATH="$(NODE_HOME)/bin:$$PATH" scripts/build-image.sh backend "$(BACKEND_IMAGE):$(IMAGE_TAG)" "$(RETROM_DEPENDENCY_VERSIONS)" "$(RETROM_ACTIVE_EMULATORJS_VERSION)" "$(DOCKER)"
+build-backend-image: data-check
+	@scripts/build-image.sh backend "$(BACKEND_IMAGE):$(IMAGE_TAG)" "$(RETROM_DEPENDENCY_VERSIONS)" "$(RETROM_ACTIVE_EMULATORJS_VERSION)" "$(DOCKER)"
 
 build-web-image: data-check prepare-node
 	@PATH="$(NODE_HOME)/bin:$$PATH" scripts/build-image.sh web "$(WEB_IMAGE):$(IMAGE_TAG)" "$(RETROM_DEPENDENCY_VERSIONS)" "$(RETROM_ACTIVE_EMULATORJS_VERSION)" "$(DOCKER)"

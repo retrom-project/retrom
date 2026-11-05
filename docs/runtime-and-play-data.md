@@ -2,7 +2,7 @@
 
 账户设置的“本浏览器存储”展示当前主站的占用估算，以及 Content I/O 已记录的缓存有效字节和项数。占用估算不保证精确磁盘大小，也不含所有游戏隔离子域的数据；MV/MZ通过主站内容桥加载的受管资源包含在内。手动清理只删除闲置、可重新下载的资源缓存，按对象分页并遵守跨标签使用锁；保留服务端存档、未同步草稿、原生保存目录、设置、登录和PWA应用壳。清理可停止，失败或占用时保留实际剩余数据并重新统计；后续运行会重新下载并校验被清理的资源。
 
-运行声明与规则归retrom-runtime，Go使用不可变完整runtime工具包。工具根含scripts/runtime-cli.mjs、dist/runtime/index.js及事实JSON/必要production依赖，不要求.git或相邻源码。Host用4个常驻Node worker按JSONL --serve调用同一公共execute模块，每worker一次请求；64MiB请求/响应有界，deadline包含排队，取消杀死并重建worker。没有持久队列、额外网络服务或授权状态。
+运行声明与规则归retrom-runtime，后端以 `go.mod` 固定的Go模块 `github.com/retrom-project/retrom-runtime/host` 在进程内执行，不启动Node或子进程服务。runtimeclient是唯一调用边界，按runtime的[宿主模块契约](https://github.com/retrom-project/retrom-runtime/blob/master/docs/host-module.md)维持两条有界FIFO通道：交互命令4个执行槽、最多32个已接受请求，`normalize-content` 2个执行槽、最多6个已接受请求；每条通道各有64MiB已接受JSON输入预算，超出立即返回 `RUNTIME_BUSY`。deadline包含排队；排队中取消不执行，运行中取消时调用方立即返回，执行槽保留到命令实际返回；模块内panic只使单请求失败。没有持久队列、额外网络服务或授权状态。
 
 目录保存管理员核心集与默认核心；runtime catalog提供平台友好名和唯一公共core ID，不自动建目录。Run以当前User登录态创建，默认核心不能静默替换不可用核心；saveId恢复由服务端先读本人save并选择原core，不能依赖浏览器重新指定默认值。
 

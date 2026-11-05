@@ -71,8 +71,8 @@ func writeRelease(t *testing.T, version string, cores map[string]string) fixture
 	manifestName := "fixture-chunks-" + version + ".json"
 	writeFile(t, filepath.Join(dir, manifestName), manifestRaw)
 	inputs := map[string]any{
-		"schemaVersion": 1, "repository": "https://github.com/retrom-project/retrom-runtime",
-		"sourceTreeSha256": strings.Repeat("a", 64), "release": nil, "tool": map[string]any{},
+		"schemaVersion": 2, "repository": "https://github.com/retrom-project/retrom-runtime",
+		"sourceTreeSha256": strings.Repeat("a", 64), "release": nil,
 		"providers": []ProviderRecord{{
 			BundleSHA256: digest(integrity), ChunkManifest: Asset{
 				Asset: manifestName, SHA256: digest(manifestRaw),
