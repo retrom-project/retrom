@@ -1,13 +1,16 @@
 package scans
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"time"
 
 	"retrom/internal/model"
 	"retrom/internal/persistence"
+	"retrom/internal/runtimeclient"
 )
 
 func (s *Service) prepareReplacement(ctx context.Context, task *replacementTask) error {
@@ -80,9 +83,9 @@ func (s *Service) buildReplacement(ctx context.Context, task *replacementTask,
 	if err != nil {
 		return model.PreparedGame{}, err
 	}
-	prepared, err := s.Runtime.Identity(ctx, directory, config, files, "")
+	config, prepared, err := s.retainedIdentity(ctx, directory, old.RuntimeConfig, config, files)
 	if err != nil {
-		return model.PreparedGame{}, wrap(err)
+		return model.PreparedGame{}, err
 	}
 	if err = s.replacementPhase(ctx, task, "packaging"); err != nil {
 		return model.PreparedGame{}, err
@@ -116,4 +119,24 @@ func (s *Service) finishReplacement(ctx context.Context, id string, files []mode
 	}
 	s.removePrepared(id, files)
 	return wrap(commitErr)
+}
+
+// Prefer the reviewer's saved entry and options; when runtime rejects them for
+// the new content, the newly configured defaults are used instead.
+func (s *Service) retainedIdentity(ctx context.Context, directory model.Directory, previous, config json.RawMessage,
+	files []model.ContentFile,
+) (json.RawMessage, runtimeclient.Identity, error) {
+	retained, err := retainReviewerSelections(previous, config, files)
+	if err != nil {
+		return nil, runtimeclient.Identity{}, err
+	}
+	prepared, err := s.Runtime.Identity(ctx, directory, retained, files, "")
+	if errors.Is(err, model.ErrInvalid) && !bytes.Equal(retained, config) {
+		retained = config
+		prepared, err = s.Runtime.Identity(ctx, directory, retained, files, "")
+	}
+	if err != nil {
+		return nil, runtimeclient.Identity{}, wrap(err)
+	}
+	return retained, prepared, nil
 }

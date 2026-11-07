@@ -11,9 +11,15 @@ type Props = {
   draft: boolean;
   controller: ReturnType<typeof usePlayerExit>;
   onGameEditor?: () => void;
+  // Present only after the game ended itself and its final data was synced.
+  onRestart?: () => void;
 };
+const endedDescription = "游戏已自行结束，结束时写入的数据已同步到存档。可以从这份存档重新启动游戏，或退出游戏返回。";
 export function PlayerExitDialog(props: Props) {
-  const { immersive, native, available, draft, controller } = props;
+  const { immersive, native, available, draft, controller, onRestart } = props;
+  if (onRestart) {
+    return immersive ? <ImmersivePlayerMenu onGameEditor={undefined} open={controller.open} busy={controller.busy} description={endedDescription} saveLabel="重新启动游戏" saveDisabled={false} onCancel={() => void controller.cancel()} onSave={onRestart} onExit={() => void controller.confirm()} /> : <ConfirmDialog open={controller.open} title="游戏已结束" description="可以重新启动游戏继续游玩。" confirmLabel="退出游戏" tone="danger" leadingLabel="重新启动游戏" leadingBusy={controller.busy} onLeading={onRestart} onCancel={() => void controller.cancel()} onConfirm={() => void controller.confirm()} interactionDisabled={controller.busy}><span>{endedDescription}</span></ConfirmDialog>;
+  }
   const description = exitDescription(props);
   const saveLabel = draft ? "重试同步存档" : saveActionLabel(native, controller.saveState);
   const disabled = !draft && (!available || (!native && controller.saveState === "saved"));
