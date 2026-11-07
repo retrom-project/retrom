@@ -96,7 +96,13 @@ export function usePlayerExit({ runtime, immersive, native, hasDraft, saving, re
     }
     finally { checkpointWait.current = null; pending.current = false; setBusy(false); }
   }
-  return { open, active: open || busy, opening: busy && !open, busy: busy || saving, saveState, request, cancel, save, confirm };
+  function dismiss() {
+    if (pending.current || saving) { return false; }
+    setOpen(false);
+    setSaveState("idle");
+    return true;
+  }
+  return { open, active: open || busy, opening: busy && !open, busy: busy || saving, saveState, request, cancel, save, confirm, dismiss };
 }
 function focusGame() { document.querySelector<HTMLElement>(".player-runtime-mount canvas, .player-runtime-mount iframe")?.focus({ preventScroll: true }); }
 function message(failure: unknown, fallback: string) { return failure instanceof Error ? failure.message : fallback; }

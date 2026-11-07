@@ -109,11 +109,14 @@ function PlayerContent({
   const [menu, setMenu] = useState(false);
   const [saveChoice, setSaveChoice] = useState(false);
   const [restore, setRestore] = useState<RuntimeFinalSnapshotV1 | null>(null);
+  // A game that ends itself can be started again from the final data it wrote.
+  const [exitSnapshot, setExitSnapshot] = useState<RuntimeFinalSnapshotV1 | null>(null);
   const { commit } = saves;
   const requestExit = useCallback(
     (snapshot?: RuntimeFinalSnapshotV1) => {
       if (snapshot) {
         void commit(snapshot, null)
+          .then((committed) => { if (committed) { setExitSnapshot(snapshot); } })
           .catch((failure) =>
             reportError(
               failure instanceof Error ? failure.message : "无法保留退出存档。",
@@ -197,6 +200,10 @@ function PlayerContent({
     else if (runtime.current?.getState() === "PAUSED") {command(pause());}
   }
   function requestExitMenu() { setMenu(false); void exit.request(); }
+  function restartFrom(snapshot: RuntimeFinalSnapshotV1 | null, current: string) {
+    if (!snapshot || current !== "EXITED" || saves.draft || run.purpose === "review") { return undefined; }
+    return () => { if (exit.dismiss()) { setExitSnapshot(null); setRestore(snapshot); } };
+  }
   function showMenu() { hud.show(); if (immersive) { requestExitMenu(); } else { setMenu((value) => !value); } }
   const inputSuppressed = overlays.suppressInput;
   useRuntimeShortcuts({ runtime, state, immersive, suppressed: inputSuppressed, onMenu: showMenu, onPause: () => command(pause()), onError: reportError });
@@ -311,7 +318,7 @@ function PlayerContent({
         onReturn={requestExitMenu}
       />
 
-      {!editor.open ? <PlayerExitDialog immersive={immersive} native={native} available={availability.available} draft={!!saves.draft} controller={exit} onGameEditor={editor.editor ? () => void editor.show() : undefined} /> : null}
+      {!editor.open ? <PlayerExitDialog immersive={immersive} native={native} available={availability.available} draft={!!saves.draft} controller={exit} onGameEditor={editor.editor ? () => void editor.show() : undefined} onRestart={restartFrom(exitSnapshot, state)} /> : null}
       {editor.open && editor.editor ? <GameEditorPanel editor={editor.editor} immersive={immersive} native={native} onClose={editor.close} /> : null}
     </div>
   );
