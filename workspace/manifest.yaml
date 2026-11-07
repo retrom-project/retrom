@@ -68,7 +68,8 @@
         "mame2003_plus",
         "fbalpha2012_cps2",
         "parallel-n64",
-        "siglus-rs"
+        "siglus-rs",
+        "catsystem2-web"
       ]
     },
     {
@@ -645,6 +646,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/siglus_rs.git",
       "defaultBranch": "retrom/g5f358ef1360b",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "catsystem2-web",
+      "path": "project/retrom-core/catsystem2-web",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/catsystem2-web.git",
+      "defaultBranch": "main",
       "submodules": false,
       "dependsOn": []
     }
