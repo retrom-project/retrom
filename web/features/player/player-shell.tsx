@@ -63,6 +63,8 @@ export function PlayerShell({
   const run = useResource(loader);
   const orientation = usePlayerOrientation();
   const presentation = usePlayerPresentation(orientation);
+  // Portrait and a lost fullscreen share one gate: the same instance pauses until the display is restored.
+  const gate = {...orientation, portrait: orientation.blocked, blocked: orientation.blocked || presentation.lost};
   return (
     <ResourceState resource={run}>
       {(data) => (
@@ -71,7 +73,7 @@ export function PlayerShell({
           ownerId={ownerId}
           returnTo={returnTo}
           contentLoading={contentLoading}
-          orientation={orientation}
+          orientation={gate}
           presentation={presentation}
         />
       )}
@@ -87,7 +89,7 @@ function PlayerContent({
   presentation,
 }: {
   run: Schema<"Run">;
-  orientation: ReturnType<typeof usePlayerOrientation>;
+  orientation: ReturnType<typeof usePlayerOrientation> & {portrait: boolean};
   presentation: ReturnType<typeof usePlayerPresentation>;
   ownerId: string;
   returnTo: string;
@@ -278,7 +280,7 @@ function PlayerContent({
         }
       /> : null}
       <PlayerHudDismiss visible={hud.visible} enabled={overlays.surfaceDismissible} state={state} immersive={immersive} onDismiss={resumeFromSurface} />
-      <PlayerOrientationLayer blocked={orientation.blocked} known={orientation.known} attempting={presentation.attempting} exitActive={exit.active} title={envelope.session.title} state={state} immersive={immersive} settingsOpen={settings.open} onReturn={requestExitMenu} onResume={resumeFromSurface} />
+      <PlayerOrientationLayer blocked={orientation.blocked} portrait={orientation.portrait} known={orientation.known} presentation={presentation} exitActive={exit.active} title={envelope.session.title} state={state} immersive={immersive} settingsOpen={settings.open} onReturn={requestExitMenu} onResume={resumeFromSurface} />
       <PlayerDebugPanel open={debugOpen} runtime={runtime} envelope={envelope} state={state} onClose={() => setDebugOpen(false)} />
       <EmulatorSettingsLayer open={settings.open} mobile={mobile} capabilities={envelope.runtime.capabilities} volume={volume.volume} muted={volume.volume === 0} renderingMode={settings.mode} onHold={hud.show}
         onVolume={volume.change} onMute={() => { if (volume.volume) { unmutedVolume.current = volume.volume; volume.change(0); } else { volume.change(unmutedVolume.current); } }}
@@ -360,17 +362,36 @@ function playerOverlayState({ exit, menu, saveChoice, settings, debugOpen, edito
   };
 }
 
-function PlayerOrientationLayer({blocked, known, attempting, exitActive, title, state, immersive, settingsOpen, onReturn, onResume}: {
-  blocked: boolean; known: boolean; attempting: boolean; exitActive: boolean; title: string; state: string; immersive: boolean;
-  settingsOpen: boolean; onReturn: () => void; onResume: () => void;
+function PlayerOrientationLayer({blocked, portrait, known, presentation, exitActive, title, state, immersive, settingsOpen, onReturn, onResume}: {
+  blocked: boolean; portrait: boolean; known: boolean; presentation: ReturnType<typeof usePlayerPresentation>; exitActive: boolean; title: string;
+  state: string; immersive: boolean; settingsOpen: boolean; onReturn: () => void; onResume: () => void;
 }) {
   if (!blocked) {return <PlayerPauseOverlay state={state} immersive={immersive} settingsOpen={settingsOpen} onResume={onResume} />;}
-  return blocked && !exitActive ? <section className="player-orientation-gate" aria-label="横屏游玩提示">
+  if (exitActive) {return null;}
+  const {attempting, lockable} = presentation;
+  if (!portrait) {
+    return <section className="player-orientation-gate" aria-label="恢复全屏提示">
+        <p>已退出全屏</p>
+        <h1>游戏已暂停</h1>
+        <strong>{title}</strong>
+        <small>全屏显示被手势、切换应用或系统提示中断。恢复全屏后继续游戏，也可以保持当前显示继续。</small>
+        <div className="player-orientation-actions">
+          <button className="button" onClick={presentation.enter}>恢复全屏并继续</button>
+          <button className="button secondary" onClick={presentation.decline}>不全屏继续</button>
+          <button className="button secondary" onClick={onReturn}>返回并退出游戏</button>
+        </div>
+      </section>;
+  }
+  return <section className="player-orientation-gate" aria-label="横屏游玩提示">
         <div className="player-rotate-mark" aria-hidden="true"><span>↻</span></div>
         <p>横屏游玩</p>
         <h1>{!known ? "正在确认屏幕方向…" : attempting ? "正在尝试横屏全屏…" : "请将手机横屏后开始游戏"}</h1>
         <strong>{title}</strong>
-        <small>{attempting ? "正在调整显示方向，请稍候。" : "竖屏时游戏暂停并禁用操作。关闭手机的旋转锁定，再将手机横放即可继续。"}</small>
-        <button className="button secondary" onClick={onReturn}>返回并退出游戏</button>
-      </section> : null;
+        <small>{attempting ? "正在调整显示方向，请稍候。" : lockable ? "竖屏时游戏暂停并禁用操作。点击下方按钮自动横屏，或关闭手机的旋转锁定后将手机横放。"
+          : "竖屏时游戏暂停并禁用操作。关闭手机的旋转锁定，再将手机横放即可继续。"}</small>
+        <div className="player-orientation-actions">
+          {lockable && !attempting ? <button className="button" onClick={presentation.enter}>进入横屏全屏</button> : null}
+          <button className="button secondary" onClick={onReturn}>返回并退出游戏</button>
+        </div>
+      </section>;
 }

@@ -3,7 +3,7 @@ import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { test } from "./clean-refactor-fixtures";
 import type { Schema } from "../lib/api/types";
-import { ensurePlayerLandscape, nesFrame, nesPlayerCounter, sendNesInput } from "./nes-playback";
+import { ensurePlayerLandscape, nesFrame, nesPlayerCounter, sendNesInput, verifyPhoneFullscreenRecovery } from "./nes-playback";
 import { holdController, installStandardController, pressController, settleController } from "./immersive-gamepad";
 import { verifyScanControls } from "./scan-controls";
 import { verifyLoginReturn } from "./login-return";
@@ -119,6 +119,7 @@ test("shared review, real NES save and new-instance restore", async ({
   await expect(
     page.getByRole("button", { name: /^(创建存档|保存)$/u }),
   ).toBeEnabled({ timeout: 60_000 });
+  await verifyPhoneFullscreenRecovery(page);
   await revealPlayerControls(page);
   await verifyDesktopPlayerControls(page);
   await revealPlayerControls(page);

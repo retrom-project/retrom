@@ -1,4 +1,4 @@
-import { expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import type { Frame, Page } from "@playwright/test";
 
 type EmulatorWindow = Window & {
@@ -31,6 +31,9 @@ export async function ensurePlayerLandscape(page: Page) {
   if (await page.evaluate(() => /Android.*Mobile|iPhone|iPod/iu.test(navigator.userAgent) && !screen.orientation.type.startsWith("landscape"))) {
     await expect(page.getByRole("region", {name: "横屏游玩提示"})).toBeVisible();
     await expect(page.locator(".player-runtime-mount iframe")).toHaveCount(0);
+    // The automatic attempt settles first; the fallback then offers a trusted retry inside the prompt.
+    await expect(page.getByRole("region", {name: "横屏游玩提示"}).getByRole("button", {name: "进入横屏全屏", exact: true})).toBeVisible();
+    await page.screenshot({path: test.info().outputPath("player-portrait-prompt.png")});
     await page.setViewportSize({width: 844, height: 390});
     const protocol = await page.context().newCDPSession(page);
     await protocol.send("Emulation.setDeviceMetricsOverride", {width: 844, height: 390, mobile: true,
@@ -81,4 +84,22 @@ export async function sendNesInput(page: Page, frame: Frame) {
   const after = await nesPlayerCounter(frame);
   expect(after).toBeGreaterThan(0);
   return after;
+}
+
+/** A phone that drops out of fullscreen mid-play pauses behind an explicit restore prompt. */
+export async function verifyPhoneFullscreenRecovery(page: Page) {
+  if (!await page.evaluate(() => /Android.*Mobile|iPhone|iPod/iu.test(navigator.userAgent))) { return; }
+  await page.evaluate(() => document.exitFullscreen());
+  const prompt = page.getByRole("region", {name: "恢复全屏提示"});
+  await expect(prompt).toBeVisible();
+  await expect(page.locator(".player-stage")).toHaveAttribute("inert", "");
+  await expect.poll(() => page.evaluate(() => ({width: innerWidth, height: innerHeight}))).toEqual(page.viewportSize());
+  await page.screenshot({path: test.info().outputPath("player-fullscreen-lost.png")});
+  for (const name of ["恢复全屏并继续", "不全屏继续", "返回并退出游戏"]) {
+    await expect(prompt.getByRole("button", {name, exact: true})).toBeInViewport({ratio: 1});
+  }
+  await prompt.getByRole("button", {name: "恢复全屏并继续", exact: true}).click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
+  await expect(prompt).toHaveCount(0);
+  await expect(page.locator(".player-stage")).not.toHaveAttribute("inert", "");
 }
