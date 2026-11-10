@@ -14,8 +14,23 @@ export function acquirePlayerPresentation() {
   return !current || current.stopped ? beginPlayerPresentation() : current;
 }
 
+/** An explicit fullscreen request withdraws an earlier decision to play windowed. */
 export function requestPlayerFullscreen(): Promise<Element | null> {
-  return (current ?? beginPlayerPresentation()).requestFullscreen();
+  const scope = current ?? beginPlayerPresentation();
+  scope.declined = false;
+  return scope.requestFullscreen();
+}
+
+/** A deliberate exit is not a lost presentation: automatic recovery stays off until the user asks again. */
+export async function exitPlayerFullscreen() {
+  if (current) {current.declined = true;}
+  if (document.fullscreenElement) {await document.exitFullscreen();}
+}
+
+/** Only browsers that can both enter fullscreen and lock the orientation can rotate the phone for the user. */
+export function playerLandscapeLockSupported() {
+  const orientation = window.screen.orientation as LockableOrientation | undefined;
+  return document.fullscreenEnabled && typeof document.documentElement.requestFullscreen === "function" && typeof orientation?.lock === "function";
 }
 
 export class PlayerPresentation {
@@ -24,6 +39,8 @@ export class PlayerPresentation {
   private locked = false;
   private pending: Promise<Element | null> | null = null;
   stopped = false;
+  /** The user chose to keep playing outside fullscreen. */
+  declined = false;
 
   requestFullscreen(): Promise<Element | null> {
     if (this.stopped) {return Promise.resolve(null);}

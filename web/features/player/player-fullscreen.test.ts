@@ -1,5 +1,5 @@
 import {afterEach, expect, it, vi} from "vitest";
-import {beginPlayerPresentation, requestPlayerFullscreen} from "./player-fullscreen";
+import {beginPlayerPresentation, exitPlayerFullscreen, playerLandscapeLockSupported, requestPlayerFullscreen} from "./player-fullscreen";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -123,5 +123,18 @@ it.each([false, true])("does not let old cleanup exit the next game: late fullsc
     await next.restore();
     expect(fixture.fullscreen()).toBeNull();
     expect(fixture.unlock).toHaveBeenCalledOnce();
+  } finally {fixture.restore();}
+});
+
+it("marks a deliberate exit as declined until the next explicit fullscreen request", async () => {
+  const fixture = phone(true);
+  try {
+    expect(playerLandscapeLockSupported()).toBe(true);
+    await exitPlayerFullscreen();
+    expect(fixture.exit).toHaveBeenCalledOnce();
+    expect(fixture.session.declined).toBe(true);
+    await requestPlayerFullscreen();
+    expect(fixture.session.declined).toBe(false);
+    expect(fixture.fullscreen()).toBe(document.documentElement);
   } finally {fixture.restore();}
 });
