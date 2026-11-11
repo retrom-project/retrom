@@ -60,5 +60,8 @@ it("passes the per-core touch gamepad preference before a runtime mounts", () =>
   expect(createRuntimeHost(envelope, new AbortController().signal).touchGamepadEnabled).toBe(true);
   localStorage.setItem(key, "off");
   expect(createRuntimeHost(envelope, new AbortController().signal).touchGamepadEnabled).toBe(false);
+  expect(createRuntimeHost(envelope, new AbortController().signal).touchStickMode).toBe("FLOATING");
+  localStorage.setItem(`retrom:touch-stick:${envelope.runtime.coreId}`, "FIXED");
+  expect(createRuntimeHost(envelope, new AbortController().signal).touchStickMode).toBe("FIXED");
   localStorage.clear();
 });
