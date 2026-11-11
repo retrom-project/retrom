@@ -14,7 +14,7 @@ export async function verifyTouchStickMode(page: Page, frame: Frame): Promise<Fr
   await expect(dialog).toContainText("需要重启游戏才能生效");
   await expect(dialog).toContainText("立即重启会保留当前进度");
   await expect(page.getByRole("menu", {name: "Player 更多操作"})).toHaveCount(0);
-  await page.screenshot({path: test.info().outputPath("touch-stick-restart.jpg"), type: "jpeg", quality: 95});
+  await page.screenshot({path: test.info().outputPath("touch-stick-restart.png")});
   await dialog.getByRole("button", {name: "继续游玩", exact: true}).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.locator(".player-pause-overlay")).toHaveCount(0);
@@ -24,7 +24,7 @@ export async function verifyTouchStickMode(page: Page, frame: Frame): Promise<Fr
   await openMenu(page);
   const fixedPending = page.getByRole("menuitem", {name: "摇杆模式：固定摇杆，下次进入游戏生效", exact: true});
   await expect(fixedPending).toBeVisible();
-  await page.screenshot({path: test.info().outputPath("touch-stick-pending.jpg"), type: "jpeg", quality: 95});
+  await page.screenshot({path: test.info().outputPath("touch-stick-pending.png")});
   // Returning to this launch's original choice needs no restart prompt.
   await fixedPending.click();
   await expect(floating).toBeVisible();
@@ -38,7 +38,7 @@ export async function verifyTouchStickMode(page: Page, frame: Frame): Promise<Fr
   await openMenu(page);
   await expect(page.getByRole("menuitem", {name: "摇杆模式：固定摇杆", exact: true})).toBeVisible();
   await expect(page.getByText("下次进入游戏生效", {exact: true})).toHaveCount(0);
-  await page.screenshot({path: test.info().outputPath("touch-stick-applied.jpg"), type: "jpeg", quality: 95});
+  await page.screenshot({path: test.info().outputPath("touch-stick-applied.png")});
   await page.locator(".player-menu-backdrop").click({position: {x: 10, y: 10}});
   await expect(page.locator(".player-pause-overlay")).toHaveCount(0);
   return restarted;

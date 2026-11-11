@@ -155,7 +155,7 @@ test("shared review, real NES save and new-instance restore", async ({
   await page.getByRole("button", { name: "更多操作", exact: true }).click();
   const surfaceMenu = page.getByRole("menu", { name: "Player 更多操作", exact: true });
   await expect(surfaceMenu).toBeVisible();
-  await page.screenshot({path: test.info().outputPath("player-more-actions.jpg"), type: "jpeg", quality: 95});
+  await page.screenshot({path: test.info().outputPath("player-more-actions.png")});
   if (await page.locator(".player-menu-backdrop").isVisible()) {
     await page.locator(".player-menu-backdrop").click({ position: { x: 10, y: 10 } });
   } else if (await page.locator(".player-pause-overlay").isVisible()) {
