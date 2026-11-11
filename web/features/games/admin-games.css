@@ -200,7 +200,8 @@
 .admin-game-detail .admin-game-tags { overflow: visible; }
 .admin-game-tag-picker { position: relative; display: grid; gap: 8px; }
 .admin-game-tag-picker small, .admin-game-selected-tags > span:not(.tag-chip) { color: var(--muted); font-size: var(--text-caption); }
-.admin-game-selected-tags { height: 44px; min-height: 44px; display: flex; flex-wrap: nowrap; align-items: start; gap: 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.admin-game-selected-tags { height: 28px; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; overflow-x: auto; overflow-y: hidden; }
+.admin-game-selected-tags button:focus-visible { outline-offset: -2px; }
 .admin-game-selected-tags .tag-chip { flex: none; }
 .admin-game-selected-tags svg { width: 12px; height: 12px; }
 .admin-game-tag-list { position: absolute; top: 72px; right: 0; left: 0; z-index: 20; max-height: 240px; overflow-y: auto; padding: 6px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow); }

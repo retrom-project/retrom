@@ -10,7 +10,7 @@
   .home-featured-panel { min-height: 0; }
   .home-featured-copy { width: 100%; }
   .home-featured-media { display: none; }
-  .home-favorites-list { grid-template-columns: repeat(3, minmax(210px, 1fr)); overflow-x: auto; padding-bottom: var(--space-2); }
+  .home-favorites-list { grid-template-columns: repeat(3, minmax(210px, 1fr)); overflow-x: auto; }
   .home-favorite-game { padding: var(--space-3); }
   .home-favorite-cover { width: 56px; }
 }

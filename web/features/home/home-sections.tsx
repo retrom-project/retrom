@@ -1,4 +1,4 @@
-import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
+import { useEdgeFadeRail } from "@/lib/use-edge-fade-rail";
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -101,9 +101,9 @@ export function HomeRecent({ recent }: { recent: Schema<"RecentGame">[] }) {
   );
 }
 export function HomeGameRail({ items }: { items: { game: Game; caption: ReactNode }[] }) {
-  const rail = useHorizontalWheel<HTMLDivElement>();
+  const rail = useEdgeFadeRail<HTMLDivElement>();
   return (
-    <div ref={rail} className="home-horizontal-rail home-recent-rail">
+    <div ref={rail} className="home-horizontal-rail edge-fade-rail home-recent-rail">
       {items.map(({ game, caption }) => (
         <Link className="home-recent-card" key={game.id} href={`/games/${game.id}`}>
           <span className="home-recent-cover">
@@ -120,7 +120,7 @@ export function HomeGameRail({ items }: { items: { game: Game; caption: ReactNod
   );
 }
 export function HomeFavorites({ games }: { games: Game[] }) {
-  const favoritesRail = useHorizontalWheel<HTMLDivElement>();
+  const favoritesRail = useEdgeFadeRail<HTMLDivElement>();
   return (
     <section className="home-layer home-favorites">
       <div className="home-favorites-head">
@@ -129,7 +129,7 @@ export function HomeFavorites({ games }: { games: Game[] }) {
       </div>
       <div className="home-favorites-body">
         {games.length ? (
-          <div ref={favoritesRail} className="home-favorites-list">
+          <div ref={favoritesRail} className="home-favorites-list edge-fade-rail">
             {games.slice(0, 3).map((game) => (
               <Link
                 className="home-favorite-game"
@@ -165,7 +165,7 @@ export function HomeFavorites({ games }: { games: Game[] }) {
   );
 }
 export function HomeDirectories({ directories }: { directories: Directory[] }) {
-  const platformRail = useHorizontalWheel<HTMLDivElement>();
+  const platformRail = useEdgeFadeRail<HTMLDivElement>();
   const populatedDirectories = directories.filter((directory) => directory.gameCount > 0);
   if (!populatedDirectories.length) { return null; }
   return (
@@ -174,7 +174,7 @@ export function HomeDirectories({ directories }: { directories: Directory[] }) {
         <h2>换个平台逛逛</h2>
         <Link href="/library">浏览全部</Link>
       </div>
-      <div ref={platformRail} className="home-horizontal-rail home-platform-rail">
+      <div ref={platformRail} className="home-horizontal-rail edge-fade-rail home-platform-rail">
         {populatedDirectories.map((directory) => (
           <article className="home-platform-card" key={directory.id}>
             <Link href={`/library?platformInstanceId=${directory.id}`}>

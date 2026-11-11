@@ -16,6 +16,7 @@ import { verifyTouchStickMode } from "./player-touch-stick";
 import { verifyLibraryCollectionDialog } from "./library-collection-dialog";
 import { verifyHomeFeatured } from "./home-featured";
 import { verifyGameDetailLayout } from "./game-detail-layout";
+import { verifyDetailDirectoryLink } from "./detail-directory-link";
 import { verifyDetailTitle } from "./detail-title";
 import { verifyContentReplacement } from "./content-replacement";
 import { verifyBrowserStorage } from "./browser-storage";
@@ -108,6 +109,7 @@ test("shared review, real NES save and new-instance restore", async ({
   ).toBeVisible();
   await verifyGameDetailLayout(page);
   await verifyDetailTitle(page, game.id);
+  await verifyDetailDirectoryLink(page, game);
   const start = page.getByRole("button", { name: "重新开始游戏", exact: true });
   if (!(await start.isVisible())) {
     await page.getByRole("button", { name: "启动选项", exact: true }).click();
