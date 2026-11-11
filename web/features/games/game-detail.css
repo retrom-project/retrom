@@ -52,9 +52,12 @@
 .game-detail-main:has(> .launch-panel) > .game-detail-eyebrow { margin-bottom: var(--space-2); }
 .game-detail-main:has(> .launch-panel) > .game-detail-title-row { margin-bottom: var(--space-2); }
 .game-detail-main > .launch-panel { margin-top: auto; padding-top: var(--space-2); }
-.game-detail-tags { height: 36px; display: flex; align-items: start; flex-wrap: nowrap; gap: var(--space-2); overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.game-detail-tags { height: 36px; display: flex; align-items: center; flex-wrap: nowrap; gap: var(--space-2); overflow-x: auto; overflow-y: hidden; }
+.game-detail-tags > a:focus-visible { outline-offset: -2px; }
 .game-detail-tags > a { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.game-detail-eyebrow { margin: 0 0 var(--space-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: var(--text-small); }
+.game-detail-eyebrow { display: block; width: fit-content; max-width: 100%; margin: 0 0 var(--space-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: var(--text-small); }
+a.game-detail-eyebrow:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+a.game-detail-eyebrow:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
 .game-detail-title-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-1); }
 .game-detail-title-row h1 { flex: 0 1 auto; min-width: 0; margin: 0; display: block; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; white-space: nowrap; font-size: var(--text-display); font-weight: var(--weight-semibold); line-height: var(--leading-heading); overflow-wrap: anywhere; }
 .game-detail-title > span { display: inline-block; }

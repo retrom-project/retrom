@@ -47,3 +47,16 @@ it("uses the selected loading mode for every game-detail launch, including indiv
     }
   }
 });
+
+it("links the directory name to the library filtered by that directory", () => {
+  render(<GameDetailContent detail={detail} mode="user" busy={false}
+    onFavorite={vi.fn()} onReview={vi.fn()} onChange={vi.fn()} />);
+  expect(screen.getByRole("link", {name: "PSP"})).toHaveAttribute("href", "/library?platformInstanceId=directory");
+});
+
+it("keeps the directory name as plain text while reviewing an unpublished game", () => {
+  render(<GameDetailContent detail={detail} mode="review" busy={false}
+    onFavorite={vi.fn()} onReview={vi.fn()} onChange={vi.fn()} />);
+  expect(screen.queryByRole("link", {name: "PSP"})).toBeNull();
+  expect(screen.getAllByText("PSP").length).toBeGreaterThan(0);
+});

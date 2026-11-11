@@ -96,3 +96,9 @@
 .app-toast.good { color: var(--success); border-color: var(--success-line); background: var(--surface-subtle); }
 .app-toast.warn { color: var(--amber); border-color: var(--amber-line); background: var(--amber-soft); }
 .app-toast.bad { color: var(--danger); border-color: var(--danger-line); background: var(--surface-subtle); }
+/* Horizontal rails draw no scrollbar and reserve no scrollbar height; useEdgeFadeRail marks the edges that still hide content. */
+.edge-fade-rail { --rail-fade: var(--space-5); scrollbar-width: none; }
+.edge-fade-rail::-webkit-scrollbar { display: none; }
+.edge-fade-rail[data-fade-start="true"] { mask-image: linear-gradient(to right, transparent, #000 var(--rail-fade)); }
+.edge-fade-rail[data-fade-end="true"] { mask-image: linear-gradient(to right, #000 calc(100% - var(--rail-fade)), transparent); }
+.edge-fade-rail[data-fade-start="true"][data-fade-end="true"] { mask-image: linear-gradient(to right, transparent, #000 var(--rail-fade), #000 calc(100% - var(--rail-fade)), transparent); }

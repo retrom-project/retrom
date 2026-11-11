@@ -1,4 +1,4 @@
-import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
+import { useEdgeFadeRail } from "@/lib/use-edge-fade-rail";
 import type { Directory, Schema } from "@/lib/api/types";
 import { sortByName } from "@/lib/sort-by-name";
 
@@ -15,7 +15,7 @@ export function LibraryPlatformFilter({
   onSelect: (value: string) => void;
   showCounts?: boolean;
 }) {
-  const platformRail = useHorizontalWheel<HTMLDivElement>();
+  const platformRail = useEdgeFadeRail<HTMLDivElement>();
   const counts = new Map<string, number>();
   for (const directory of directories) {
     if (directory.enabled) {
@@ -24,7 +24,7 @@ export function LibraryPlatformFilter({
   }
   const choices = sortByName(platforms.filter((platform) => (counts.get(platform.id) ?? 0) > 0));
   return (
-    <div ref={platformRail} className="library-platform-row" aria-label="游戏平台筛选">
+    <div ref={platformRail} className="library-platform-row edge-fade-rail" aria-label="游戏平台筛选">
       <span className="library-platform-label">平台</span>
       <button
         className={!selected ? "is-active" : ""}

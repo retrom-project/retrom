@@ -57,11 +57,7 @@
 .phone-app-frame .library-desktop-filter { display: none; }
 .phone-app-frame .library-mobile-filter-trigger { display: inline-flex; flex: 0 0 var(--control-height); width: var(--control-height); height: var(--control-height); min-width: var(--control-height); padding: 0; gap: 0; align-items: center; justify-content: center; border-radius: var(--radius-control); box-shadow: none; }
 .phone-app-frame .library-mobile-filter-trigger svg { width: 20px; height: 20px; }
-.phone-app-frame .library-platform-row { margin-top: 12px; padding: 0 0 6px; flex-wrap: nowrap; overflow-x: auto; border: 0; scrollbar-width: none; }
-.phone-platform-scrollbar { display: none; }
-.phone-app-frame .phone-platform-scrollbar { position: absolute; display: block; right: 0; bottom: 0; left: 0; height: 3px; opacity: 0; pointer-events: none; }
-.phone-app-frame .phone-platform-scrollbar[data-visible="true"] { opacity: 1; }
-.phone-platform-scrollbar > span { position: absolute; height: 100%; border-radius: 3px; background: var(--purple-dark); }
+.phone-app-frame .library-platform-row { margin-top: 12px; padding: 0; flex-wrap: nowrap; overflow-x: auto; border: 0; }
 .phone-app-frame .library-platform-row > button { min-height: 44px; flex-shrink: 0; white-space: nowrap; }
 .phone-app-frame .library-platform-label, .phone-app-frame .library-result-count, .phone-app-frame .library-section-head { display: none; }
 .phone-app-frame .library-game-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 14px; margin-top: 16px; }
