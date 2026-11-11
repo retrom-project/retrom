@@ -39,6 +39,8 @@ import { usePlayerOrientation, useOrientationPause } from "./use-player-orientat
 import { markImmersivePlayerReturn } from "@/features/immersive/active-gamepad";
 import {usePlayerPresentation} from "./use-player-presentation";
 import {usePlayerTouchGamepad} from "./use-player-touch-gamepad";
+import {usePlayerMenu} from "./use-player-menu";
+import {PlayerStickRestartDialog, usePlayerStickRestart} from "./player-stick-restart";
 export function PlayerShell({
   runId,
   returnTo,
@@ -108,7 +110,6 @@ function PlayerContent({
   const reportError = useCallback((message: string) => notify({ tone: "bad", message }), [notify]);
   const immersive = returnTo.startsWith("/immersive");
   const exitRequest = useRef<() => void>(() => {});
-  const [menu, setMenu] = useState(false);
   const [saveChoice, setSaveChoice] = useState(false);
   const [restore, setRestore] = useState<RuntimeFinalSnapshotV1 | null>(null);
   // A game that ends itself can be started again from the final data it wrote.
@@ -148,10 +149,13 @@ function PlayerContent({
     saves.settle,
     !orientation.blocked,
   );
+  const { menu, setMenu, toggle: toggleMenu, pauseForTouch } = usePlayerMenu({ immersive, desktopPointer, running: () => runtime.current?.getState() === "RUNNING",
+    onImmersive: () => requestExitMenu(), onPause: () => command(pause()) });
   const volume = usePlayerVolume(runtime, state, returnTo.startsWith("/immersive"), reportError);
   const settings = usePlayerSettings(runtime, state, reportError);
   const editor = usePlayerEditor(runtime, state, reportError);
   const touchGamepad = usePlayerTouchGamepad(runtime, state, envelope.runtime.coreId, reportError);
+  const stick = usePlayerStickRestart({runtime, state, envelope, availability, onOpen: () => setMenu(false), onRestore: setRestore, onError: reportError});
 
   async function pause() {
     if (orientation.blocked) { return; }
@@ -190,7 +194,7 @@ function PlayerContent({
   }
   const exit = usePlayerExit({ runtime, immersive, native, hasDraft: !!saves.draft, saving: saves.busy, retry: saves.retry, capture: saves.capture, leave, reportError });
   useEffect(() => { exitRequest.current = () => void exit.request(); }, [exit]);
-  const overlays = playerOverlayState({ exit, menu, saveChoice, settings, debugOpen, editor, orientationBlocked: orientation.blocked });
+  const overlays = playerOverlayState({ exit, menu, saveChoice, stickNotice: stick.dialog.open, settings, debugOpen, editor, orientationBlocked: orientation.blocked });
   const orientationPause = useOrientationPause(runtime, state, orientation.blocked, overlays.pinned || saves.busy, reportError);
   const surface = usePlayerSurfacePause(runtime, !desktopPointer || orientation.blocked, orientationPause.manualPause, reportError);
   const hud = usePlayerHud(state, playerHudPinned(desktopPointer, overlays, settings.open), desktopPointer);
@@ -248,11 +252,12 @@ function PlayerContent({
         visible={hud.visible}
         desktopPointer={desktopPointer}
         touchGamepad={touchGamepad}
+        touchStick={stick.touchStick}
         menu={!immersive && menu}
-        onMenu={() => immersive ? requestExitMenu() : setMenu(!menu)}
+        onMenu={toggleMenu}
         onControlError={reportError}
         onInteract={surface.pause}
-        onReveal={hud.show}
+        onReveal={() => { hud.show(); pauseForTouch(); }}
         onHover={hud.onHover}
         onFocus={hud.onFocus}
         onSurfaceClick={resumeFromSurface}
@@ -320,6 +325,7 @@ function PlayerContent({
         onReturn={requestExitMenu}
       />
 
+      <PlayerStickRestartDialog {...stick.dialog} onContinue={() => {stick.dialog.onContinue(); resumeFromSurface();}} />
       {!editor.open ? <PlayerExitDialog immersive={immersive} native={native} available={availability.available} draft={!!saves.draft} controller={exit} onGameEditor={editor.editor ? () => void editor.show() : undefined} onRestart={restartFrom(exitSnapshot, state)} /> : null}
       {editor.open && editor.editor ? <GameEditorPanel editor={editor.editor} immersive={immersive} native={native} onClose={editor.close} /> : null}
     </div>
@@ -349,17 +355,24 @@ function PlayerPauseOverlay({ state, immersive, settingsOpen, onResume }: { stat
   return <button className={`player-pause-overlay is-visible${settingsOpen ? " is-settings-passthrough" : ""}`} onClick={onResume}><span className="player-pause-pill"><AppIcon name="pause" /><strong>已暂停</strong><small>点击游戏画面继续</small></span></button>;
 }
 
-function playerOverlayState({ exit, menu, saveChoice, settings, debugOpen, editor, orientationBlocked }: {
-  exit: { open: boolean; active: boolean }; menu: boolean; saveChoice: boolean;
+type OverlayInput = {
+  exit: { open: boolean; active: boolean }; menu: boolean; saveChoice: boolean; stickNotice: boolean;
   settings: { open: boolean }; orientationBlocked: boolean; debugOpen: boolean; editor: { open: boolean; pending: boolean };
-}) {
-  const dialogOpen = exit.active || saveChoice || editor.open;
+};
+function playerOverlayState(input: OverlayInput) {
+  const { exit, menu, settings, debugOpen, editor, orientationBlocked } = input;
+  const prompt = input.saveChoice || input.stickNotice;
+  const dialogOpen = exit.active || prompt || editor.open;
   return {
     dialogOpen,
     suppressInput: orientationBlocked || dialogOpen || menu || settings.open || editor.pending,
-    pinned: exit.open || menu || saveChoice || settings.open || debugOpen || editor.open,
+    pinned: overlayPinned(input, prompt),
     surfaceDismissible: !dialogOpen && !settings.open && !debugOpen && !orientationBlocked,
   };
+}
+/** Overlays that keep the toolbar shown while open. */
+function overlayPinned({ exit, menu, settings, debugOpen, editor }: OverlayInput, prompt: boolean) {
+  return exit.open || menu || prompt || settings.open || debugOpen || editor.open;
 }
 
 function PlayerOrientationLayer({blocked, portrait, known, presentation, exitActive, title, state, immersive, settingsOpen, onReturn, onResume}: {

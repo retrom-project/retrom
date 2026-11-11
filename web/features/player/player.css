@@ -39,6 +39,8 @@
 .player-menu button:hover { background: #232c3c; }
 .player-menu button.is-danger { color: #ff9ca7; }
 .player-menu button svg { width: 15px; height: 15px; }
+.player-menu-option { min-width: 0; display: grid; gap: 2px; }
+.player-menu-option > small { color: var(--player-amber); font-size: var(--text-caption); }
 .player-menu hr { width: 100%; margin: 5px 0; border: 0; border-top: 1px solid #30394a; }
 .player-debug-control[aria-pressed="true"] { color: #d8d1ff; border-color: #6d60bd; background: #2b2551; box-shadow: 0 0 0 3px rgb(139 123 241 / 10%); }
 .player-debug-panel { position: absolute; z-index: 24; top: 70px; right: 14px; bottom: 14px; width: min(350px, calc(100vw - 28px)); overflow: auto; display: flex; flex-direction: column; color: #dfe4ec; border: 1px solid #3b4558; border-radius: var(--radius-panel); background: rgb(14 19 28 / 62%); box-shadow: 0 24px 64px rgb(0 0 0 / 45%); opacity: 0; pointer-events: none; transform: translateX(calc(100% + 24px)); transition: opacity 180ms ease, transform 180ms ease;  }

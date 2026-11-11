@@ -5,6 +5,7 @@ import { AppIcon } from "@/components/app-icon";
 import { PlayerFullscreenControl } from "./player-fullscreen-control";
 import { PlayerHudHandle } from "./player-hud-handle";
 import { useMobilePlayerLayout } from "./player-layout";
+import type { PlayerTouchStick } from "./use-player-touch-stick";
 
 type Props = {
   immersive?: boolean;
@@ -26,6 +27,7 @@ type Props = {
   onFocus: (value: boolean) => void;
   onPause: () => void;
   touchGamepad?: {enabled: boolean; toggle: () => void | Promise<void>} | null;
+  touchStick?: PlayerTouchStick | null;
   onSave: () => void;
   onExit: () => void;
   onSettings: () => void;
@@ -74,11 +76,22 @@ function PlayerMenu(props: Props & { controls: ReturnType<typeof controlState> }
       {onUseCover ? <button role="menuitem" aria-label="选用当前截图为封面" disabled={controls.coverDisabled} onClick={onUseCover}><AppIcon name="library" /><span>选用当前截图为封面</span></button> : null}
       {props.onGameEditor ? <button role="menuitem" aria-label="游戏修改" disabled={!controls.ready} onClick={props.onGameEditor}><AppIcon name="settings" /><span>游戏修改</span></button> : null}
       {controls.settingsAvailable ? <button role="menuitem" aria-label="模拟器设置" disabled={!controls.ready} onClick={onSettings}><AppIcon name="settings" /><span>模拟器设置</span></button> : null}
+      {!props.desktopPointer && props.touchStick ? <TouchStickMenuItem stick={props.touchStick} /> : null}
       <PlayerFullscreenControl menu onError={onControlError} />
       <hr />
       <button role="menuitem" aria-label="退出游戏" className="is-danger" onClick={onExit}><AppIcon name="log-out" /><span>退出游戏</span></button>
     </div>
   </>;
+}
+/** The stick mode is fixed for a running game, so a changed choice says when it will apply. */
+function TouchStickMenuItem({stick}: {stick: PlayerTouchStick}) {
+  const label = stick.mode === "FLOATING" ? "浮动摇杆" : "固定摇杆";
+  return <button role="menuitem" aria-label={`摇杆模式：${label}${stick.pending ? "，下次进入游戏生效" : ""}`}
+    title={stick.mode === "FLOATING" ? "按下处即为摇杆中心，切换为固定摇杆" : "摇杆中心固定，切换为浮动摇杆"} onClick={stick.toggle}>
+    <AppIcon name="gamepad-2" />
+    <span className="player-menu-option"><span>摇杆模式：{label}</span>
+      {stick.pending ? <small role="status">下次进入游戏生效</small> : null}</span>
+  </button>;
 }
 function controlState(capabilities: LaunchEnvelopeV1["runtime"]["capabilities"], state: RuntimeStateV1, availability: RuntimeCheckpointAvailabilityV1, busy: boolean) {
   const ready = state === "RUNNING" || state === "PAUSED";

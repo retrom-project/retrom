@@ -12,6 +12,7 @@ import { verifyDesktopPlayerControls } from "./player-desktop";
 import { verifyPlayerExitDialogLayout } from "./player-exit-dialog";
 import { verifyPlatformCardLayout } from "./immersive-platform-layout";
 import { verifyTouchButtonAlignment } from "./touch-button-alignment";
+import { verifyTouchStickMode } from "./player-touch-stick";
 import { verifyLibraryCollectionDialog } from "./library-collection-dialog";
 import { verifyHomeFeatured } from "./home-featured";
 import { verifyGameDetailLayout } from "./game-detail-layout";
@@ -147,21 +148,29 @@ test("shared review, real NES save and new-instance restore", async ({
     await page.getByRole("button", { name: "更多操作", exact: true }).click();
   }
   await expect(page.getByRole("menu", { name: "Player 更多操作", exact: true })).toHaveCount(0);
-  const firstFrame = await nesFrame(page);
+  let firstFrame = await nesFrame(page);
   await revealPlayerControls(page);
   await page.getByRole("button", { name: "更多操作", exact: true }).click();
   const surfaceMenu = page.getByRole("menu", { name: "Player 更多操作", exact: true });
   await expect(surfaceMenu).toBeVisible();
-  if (await page.locator(".player-pause-overlay").isVisible()) {
-    await page.locator(".player-pause-overlay").click();
-  } else if (await page.locator(".player-menu-backdrop").isVisible()) {
+  await page.screenshot({path: test.info().outputPath("player-more-actions.jpg"), type: "jpeg", quality: 95});
+  if (await page.locator(".player-menu-backdrop").isVisible()) {
     await page.locator(".player-menu-backdrop").click({ position: { x: 10, y: 10 } });
+  } else if (await page.locator(".player-pause-overlay").isVisible()) {
+    await page.locator(".player-pause-overlay").click();
   } else {
     await firstFrame.locator("canvas").click();
   }
   await expect(surfaceMenu).toHaveCount(0);
+  await expect(page.locator(".player-pause-overlay")).toHaveCount(0);
   await expect(page.locator(".player-game-meta")).toHaveCount(0);
   await revealPlayerControls(page);
+  if (test.info().project.name === "chrome-mobile") {
+    // Revealing the phone toolbar deliberately pauses; the button now resumes it.
+    await expect(page.locator(".player-pause-overlay")).toBeVisible();
+    await page.getByRole("button", { name: "继续", exact: true }).click();
+    await expect(page.locator(".player-pause-overlay")).toHaveCount(0);
+  }
   const pause = page.getByRole("button", { name: "暂停", exact: true });
   await expect
     .poll(() =>
@@ -179,6 +188,7 @@ test("shared review, real NES save and new-instance restore", async ({
   await expect(page.locator(".player-pause-overlay")).toBeVisible();
   await page.locator(".player-pause-overlay").click();
   const playerCounter = await sendNesInput(page, firstFrame);
+  firstFrame = await verifyTouchStickMode(page, firstFrame);
   if (test.info().project.name === "chrome-mobile") {
     await verifyTouchButtonAlignment(firstFrame);
   }

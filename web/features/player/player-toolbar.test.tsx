@@ -31,6 +31,21 @@ it("keeps the touch gamepad toggle in the top toolbar in both preference states"
   expect(show.querySelector("svg")?.innerHTML).not.toBe(enabledIcon);
 });
 
+it("offers the touch stick mode in the more-actions menu and says a change applies next launch", () => {
+  const toggle = vi.fn(), props = toolbarProps();
+  const view = render(<PlayerToolbar {...props} menu state="RUNNING" touchStick={{mode: "FLOATING", pending: false, toggle}} />);
+  const item = screen.getByRole("menuitem", {name: "摇杆模式：浮动摇杆"});
+  expect(item.closest(".player-actions > .player-menu-wrap")).not.toBeNull();
+  expect(screen.queryByText("下次进入游戏生效")).not.toBeInTheDocument();
+  fireEvent.click(item);
+  expect(toggle).toHaveBeenCalledOnce();
+  view.rerender(<PlayerToolbar {...props} menu state="RUNNING" touchStick={{mode: "FIXED", pending: true, toggle}} />);
+  expect(screen.getByRole("menuitem", {name: "摇杆模式：固定摇杆，下次进入游戏生效"})).toBeInTheDocument();
+  expect(screen.getByRole("status", {name: ""})).toHaveTextContent("下次进入游戏生效");
+  view.rerender(<PlayerToolbar {...props} menu state="RUNNING" desktopPointer touchStick={{mode: "FIXED", pending: true, toggle}} />);
+  expect(screen.queryByRole("menuitem", {name: /摇杆模式/})).not.toBeInTheDocument();
+});
+
 function toolbarProps(): ComponentProps<typeof PlayerToolbar> {
   const envelope = JSON.parse(
     readFileSync(
