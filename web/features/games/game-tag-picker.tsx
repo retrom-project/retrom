@@ -1,12 +1,12 @@
 "use client";
-import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
+import { useEdgeFadeRail } from "@/lib/use-edge-fade-rail";
 import { useId, useState } from "react";
 import type { Tag } from "@/lib/api/types";
 import { AppIcon } from "@/components/app-icon";
 export function GameTagPicker({ tags, selected, onChange }: {
   tags: Tag[]; selected: string[]; onChange: (ids: string[]) => void;
 }) {
-  const tagRail = useHorizontalWheel<HTMLDivElement>();
+  const tagRail = useEdgeFadeRail<HTMLDivElement>();
   const id = useId();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -42,7 +42,7 @@ export function GameTagPicker({ tags, selected, onChange }: {
       {!options.length ? <p>没有匹配的标签，可先前往标签管理创建。</p> : null}
     </div> : null}
     <small>已选择 {selected.length} 个标签</small>
-    <div ref={tagRail} className="admin-game-selected-tags">
+    <div ref={tagRail} className="admin-game-selected-tags edge-fade-rail">
       {tags.filter((tag) => selected.includes(tag.id)).map((tag) => <span className="tag-chip tag-chip-removable" key={tag.id}><span className="tag-chip-label">{tag.name}</span><button type="button" aria-label={`移除标签${tag.name}`} onClick={() => toggle(tag.id)}><AppIcon name="x" /></button></span>)}
       {!selected.length ? <span>未设置标签</span> : null}
     </div>

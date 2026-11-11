@@ -20,6 +20,9 @@ export async function verifyGameDetailLayout(page: Page) {
     const hint = bounds(".launch-panel > .launch-hint"), runtime = bounds(".launch-runtime-row");
     const eyebrow = bounds(".game-detail-eyebrow"), title = bounds(".game-detail-title-row");
     const tags = bounds(".game-detail-tags");
+    const rail = element.querySelector(".game-detail-tags")!;
+    const pill = rail.querySelector(":scope > a")?.getBoundingClientRect();
+    const tagOffset = pill ? Math.abs((pill.top - tags.top) - (tags.top + rail.clientHeight - pill.bottom)) : 0;
     return {
       heroHeight: heroBox.height,
       headingHeight: bounds("h1").height,
@@ -27,6 +30,8 @@ export async function verifyGameDetailLayout(page: Page) {
       topGap: box.top - heroBox.top - parseFloat(style.paddingTop) - parseFloat(style.borderTopWidth),
       headingGap: title.top - eyebrow.bottom,
       tagsGap: tags.top - title.bottom,
+      tagOffset,
+      tagScrollbar: rail.getBoundingClientRect().height - rail.clientHeight,
       loadingGap: loading.top - tags.bottom,
       actionsGap: actions.top - loading.bottom,
       hintGap: hint.top - actions.bottom,
@@ -40,6 +45,8 @@ export async function verifyGameDetailLayout(page: Page) {
   expect(Math.abs(geometry.topGap)).toBeLessThanOrEqual(1);
   expect(geometry.headingGap).toBeGreaterThanOrEqual(8);
   expect(geometry.tagsGap).toBeGreaterThanOrEqual(8);
+  expect(geometry.tagOffset).toBeLessThanOrEqual(1);
+  expect(geometry.tagScrollbar).toBeLessThanOrEqual(0.5);
   expect(geometry.loadingGap).toBeGreaterThanOrEqual(8);
   expect(geometry.actionsGap).toBeGreaterThanOrEqual(12);
   expect(geometry.hintGap).toBeGreaterThanOrEqual(8);

@@ -41,9 +41,9 @@
 .home-section-head, .home-favorites-head { min-height: var(--control-height); display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-3); }
 .home-section-head h2, .home-favorites-head h2 { margin: 0; font-size: var(--text-section); font-weight: var(--weight-semibold); }
 .home-section-head > a, .home-favorites-head a { flex-shrink: 0; color: var(--purple-dark); font-size: var(--text-caption); font-weight: var(--weight-regular); }
-.home-horizontal-rail { overflow-x: auto; overflow-y: hidden; display: grid; grid-auto-flow: column; overscroll-behavior-inline: contain; scrollbar-color: var(--control-line) transparent; scrollbar-width: thin; }
+.home-horizontal-rail { overflow-x: auto; overflow-y: hidden; display: grid; grid-auto-flow: column; overscroll-behavior-inline: contain; }
 .home-horizontal-rail:focus-visible { outline-offset: 4px; }
-.home-recent-rail { grid-auto-columns: clamp(148px, calc((100% - 80px) / 6), 240px); gap: var(--space-4); padding-bottom: var(--space-2); }
+.home-recent-rail { grid-auto-columns: clamp(148px, calc((100% - 80px) / 6), 240px); gap: var(--space-4); }
 .home-recent-card { display: block; min-width: 0; border-radius: var(--radius-cover); }
 .home-recent-cover { position: relative; display: block; width: 100%; aspect-ratio: 5 / 7; overflow: hidden; border-radius: var(--radius-cover); background: var(--poster-background); }
 .home-recent-cover img { object-fit: cover; object-position: center; }
@@ -55,7 +55,7 @@
 .home-recent-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-body); font-weight: var(--weight-medium); }
 .home-recent-copy small { font-size: var(--text-caption); color: var(--muted); }
 .home-inline-empty { min-height: 94px; padding: var(--space-4); display: grid; place-items: center; border: 1px dashed var(--line); border-radius: var(--radius-panel); color: var(--muted); font-size: var(--text-small); }
-.home-platform-rail { grid-auto-columns: clamp(220px, calc((100% - 48px) / 4), 310px); gap: var(--space-4); padding-bottom: var(--space-2); }
+.home-platform-rail { grid-auto-columns: clamp(220px, calc((100% - 48px) / 4), 310px); gap: var(--space-4); }
 .home-platform-card { position: relative; min-width: 0; border: 1px solid transparent; border-radius: var(--radius-panel); background: var(--surface); }
 .home-platform-card.is-pinned { border-color: var(--purple-line); }
 .home-platform-card > a { min-height: 92px; padding: var(--space-4) 34px var(--space-4) var(--space-4); display: flex; align-items: center; gap: var(--space-3); }

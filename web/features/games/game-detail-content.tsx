@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { useHorizontalWheel } from "@/lib/use-horizontal-wheel";
+import { useEdgeFadeRail } from "@/lib/use-edge-fade-rail";
 import type { Schema } from "@/lib/api/types";
 import { AppIcon } from "@/components/app-icon";
 import { DetailLaunch } from "./detail-launch";
@@ -77,10 +77,20 @@ function DetailControls({
   onContentLoadingChange: (value: ContentLoading) => void;
 }) {
   const { game } = detail;
-  const tagRail = useHorizontalWheel<HTMLDivElement>();
+  const tagRail = useEdgeFadeRail<HTMLDivElement>();
   return (
     <div className="game-detail-main">
-      <p className="game-detail-eyebrow" title={game.directoryName}>{game.directoryName}</p>
+      {mode === "review" ? (
+        <p className="game-detail-eyebrow" title={game.directoryName}>{game.directoryName}</p>
+      ) : (
+        <Link
+          className="game-detail-eyebrow"
+          href={`/library?platformInstanceId=${encodeURIComponent(game.platformInstanceId)}`}
+          title={`在游戏库中查看「${game.directoryName}」`}
+        >
+          {game.directoryName}
+        </Link>
+      )}
       <div className="game-detail-title-row">
         <DetailTitle title={game.title} />
         {mode !== "review" ? (
@@ -97,7 +107,7 @@ function DetailControls({
           </div>
         ) : null}
       </div>
-      <div className="game-detail-tags" ref={tagRail}>
+      <div className="game-detail-tags edge-fade-rail" ref={tagRail}>
         {game.tags.map((tag) => (
           <Link
             className="status neutral"
