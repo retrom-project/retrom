@@ -79,22 +79,37 @@ export function usePlayerExit({ runtime, immersive, native, hasDraft, saving, re
     checkpointWait.current = waiting;
     try {
       const instance = runtime.current;
-      // A failed native export is presented before a second explicit exit choice.
-      if (native && instance && saveState !== "error") {
-        const availability = await waitForNativeSave(instance, waiting.signal);
-        if (waiting.signal.aborted || runtime.current !== instance) { return; }
-        if (hasDraft || availability.available) {
-          if (!await (hasDraft ? retry(instance) : capture(instance, "EXPORT"))) { setSaveState("error"); return; }
-        }
-      }
+      if (await requestNativeClose(instance)) { return; }
+      if (!await saveBeforeLeaving(instance, waiting.signal)) { return; }
       await leave();
     } catch (failure) {
       if (!waiting.signal.aborted) {
-        if (native) { setSaveState("error"); }
+        if (native) { setSaveState("error"); setOpen(true); }
         reportError(message(failure, "退出游戏失败。"));
       }
     }
     finally { checkpointWait.current = null; pending.current = false; setBusy(false); }
+  }
+  async function saveBeforeLeaving(instance: PlayerRuntimeV1 | null, signal: AbortSignal) {
+    // A failed native export is presented before a second explicit exit choice.
+    if (!native || !instance || saveState === "error") { return true; }
+    const availability = await waitForNativeSave(instance, signal);
+    if (signal.aborted || runtime.current !== instance) { return false; }
+    if (!hasDraft && !availability.available) { return true; }
+    if (await (hasDraft ? retry(instance) : capture(instance, "EXPORT"))) { return true; }
+    setSaveState("error");
+    return false;
+  }
+  async function requestNativeClose(instance: PlayerRuntimeV1 | null) {
+    if (!native || !instance?.requestClose || saveState === "error" ||
+        !["RUNNING", "PAUSED"].includes(instance.getState())) { return false; }
+    // Give the native confirmation input. A canceled/refused close keeps
+    // this session live; accepted close supplies EXIT_REQUESTED's final
+    // snapshot through the existing durable-save path before navigation.
+    setOpen(false);
+    await instance.requestClose();
+    pausedByDialog.current = false;
+    return true;
   }
   function dismiss() {
     if (pending.current || saving) { return false; }

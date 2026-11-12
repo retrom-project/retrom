@@ -239,6 +239,10 @@ export interface PlayerRuntimeV1 {
   mount(target: HTMLElement): Promise<void>;
   /** Replies only to the currently published startup choice. Cancel using exit(). */
   respondToStartupInteraction?(id: string, choiceId: string): Promise<void>;
+  /** Ask the native window to close, resuming input for its confirmation UI.
+   * Resolves after dispatch; refusal/cancellation keeps the session live.
+   * Accepted close reports EXIT_REQUESTED with final writes. exit() still forces cleanup. */
+  requestClose?(): Promise<void>;
   pause(): Promise<void>;
   resume(): Promise<void>;
   checkpoint(request?: RuntimeCheckpointRequestV1): Promise<RuntimeCheckpointV1>;
