@@ -1,4 +1,5 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { render } from "@/components/toast-test-utils";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { PwaProvider } from "./pwa-provider";
 import { PwaNotice, PwaSettings } from "./pwa-controls";
@@ -38,8 +39,8 @@ test("iOS explains the share menu instead of offering a nonfunctional install bu
 
 test("browsers without Service Worker support can continue online without a perpetual loading state", async () => {
   view();
-  expect(await screen.findByText("当前浏览器不支持离线提示，仍可联网使用。")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "检查更新" })).not.toBeInTheDocument();
+  expect(await screen.findByText("游玩和同步存档需要连接服务器。安装后仍使用当前游戏库。")).toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByRole("button", { name: "检查更新" })).not.toBeInTheDocument());
   expect(screen.queryByText("正在准备离线提示…")).not.toBeInTheDocument();
 });
 

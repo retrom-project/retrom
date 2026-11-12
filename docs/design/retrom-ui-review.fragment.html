@@ -70,6 +70,20 @@
       #retrom-ui-review .rt-feature h2 { font-size: var(--text-display); }
       #retrom-ui-review .rt-section { margin-top: var(--space-6); }
       #retrom-ui-review .rt-section-head { display: flex; align-items: center; justify-content: space-between; }
+      #retrom-ui-review .rt-pwa-settings { display: flex; flex-direction: column; }
+      #retrom-ui-review .rt-pwa-settings-body { display: flex; flex: 1; flex-direction: column; gap: var(--space-4); }
+      #retrom-ui-review .rt-pwa-settings-body p { margin: 0; }
+      #retrom-ui-review .rt-pwa-settings-actions { display: flex; justify-content: flex-end; margin-top: auto; }
+      #retrom-ui-review .rt-account-settings { display: grid; grid-template-columns: minmax(300px, .7fr) minmax(420px, 1.3fr); align-items: stretch; gap: 20px; }
+      #retrom-ui-review .rt-account-profile-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); }
+      #retrom-ui-review .rt-account-profile-head h2 { margin: 0; }
+      #retrom-ui-review .rt-account-profile-head p { margin: var(--space-1) 0 0; }
+      #retrom-ui-review .rt-account-facts { margin: var(--space-4) 0 0; }
+      #retrom-ui-review .rt-account-facts > div { display: grid; grid-template-columns: 130px minmax(0, 1fr); align-items: center; min-height: 54px; border-bottom: 1px solid var(--line); }
+      #retrom-ui-review .rt-account-facts dd { margin: 0; }
+      #retrom-ui-review .rt-password-dialog { width: min(520px, calc(100% - 32px)); max-height: calc(100dvh - 48px); color: var(--ink); }
+      #retrom-ui-review .rt-password-dialog::backdrop { background: rgb(17 23 39 / 60%); }
+      @media (max-width: 900px) { #retrom-ui-review .rt-account-settings { grid-template-columns: minmax(0, 1fr); } }
       #retrom-ui-review .rt-discover-rail { display: grid; grid-auto-flow: column; grid-auto-columns: clamp(148px, calc((100% - 80px) / 6), 240px); gap: var(--space-4); overflow-x: auto; padding-bottom: var(--space-2); scrollbar-width: thin; }
       #retrom-ui-review .rt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-4); }
       #retrom-ui-review .rt-poster { aspect-ratio: 5 / 7; display: grid; place-items: center; padding: var(--space-4); border-radius: var(--radius-cover); color: white; background: linear-gradient(145deg, var(--purple), var(--navy-950)); text-align: center; }
@@ -261,10 +275,14 @@
       <section class="rt-page" data-page="tags" hidden><header class="rt-head"><h1>标签管理</h1><div class="rt-actions"><button class="rt-button">一键创建推荐标签</button><button class="rt-button">创建标签</button></div></header><form class="rt-panel rt-actions"><input class="rt-tag-search" aria-label="名称搜索" placeholder="搜索标签名称"><button class="rt-button" type="button">应用筛选</button><button class="rt-button" type="button">重置</button></form><article class="rt-panel rt-row"><div><h3>角色扮演</h3><p>归类游戏与默认入库标签</p></div><div class="rt-actions"><button class="rt-button">重命名</button><button class="rt-button">删除</button></div></article><p class="rt-notice">推荐标签补齐10个常用类型，保留现有标签；删除后同名新建不恢复历史关联。删除后的标签不再出现在选择器和筛选器中；再次保存游戏资料时会移除已删除的标签。</p></section>
       <section class="rt-page" data-page="accounts" hidden><header class="rt-head"><h1>用户管理</h1><button class="rt-button">创建邀请</button></header><article class="rt-panel rt-row"><div><h3>示例用户</h3><p>普通用户 · 正常</p></div><div class="rt-actions"><button class="rt-button">编辑账号</button><button class="rt-button">重置密码链接</button></div></article><p class="rt-notice">邀请与密码重置链接显示用途和有效期，并可撤销。用户的收藏与存档只向本人展示。</p></section>
       <section class="rt-page" data-page="pwa" hidden>
-        <header class="rt-head"><h1>Retrom 应用</h1></header>
+        <header class="rt-head"><h1>账户设置</h1></header>
+        <div class="rt-account-settings">
+          <article class="rt-panel"><div class="rt-account-profile-head"><div><h2>账号资料</h2><p class="rt-muted">本版本不提供自行修改用户名或显示名称。</p></div><button class="rt-button" data-password-open>修改密码</button></div><dl class="rt-account-facts"><div><dt>用户名</dt><dd>@retrom</dd></div><div><dt>显示名称</dt><dd>Retrom 玩家</dd></div><div><dt>角色</dt><dd>普通用户</dd></div><div><dt>账号状态</dt><dd>启用</dd></div></dl></article>
+          <article class="rt-panel rt-pwa-settings"><h2>Retrom 应用</h2><p class="rt-muted">从桌面或主屏幕打开自己的游戏库。</p><div class="rt-pwa-settings-body"><p>安装后以独立窗口打开，方便随时回来继续游玩。</p><div><button class="rt-button rt-button-primary">安装 Retrom</button></div><p class="rt-muted">iOS：分享菜单 → 添加到主屏幕。游玩和同步存档需要连接服务器。</p><div class="rt-pwa-settings-actions"><button class="rt-button">检查更新</button></div></div></article>
+        </div>
+        <dialog class="rt-panel rt-password-dialog" data-password-dialog><form method="dialog" class="rt-entry-picker"><h2>修改密码</h2><p class="rt-muted">更新后，其他设备上的会话将立即退出。</p><label>当前密码<input type="password" autocomplete="current-password"></label><label>新密码<input type="password" autocomplete="new-password" minlength="12"></label><label>确认密码<input type="password" autocomplete="new-password" minlength="12"></label><p class="rt-muted">至少 12 个字符，可以使用空格；不要使用常见或已泄露的密码。</p><div class="rt-actions"><button class="rt-button">取消</button><button class="rt-button rt-button-primary">更新密码</button></div></form></dialog>
         <article class="rt-panel rt-section"><h2>本浏览器存储</h2><p class="rt-muted">查看当前站点在此浏览器中的占用，清理可重新下载的游戏资源。</p><div class="rt-row"><span>站点本地占用（估算）</span><strong>约 2.4GB</strong></div><div class="rt-row"><span>资源缓存有效数据</span><strong>2GB · 48 项</strong></div><p class="rt-muted">两项统计口径不同，仅统计当前主站；游戏子域自行保存的数据不包含。</p><div class="rt-actions"><button class="rt-button">刷新</button><button class="rt-button">清理资源缓存</button></div><p class="rt-muted">清理前确认，分批执行并可停止；保留存档、未同步进度和登录状态，跳过正在使用的资源，再次游玩可能需要重新下载。读取失败显示暂不可用，清理后显示实际结果并刷新数据。</p></article>
         <article class="rt-panel rt-section"><h2>手机应用 · 我的</h2><div class="rt-actions"><button class="rt-button">我的存档</button><button class="rt-button">我的收藏</button><button class="rt-button">最近游玩</button><button class="rt-button">账户设置</button></div><p class="rt-muted">PWA 独立窗口只展示游玩功能，管理员也不显示后台入口或“退回审核”。后台地址返回首页，普通浏览器继续提供管理功能。</p></article>
-        <article class="rt-panel rt-section"><h2>从桌面或主屏幕打开自己的游戏库</h2><p>安装后以独立窗口打开，方便随时回来继续游玩。</p><button class="rt-button rt-button-primary">安装 Retrom</button><p class="rt-muted">iOS：分享菜单 → 添加到主屏幕。游玩和同步存档需要连接服务器。</p></article>
         <article class="rt-notice rt-row"><span>Retrom 有新版本，可在结束游玩后点击更新。</span><button class="rt-button">点击更新</button></article>
         <article class="rt-panel rt-section"><h2>暂时无法连接</h2><p>请检查网络或服务器连接后重试。游玩和同步存档需要连接服务器。</p><p class="rt-muted">未同步的存档请在恢复连接后，前往“我的存档”重试或导出。</p><button class="rt-button rt-button-primary">重新连接</button></article>
       </section>
@@ -327,6 +345,7 @@
         if (scope) { const items = Array.from(scope.querySelectorAll("input:not([data-bios-select])")); const all = items.every(item => item.checked); const select = scope.querySelector("[data-bios-select]"); select.checked = all; select.indeterminate = !all && items.some(item => item.checked); select.nextElementSibling.textContent = all ? "取消全选" : "全选"; }
       });
       root.addEventListener("click", event => {
+        if (event.target.closest("[data-password-open]")) { root.querySelector("[data-password-dialog]").showModal(); }
         const selectScope = event.target.closest("[data-bios-select]");
         if (selectScope) { const items = Array.from(selectScope.closest("[data-bios-scope]").querySelectorAll("input:not([data-bios-select])")); items.forEach(item => { item.checked = selectScope.checked; }); selectScope.indeterminate = false; selectScope.nextElementSibling.textContent = selectScope.checked ? "取消全选" : "全选"; }
         const save = event.target.closest("[data-immersive-save]");

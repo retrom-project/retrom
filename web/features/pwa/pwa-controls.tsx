@@ -1,5 +1,7 @@
 "use client";
+import { useState } from "react";
 import { FeedbackBanner, StatusBadge } from "@/components/ui";
+import { useToast } from "@/components/toast-provider";
 import { usePwa } from "./pwa-provider";
 
 /** Connection and update notices float above the page so they never push its layout down. */
@@ -24,18 +26,36 @@ export function PwaSettings() {
     <div className="panel-head"><div><h2 id="pwa-heading">Retrom 应用</h2><p>从桌面或主屏幕打开自己的游戏库。</p></div>
       {pwa.installed ? <StatusBadge tone="good">已安装</StatusBadge> : null}
     </div>
-    <div className="panel-body stack">
+    <div className="panel-body pwa-settings-body">
       <p>{guide}</p>
       {!pwa.installed && pwa.secure && pwa.available ? <div><button className="button" disabled={pwa.busy} onClick={() => void pwa.install()}>{pwa.busy ? "正在打开安装提示…" : "安装 Retrom"}</button></div> : null}
       {pwa.message ? <p role="status">{pwa.message}</p> : null}
       <p className="pwa-description">游玩和同步存档需要连接服务器。安装后仍使用当前游戏库。</p>
-      {pwa.secure && pwa.offlineSupported ? <div className="pwa-notice">
-        <span>{pwa.error || (pwa.update ? "新版本已就绪。" : pwa.ready ? "离线提示已就绪。" : "正在准备离线提示…")}</span>
-        <button className="button secondary" disabled={!pwa.online} onClick={() => void pwa.checkUpdate()}>检查更新</button>
+      {pwa.secure && pwa.offlineSupported ? <div className="pwa-settings-actions">
+        <UpdateCheckButton pwa={pwa} />
       </div> : null}
-      {pwa.secure && !pwa.offlineSupported ? <p>当前浏览器不支持离线提示，仍可联网使用。</p> : null}
     </div>
   </section>;
+}
+
+function UpdateCheckButton({ pwa }: { pwa: NonNullable<ReturnType<typeof usePwa>> }) {
+  const { notify } = useToast();
+  const [checking, setChecking] = useState(false);
+  async function checkUpdate() {
+    if (checking) { return; }
+    setChecking(true);
+    try {
+      const result = await pwa.checkUpdate();
+      const messages = {
+        current: "当前已经是最新版本了。",
+        installing: "正在准备更新，请稍候。",
+        available: "发现新版本，请点击顶部的“点击更新”。",
+        failed: "检查更新失败，请稍后重试。",
+      };
+      notify({ tone: result === "failed" ? "bad" : "good", message: messages[result] });
+    } finally { setChecking(false); }
+  }
+  return <button className="button secondary" disabled={!pwa.online || checking} onClick={() => void checkUpdate()}>{checking ? "正在检查…" : "检查更新"}</button>;
 }
 
 function installationGuide(pwa: NonNullable<ReturnType<typeof usePwa>>) {

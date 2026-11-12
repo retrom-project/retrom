@@ -1,4 +1,6 @@
-.pwa-settings { margin-top: var(--space-5); }
+.pwa-settings { display: flex; flex-direction: column; }
+.pwa-settings-body { display: flex; flex: 1; flex-direction: column; gap: var(--space-4); }
+.pwa-settings-actions { display: flex; justify-content: flex-end; margin-top: auto; }
 .pwa-settings p { margin: 0; }
 .pwa-description { color: var(--muted); }
 .pwa-notice { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }

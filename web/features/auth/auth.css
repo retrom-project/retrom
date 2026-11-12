@@ -32,7 +32,8 @@
 .link-unavailable { margin-top: 22px; padding: 18px; border: 1px solid var(--amber-line); border-radius: var(--radius-panel); color: var(--amber); background: var(--amber-soft); }
 .link-facts { margin-top: 20px; padding: 14px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 7px 16px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface-subtle); font-size: var(--text-small); }
 .link-facts span { color: var(--muted); }
-.account-settings-grid { display: grid; grid-template-columns: minmax(300px, .7fr) minmax(420px, 1.3fr); gap: 20px; align-items: start; }
+.account-settings-grid { display: grid; grid-template-columns: minmax(300px, .7fr) minmax(420px, 1.3fr); gap: 20px; align-items: stretch; }
+.account-profile-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); }
 .account-facts { margin: 0; padding: 9px 20px 18px; }
 .account-facts > div { min-height: 54px; display: grid; grid-template-columns: 130px minmax(0, 1fr); align-items: center; border-bottom: 1px solid var(--line); }
 .account-facts > div:last-child { border-bottom: 0; }
