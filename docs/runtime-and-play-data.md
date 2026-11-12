@@ -16,6 +16,10 @@ Redis只保存两小时临时run：窄header和被允许的file/index hash字段
 
 运行期间ROM/Core变更不会拒绝仍存续的原run保存；存档extinfo只能复制原run冻结coreId/providerId/targetId/coreFingerprint/romHash/checkpointFormat/content/runtimeOptions。普通启动使用当前配置。恢复先读取当前User的Save，再将原extinfo交给runtime：校验当前允许核心、完整ROM身份和可读格式后，按原content与runtimeOptions准备资源，不用后来编辑的运行选项替换存档上下文。Go在准备与restore descriptor中复用同一次Save投影，避免并发覆盖时混合原选项与新payload；实际下载遇到不匹配的强ETag仍可明确失败，不增加持久快照关系。核心指纹变化只返回core_changed警告，不拦截恢复；ROM变化和不可读格式优先于警告。旧存档显示真实不可恢复原因。saveId、kind、slot、name和version仍是存档领域字段，不从内容hash反推。
 
+RPG Maker 的 MV/MZ、XP/VX/VX Ace、2000/2003 均使用 GAME_SAVE。用户先在游戏内保存，Host 同步全部原生存档和设置；恢复在核心启动前导入整包，再由用户在游戏内读档。不分配额外槽位、不捕获执行状态、不自动跳转地图，保存条件由游戏决定。
+
+切换通过 `003_rpgmaker_native_saves` 一次性退役当前全部 RPG Maker 服务端存档，不转换或保留为可用存档；其他核心存档不受影响。退役记录沿现有删除流程在 24 小时宽限后清理文件。迁移只执行一次，切换后新建的原生存档在后续启动时保留。该数据清理须与提供上述 GAME_SAVE 契约的 Provider 一起上线。
+
 保存multipart metadata+payload+可选PNG/JPEG截图。commitId为浏览器持久草稿ID：创建save ID取commitId；覆盖保存last_commit_id。相同commit/payload hash/extinfo重试返回同一版本，其他提交按CAS竞争。IO完成后短事务锁Game确认published，再保存CAS；游戏删除后不能提交新存档。列表按distinct game/core一次batch-identity和一次batch-restorable，不逐存档调用Prepare/Node。筛选分页与count采用同条件。
 
 正式游玩新生成的存档截图在写入浏览器草稿前统一编码为JPEG，质量参数0.95，高度最多540像素、宽度等比取整，仅缩小、不放大；透明区域以黑色填充。状态存档、原生存档后台同步、核心自带保存点图片和退出最终截图共用此处理。重试复用草稿中的已编码字节；无新增保存点时继续保留已有截图。图片解码或编码失败仅省略本次截图，不阻止进度保存。服务端仍校验并原样保存收到的PNG/JPEG，不转换已有截图。
