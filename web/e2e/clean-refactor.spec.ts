@@ -20,6 +20,7 @@ import { verifyDetailDirectoryLink } from "./detail-directory-link";
 import { verifyDetailTitle } from "./detail-title";
 import { verifyContentReplacement } from "./content-replacement";
 import { verifyBrowserStorage } from "./browser-storage";
+import { verifyAccountSettings, verifyPasswordSession } from "./account-settings";
 import {
   instantConflict,
   newInstantSave,
@@ -359,6 +360,10 @@ test("populated pages keep their viewport and functional favorite classification
       .toBe(true);
     if (route === "/saves") {
       await expectSaveContentToFit(page);
+    }
+    if (route === "/account") {
+      await verifyAccountSettings(page, test.info());
+      await verifyPasswordSession(page);
     }
     if (route === "/admin/imports/server") {
       await verifyScanControls(page, test.info());

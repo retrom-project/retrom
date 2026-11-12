@@ -1,4 +1,5 @@
 export type WorkerState = { ready: boolean; update: boolean; error: string };
+export type UpdateCheckResult = "current" | "installing" | "available" | "failed";
 const unavailable = "暂时无法准备离线提示，请恢复连接后重试。";
 
 export function observeWorker(changed: (state: WorkerState) => void) {
@@ -23,13 +24,13 @@ export function observeWorker(changed: (state: WorkerState) => void) {
     worker.addEventListener("statechange", stateChanged);
     cleanups.push(() => worker.removeEventListener("statechange", stateChanged));
   }
-  async function check() {
-    if (disposed) { return; }
+  async function check(): Promise<UpdateCheckResult> {
+    if (disposed) { return "failed"; }
     lastCheck = Date.now();
     try {
       if (!registration) {
         const value = await navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
-        if (disposed) { return; }
+        if (disposed) { return "failed"; }
         registration = value;
         registration.addEventListener("updatefound", watchInstalling);
         cleanups.push(() => value.removeEventListener("updatefound", watchInstalling));
@@ -38,7 +39,9 @@ export function observeWorker(changed: (state: WorkerState) => void) {
         await registration.update();
       }
       publish();
-    } catch { failure(); }
+      if (registration.waiting) { return "available"; }
+      return registration.installing || !registration.active ? "installing" : "current";
+    } catch { failure(); return "failed"; }
   }
   function visible() {
     if (document.visibilityState === "visible" && Date.now() - lastCheck > 60_000) { void check(); }

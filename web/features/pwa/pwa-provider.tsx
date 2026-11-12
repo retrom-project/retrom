@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { observeWorker } from "./worker-client";
-import type { WorkerState } from "./worker-client";
+import type { UpdateCheckResult, WorkerState } from "./worker-client";
 import { useInstallation } from "./use-installation";
 
 type PwaState = ReturnType<typeof useInstallation> & WorkerState & {
@@ -10,7 +10,7 @@ type PwaState = ReturnType<typeof useInstallation> & WorkerState & {
   updating: boolean;
   updateMessage: string;
   applyUpdate(): Promise<void>;
-  checkUpdate(): Promise<void>;
+  checkUpdate(): Promise<UpdateCheckResult>;
 };
 const Pwa = createContext<PwaState | null>(null);
 export function PwaProvider({ children }: { children: ReactNode }) {
@@ -53,7 +53,7 @@ export function PwaProvider({ children }: { children: ReactNode }) {
   }
   async function checkUpdate() {
     setUpdateMessage("");
-    await observer.current?.check();
+    return await observer.current?.check() ?? "failed";
   }
   return <Pwa.Provider value={{ ...installation, ...worker, online, updating, updateMessage, applyUpdate, checkUpdate }}>{children}</Pwa.Provider>;
 }
