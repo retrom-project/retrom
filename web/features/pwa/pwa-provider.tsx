@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { observeWorker } from "./worker-client";
 import type { UpdateCheckResult, WorkerState } from "./worker-client";
 import { useInstallation } from "./use-installation";
+import { observeConnection } from "./connection-client";
 
 type PwaState = ReturnType<typeof useInstallation> & WorkerState & {
   online: boolean;
@@ -21,17 +22,12 @@ export function PwaProvider({ children }: { children: ReactNode }) {
   const [updateMessage, setUpdateMessage] = useState("");
   const observer = useRef<ReturnType<typeof observeWorker> | null>(null);
   useEffect(() => {
-    const connection = () => setOnline(navigator.onLine);
-    const timer = setTimeout(connection, 0);
-    window.addEventListener("online", connection);
-    window.addEventListener("offline", connection);
+    const disconnect = observeConnection(setOnline);
     if (window.isSecureContext && "serviceWorker" in navigator) {
       observer.current = observeWorker(setWorker);
     }
     return () => {
-      clearTimeout(timer);
-      window.removeEventListener("online", connection);
-      window.removeEventListener("offline", connection);
+      disconnect();
       observer.current?.dispose();
       observer.current = null;
     };

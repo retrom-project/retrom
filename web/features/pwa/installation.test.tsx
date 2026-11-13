@@ -8,6 +8,7 @@ beforeEach(() => {
   vi.stubGlobal("isSecureContext", true);
   vi.stubGlobal("matchMedia", () => Object.assign(new EventTarget(), { matches: false }));
   vi.stubGlobal("navigator", { userAgent: "Chrome", platform: "Linux", maxTouchPoints: 0, onLine: true });
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Offline")));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const view = () => render(<PwaProvider><PwaNotice /><PwaSettings /></PwaProvider>);
@@ -55,4 +56,33 @@ test("standalone launch is recognized and a disconnected connection is visible",
   expect(screen.getByText(/当前网络已断开/u).closest(".pwa-floating")).not.toBeNull();
   act(() => { browser.onLine = true; window.dispatchEvent(new Event("online")); });
   await waitFor(() => expect(screen.queryByText(/当前网络已断开/u)).not.toBeInTheDocument());
+});
+
+test("clears a stale offline notice on focus even if the online event was missed", async () => {
+  const browser = { userAgent: "Chrome", platform: "Linux", maxTouchPoints: 0, onLine: true };
+  vi.stubGlobal("navigator", browser);
+  view();
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+  act(() => { browser.onLine = false; window.dispatchEvent(new Event("offline")); });
+  expect(screen.getByText(/当前网络已断开/u)).toBeInTheDocument();
+  browser.onLine = true;
+  act(() => { window.dispatchEvent(new Event("focus")); });
+  await waitFor(() => expect(screen.queryByText(/当前网络已断开/u)).not.toBeInTheDocument());
+});
+
+test("clears a stale offline notice when the server is reachable despite the browser reporting offline", async () => {
+  const browser = { userAgent: "Chrome", platform: "Linux", maxTouchPoints: 0, onLine: true };
+  vi.stubGlobal("navigator", browser);
+  let respond!: (response: Response) => void;
+  const pending = new Promise<Response>(resolve => { respond = resolve; });
+  const fetcher = vi.fn().mockReturnValue(pending);
+  vi.stubGlobal("fetch", fetcher);
+  view();
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+  act(() => { browser.onLine = false; window.dispatchEvent(new Event("offline")); });
+  expect(screen.getByText(/当前网络已断开/u)).toBeInTheDocument();
+  await waitFor(() => expect(fetcher).toHaveBeenCalled());
+  await act(async () => { respond(new Response(null, { status: 200 })); });
+  await waitFor(() => expect(screen.queryByText(/当前网络已断开/u)).not.toBeInTheDocument());
+  expect(browser.onLine).toBe(false);
 });
