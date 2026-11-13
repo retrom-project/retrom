@@ -21,6 +21,9 @@
 .game-editor-list-head h2 { margin: 0; font-size: var(--text-section); }
 .game-editor-list-head > div { display: flex; gap: 8px; }
 .game-editor-category-help { margin: 0; color: var(--muted); }
+.game-editor-value-path { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.game-editor-value-path .button { flex-shrink: 0; }
+.game-editor-value-path span { min-width: 0; overflow-wrap: anywhere; }
 .game-editor-search { display: flex; align-items: center; gap: 8px; }
 .game-editor-search label { white-space: nowrap; }
 .game-editor-search input, .game-editor-row-form input { min-width: 0; }
