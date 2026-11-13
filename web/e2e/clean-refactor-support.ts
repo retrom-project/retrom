@@ -187,8 +187,12 @@ export async function revealPlayerControls(page: Page) {
   }
   const toolbar = page.locator(".player-toolbar");
   const handle = page.getByRole("button", { name: "显示游戏工具栏", exact: true });
+  const desktopPointer = await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches);
   await expect(async () => {
-    if (await handle.isVisible()) { await handle.click(); }
+    if (desktopPointer) {
+      // Hover reveals the desktop toolbar before a handle click can land, covering its target.
+      await page.mouse.move(16, 4);
+    } else if (await handle.isVisible()) { await handle.click(); }
     // A just-closed save sheet can release its pinned HUD between two frames.
     // Real pointer hover keeps the visible toolbar available for the next action.
     await toolbar.getByRole("button", { name: "返回并退出游戏", exact: true }).hover({ timeout: 1500 });
