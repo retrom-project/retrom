@@ -137,9 +137,13 @@ export type RuntimeGameEditEntryV1 = {
   id: string;
   label: string;
   value: RuntimeGameEditValueV1;
-  valueType: "number" | "text" | "boolean" | "unsupported";
+  valueType: "number" | "text" | "boolean" | "collection" | "null" | "unsupported";
   min?: number;
   max?: number;
+  /** Absent means integers; "any" permits finite numbers within min/max. */
+  step?: 1 | "any";
+  /** Opaque category for paged array/object children; present only for collections. */
+  children?: string;
 };
 export type RuntimeGameEditPageV1 = {entries: RuntimeGameEditEntryV1[]; nextOffset: number | null};
 export type RuntimeGameEditCategoryV1 = {

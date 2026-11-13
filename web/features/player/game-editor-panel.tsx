@@ -9,6 +9,8 @@ import {gameEditorScrollRoot, resetGameEditorScroll} from "./game-editor-scroll"
 import {useGameEditorViewport} from "./use-game-editor-viewport";
 
 const PAGE_SIZE = 40;
+type ValueScope = {category: string; id: string; label: string;
+  parent: {query: string; search: string; searchOpen: boolean; count: number}};
 
 export function GameEditorPanel({editor, immersive, native = false, onClose}: {
   editor: RuntimeGameEditorV1; immersive?: boolean; native?: boolean; onClose: () => void;
@@ -17,6 +19,7 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
   const [categories, setCategories] = useState<RuntimeGameEditCategoryV1[]>([]);
   const [category, setCategory] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("");
+  const [valueScopes, setValueScopes] = useState<ValueScope[]>([]);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -35,9 +38,8 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
   const listRef = useRef<HTMLDivElement>(null);
   const requestSequence = useRef(0);
   const requestedPage = useRef<string | null>(null);
-  const selectedCategory = categories.find((item) => item.id === category);
-  const groups = selectedCategory?.groups;
-  const activeCategory = resolveActiveCategory(category, groups, selectedGroup);
+  const pendingEntryFocus = useRef<{id: string; count: number} | null>(null);
+  const {groups, activeCategory, categoryLabel, rootLabel} = resolveEditorSelection(categories, category, selectedGroup, valueScopes);
   useGameEditorViewport(overlayRef);
 
   useEffect(() => {
@@ -88,6 +90,18 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
     return () => {active = false;};
   }, [activeCategory, category, search, load]);
   useEffect(() => {
+    const pending = pendingEntryFocus.current;
+    if (loading || loadingMore || pageError || !pending) {return;}
+    const button = listRef.current?.querySelector<HTMLButtonElement>(`[data-entry-id="${pending.id}"] button`);
+    if (button) {button.focus(); pendingEntryFocus.current = null; return;}
+    if (entries.length < pending.count && nextOffset !== null) {
+      const key = JSON.stringify([activeCategory, search, nextOffset]);
+      if (requestedPage.current !== key) {
+        requestedPage.current = key; void load(activeCategory, search, nextOffset);
+      }
+    } else {pendingEntryFocus.current = null; closeRef.current?.focus();}
+  }, [entries, loading, loadingMore, pageError, nextOffset, activeCategory, search, load]);
+  useEffect(() => {
     const marker = moreRef.current;
     const list = marker?.parentElement;
     if (!marker || !list || !activeCategory || nextOffset === null || loading || loadingMore || pageError) {return;}
@@ -114,6 +128,7 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
     if (value === category) {return;}
     requestSequence.current += 1;
     setCategory(value); setSelectedGroup(""); setEntries([]); setLoading(true); setShowLoading(false); setNextOffset(null);
+    setValueScopes([]); pendingEntryFocus.current = null;
     requestedPage.current = null; resetGameEditorScroll(listRef.current);
     setQuery(""); setSearch(""); setSearchOpen(false); setNotice(null);
   }
@@ -124,6 +139,19 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
     setSelectedGroup(value); setEntries([]); setNextOffset(null); setLoading(true); setShowLoading(false);
     setQuery(""); setSearch(""); setSearchOpen(false); setNotice(null);
     resetGameEditorScroll(listRef.current);
+  }
+
+  function navigateValues(scopes: ValueScope[], previous?: ValueScope) {
+    requestSequence.current += 1; requestedPage.current = null;
+    pendingEntryFocus.current = previous ? {id: previous.id, count: previous.parent.count} : null;
+    setValueScopes(scopes); setEntries([]); setNextOffset(null); setLoading(true); setShowLoading(false);
+    setQuery(previous?.parent.query ?? ""); setSearch(previous?.parent.search ?? "");
+    setSearchOpen(previous?.parent.searchOpen ?? false); setNotice(null);
+    resetGameEditorScroll(listRef.current);
+  }
+  function openCollection(entry: RuntimeGameEditEntryV1) {
+    if (entry.children) {navigateValues([...valueScopes, {category: entry.children, id: entry.id, label: entry.label,
+      parent: {query, search, searchOpen, count: entries.length}}]);}
   }
 
   async function save(entry: RuntimeGameEditEntryV1, value: number | string | boolean) {
@@ -148,7 +176,6 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
       if (category === "actors") {void load(activeCategory, search, 0);}
     } catch {setNotice(null); setError(`${entry.label} 修改失败；请检查游戏当前规则或允许的范围。`);}
   }
-  const categoryLabel = selectedCategory?.label ?? "可修改";
   function changeSearch(value: string) {
     requestSequence.current += 1;
     requestedPage.current = null;
@@ -172,11 +199,13 @@ export function GameEditorPanel({editor, immersive, native = false, onClose}: {
       <div className="game-editor-feedback"><p className="game-editor-help" aria-hidden={Boolean(notice)}>修改立即生效。{saveHint}</p>{notice ? <p className="game-editor-notice" role="status">{notice.text}</p> : null}</div>
       {category === "self_switches" ? <GameEditorSelfSwitchSection editor={editor} onNotice={() => setNotice({text: `已应用修改。${saveHint}`})} /> : <>
       {category ? <GameEditorToolbar label={categoryLabel} searchOpen={searchOpen} onSearch={toggleSearch} onRefresh={() => {if (activeCategory) {void load(activeCategory, search, 0);}}} /> : null}
+      {valueScopes.length ? <GameEditorValuePath root={rootLabel} scopes={valueScopes}
+        onBack={() => navigateValues(valueScopes.slice(0, -1), valueScopes.at(-1))} /> : null}
       {groups ? <GameEditorActorTabs groups={groups} activeCategory={activeCategory} onChoose={chooseGroup} /> : null}
       <GameEditorCategoryHelp category={category} />
       {searchOpen ? <GameEditorSearch query={query} hasFilter={Boolean(search)} onQuery={setQuery} onSubmit={submitSearch} onClear={() => {setQuery(""); changeSearch("");}} /> : null}
       {error ? <p className="game-editor-error" role="alert">{error}</p> : null}
-      <GameEditorList listRef={listRef} grouped={Boolean(groups)} noGroup={Boolean(groups && !groups.length)} category={category} categoryLabel={categoryLabel} entries={entries} loading={loading} showLoading={showLoading} loadingMore={loadingMore} filtered={Boolean(search)} onSave={save}>
+      <GameEditorList listRef={listRef} grouped={Boolean(groups)} noGroup={Boolean(groups && !groups.length)} category={category} categoryLabel={categoryLabel} entries={entries} loading={loading} showLoading={showLoading} loadingMore={loadingMore} filtered={Boolean(search)} onSave={save} onOpen={openCollection}>
         <GameEditorMore markerRef={moreRef} nextOffset={loading ? null : nextOffset} loading={loadingMore} error={pageError} onRetry={() => {
           if (nextOffset === null) {return;}
           requestedPage.current = null;
@@ -193,6 +222,25 @@ function resolveActiveCategory(category: string, groups: RuntimeGameEditCategory
   return groups ? selectedGroup || groups[0]?.id || "" : category;
 }
 
+function resolveEditorSelection(categories: RuntimeGameEditCategoryV1[], category: string, selectedGroup: string, scopes: ValueScope[]) {
+  const selected = categories.find(item => item.id === category);
+  const groups = selected?.groups;
+  const rootLabel = selected?.label ?? "可修改";
+  const scope = scopes.at(-1);
+  return {groups, rootLabel, categoryLabel: scope?.label ?? rootLabel,
+    activeCategory: scope?.category ?? resolveActiveCategory(category, groups, selectedGroup)};
+}
+
+function GameEditorValuePath({root, scopes, onBack}: {root: string; scopes: ValueScope[]; onBack: () => void}) {
+  const backRef = useRef<HTMLButtonElement>(null);
+  const active = scopes.at(-1)?.category;
+  useEffect(() => {backRef.current?.focus();}, [active]);
+  return <nav className="game-editor-value-path" aria-label="数值路径">
+    <button ref={backRef} className="button secondary" type="button" onClick={onBack}>返回上一级</button>
+    <span>{[root, ...scopes.map(scope => scope.label)].join(" / ")}</span>
+  </nav>;
+}
+
 function GameEditorSelfSwitchSection({editor, onNotice}: {editor: RuntimeGameEditorV1; onNotice: () => void}) {
   return editor.selfSwitches ? <GameEditorSelfSwitches api={editor.selfSwitches} onNotice={onNotice} />
     : <p className="game-editor-error" role="alert">当前游戏无法读取事件独立开关。</p>;
@@ -200,6 +248,7 @@ function GameEditorSelfSwitchSection({editor, onNotice}: {editor: RuntimeGameEdi
 
 function GameEditorCategoryHelp({category}: {category: string}) {
   const help: Record<string, string> = {
+    variables: "数组和对象可以展开，逐项修改其中的数值。数组下标从 0 开始。",
     skills: "这里显示角色主动学习的技能；职业或装备附加的技能仍可能可用。",
     states: "战斗不能由生命值控制；免疫状态可能无法添加。",
     classes: "转职可能改变等级与可穿戴装备，按游戏规则立即生效。",
@@ -302,13 +351,14 @@ function GameEditorSearch({query, hasFilter, onQuery, onSubmit, onClear}: {
   return <form id="game-editor-search" className="game-editor-search" onSubmit={(event: FormEvent<HTMLFormElement>) => {event.preventDefault(); onSubmit();}}><label htmlFor="game-editor-query">按名称查找</label><input id="game-editor-query" type="search" value={query} maxLength={80} onChange={(event) => onQuery(event.target.value)} /><button className="button secondary" type="submit">查找</button>{hasFilter ? <button className="button secondary" type="button" onClick={onClear}>清除</button> : null}</form>;
 }
 
-function GameEditorList({listRef, grouped, noGroup, category, categoryLabel, entries, loading, showLoading, loadingMore, filtered, onSave, children}: {
+function GameEditorList({listRef, grouped, noGroup, category, categoryLabel, entries, loading, showLoading, loadingMore, filtered, onSave, onOpen, children}: {
   listRef: Ref<HTMLDivElement>; grouped: boolean; noGroup: boolean; category: string; categoryLabel: string; entries: RuntimeGameEditEntryV1[]; loading: boolean; showLoading: boolean; loadingMore: boolean; filtered: boolean;
   onSave: (entry: RuntimeGameEditEntryV1, value: number | string | boolean) => Promise<void>;
+  onOpen: (entry: RuntimeGameEditEntryV1) => void;
   children: ReactNode;
 }) {
   return <div ref={listRef} id={grouped ? "game-editor-group-list" : undefined} role={grouped ? "tabpanel" : undefined} className="game-editor-list" aria-busy={loading || loadingMore}>{loading ? showLoading ? <p>正在读取…</p> : null : noGroup ? <p>当前队伍没有可修改的角色。</p> : entries.length
-    ? entries.map((entry) => <GameEditorRow key={`${category}:${entry.id}:${String(entry.value)}`} category={category} entry={entry} onSave={(value) => onSave(entry, value)} />)
+    ? entries.map((entry) => <GameEditorRow key={`${category}:${entry.id}:${String(entry.value)}`} category={category} entry={entry} onSave={(value) => onSave(entry, value)} onOpen={() => onOpen(entry)} />)
     : <p>{filtered ? "没有找到匹配的条目。" : `当前游戏没有${categoryLabel}条目。`}</p>}{children}</div>;
 }
 
@@ -326,7 +376,14 @@ type GameEditorRowProps = {
   onSave: (value: number | string | boolean) => Promise<void>;
 };
 
-function GameEditorRow(props: GameEditorRowProps) {
+function GameEditorRow(props: GameEditorRowProps & {onOpen: () => void}) {
+  if (props.entry.valueType === "collection" || props.entry.valueType === "null") {
+    return <div className="game-editor-row" data-entry-id={props.entry.id}>
+      <GameEditorRowLabel category={props.category} entry={props.entry} />
+      {props.entry.valueType === "collection" ? <button className="button secondary" type="button"
+        aria-label={`展开${props.entry.label}`} onClick={props.onOpen}>展开</button> : null}
+    </div>;
+  }
   if (props.category === "party" && props.entry.valueType === "number") {return <GameEditorPartyRow {...props} />;}
   if (props.entry.valueType === "boolean") {return <GameEditorBooleanRow {...props} />;}
   return <GameEditorScalarRow {...props} />;
@@ -368,24 +425,26 @@ function GameEditorScalarRow({category, entry, onSave}: GameEditorRowProps) {
     const numeric = Number(draft);
     const value = entry.valueType === "number" ? numeric : draft;
     if (entry.valueType === "number" && !validNumericDraft(entry, draft)) {
-      setInvalid(`请输入 ${entry.min ?? "有效"} 至 ${entry.max ?? "有效"} 之间的整数。`); return;
+      setInvalid(`请输入 ${entry.min ?? "有效"} 至 ${entry.max ?? "有效"} 之间的${entry.step === "any" ? "数值" : "整数"}。`); return;
     }
     setInvalid(""); setPending(true);
     try {await onSave(value);} finally {setPending(false);}
   }
   return <div className="game-editor-row"><GameEditorRowLabel category={category} entry={entry} />
     {entry.valueType === "unsupported" ? <span className="game-editor-unsupported">此值类型暂不支持</span>
-      : <form className="game-editor-row-form" onSubmit={(event) => void submit(event)}>{entry.valueType === "number" ? <button className="button secondary" type="button" aria-label={`${entry.label}减一`} disabled={pending} onClick={() => setDraft(String(Math.max(entry.min ?? -999999999, Number(draft || 0) - 1)))}>−</button> : null}<input aria-label={`修改${entry.label}`} type={entry.valueType === "number" ? "number" : "text"} inputMode={entry.valueType === "number" ? "numeric" : undefined} step={entry.valueType === "number" ? 1 : undefined} min={entry.min} max={entry.max} maxLength={entry.valueType === "text" ? 500 : undefined} value={draft} onChange={(event) => setDraft(event.target.value)} />{entry.valueType === "number" ? <button className="button secondary" type="button" aria-label={`${entry.label}加一`} disabled={pending} onClick={() => setDraft(String(Math.min(entry.max ?? 999999999, Number(draft || 0) + 1)))}>+</button> : null}<button className="button secondary" type="submit" disabled={pending || draft === String(entry.value)}>{pending ? "保存中" : "应用"}</button>{invalid ? <small role="alert">{invalid}</small> : null}</form>}
+      : <form className="game-editor-row-form" onSubmit={(event) => void submit(event)}>{entry.valueType === "number" ? <button className="button secondary" type="button" aria-label={`${entry.label}减一`} disabled={pending} onClick={() => setDraft(String(Math.max(entry.min ?? -999999999, Number(draft || 0) - 1)))}>−</button> : null}<input aria-label={`修改${entry.label}`} type={entry.valueType === "number" ? "number" : "text"} inputMode={entry.valueType === "number" ? entry.step === "any" ? "decimal" : "numeric" : undefined} step={entry.valueType === "number" ? entry.step ?? 1 : undefined} min={entry.min} max={entry.max} maxLength={entry.valueType === "text" ? 500 : undefined} value={draft} onChange={(event) => setDraft(event.target.value)} />{entry.valueType === "number" ? <button className="button secondary" type="button" aria-label={`${entry.label}加一`} disabled={pending} onClick={() => setDraft(String(Math.min(entry.max ?? 999999999, Number(draft || 0) + 1)))}>+</button> : null}<button className="button secondary" type="submit" disabled={pending || draft === String(entry.value)}>{pending ? "保存中" : "应用"}</button>{invalid ? <small role="alert">{invalid}</small> : null}</form>}
   </div>;
 }
 
 function validNumericDraft(entry: RuntimeGameEditEntryV1, draft: string) {
   const number = Number(draft);
-  return draft.trim() !== "" && Number.isSafeInteger(number) &&
+  return draft.trim() !== "" && Number.isFinite(number) && Math.abs(number) <= Number.MAX_SAFE_INTEGER &&
+    (entry.step === "any" || Number.isSafeInteger(number)) &&
     (entry.min === undefined || number >= entry.min) && (entry.max === undefined || number <= entry.max);
 }
 
 function displayEntryValue(entry: RuntimeGameEditEntryV1, category: string) {
+  if (entry.valueType === "null") {return "空值";}
   if (entry.value === null) {return "不支持";}
   if (category === "party" && typeof entry.value === "number") {
     return entry.value ? `队伍第 ${entry.value} 位` : "未入队";
