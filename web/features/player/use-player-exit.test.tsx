@@ -49,6 +49,40 @@ it("instant create saves independently, keeps failures visible and never navigat
   expect(f.options.capture).toHaveBeenLastCalledWith(f.instance, "CAPTURE");
   expect(f.options.leave).not.toHaveBeenCalled();
 });
+
+it("lets a native close callback confirm or refuse before any final export or navigation", async () => {
+  const f = fixture(false, true);
+  const requestClose = vi.fn(async () => {f.transition("RUNNING");});
+  Object.assign(f.instance, {requestClose});
+  const { result } = renderHook(() => usePlayerExit(f.options));
+  await act(() => result.current.request());
+  await act(() => result.current.confirm());
+  expect(requestClose).toHaveBeenCalledOnce();
+  expect(result.current.open).toBe(false);
+  expect(result.current.active).toBe(false); // Native confirmation accepts input.
+  expect(f.options.capture).not.toHaveBeenCalled();
+  expect(f.options.leave).not.toHaveBeenCalled();
+  // Refusal/cancellation produces no EXIT_REQUESTED; the game stays usable.
+  await act(() => result.current.request());
+  await act(() => result.current.cancel());
+  expect(f.options.leave).not.toHaveBeenCalled();
+});
+
+it("keeps a failed native close visible and requires another explicit exit choice for forced cleanup", async () => {
+  const f = fixture(false, true);
+  const requestClose = vi.fn(async () => {throw new Error("native close failed");});
+  Object.assign(f.instance, {requestClose});
+  const { result } = renderHook(() => usePlayerExit(f.options));
+  await act(() => result.current.request());
+  await act(() => result.current.confirm());
+  expect(result.current.open).toBe(true);
+  expect(result.current.saveState).toBe("error");
+  expect(f.options.reportError).toHaveBeenCalledWith("native close failed");
+  expect(f.options.leave).not.toHaveBeenCalled();
+  await act(() => result.current.confirm());
+  expect(f.options.leave).toHaveBeenCalledOnce();
+  expect(requestClose).toHaveBeenCalledOnce();
+});
 it("native sync uses EXPORT and failed exit needs another explicit decision", async () => {
   const f = fixture(true, true);
   f.options.capture.mockResolvedValue(false);
