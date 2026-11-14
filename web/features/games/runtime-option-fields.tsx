@@ -150,11 +150,13 @@ function StringArrayField({field, value, onChange}: {
   </label>;
 }
 const optionChoices: Record<string, Record<string, string>> = {
+  textEncoding: {cp932: "日文（CP932）", gbk: "简体中文（GBK）"},
   language: {chs: "简体中文（汉化资源）", original: "原版资源"},
   engineMode: {KIRIKIRI2: "吉里吉里 2", KIRIKIRI_Z: "吉里吉里 Z"},
   steamService: {DISABLED: "禁用", LOCAL: "本地兼容服务"},
 };
 const optionLabels: Record<string, string> = {
+  textEncoding: "脚本文字编码",
   engineMode: "引擎模式",
   overlayArchives: "资源补丁归档（每行一个路径，后者优先）",
   engineArguments: "引擎启动参数（每行一项）",

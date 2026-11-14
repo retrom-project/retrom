@@ -61,6 +61,22 @@ func TestReplacementUsesNewEntryWhenSelectionIsGone(t *testing.T) {
 	}
 }
 
+func TestReplacementRetainsBGIRootAndEncoding(t *testing.T) {
+	t.Parallel()
+	previous := json.RawMessage(`{"cores":{"ethornell":{"options":{"textEncoding":"gbk"}}},` +
+		`"content":{"kind":"BGI_PROJECT","entryFile":"game/system.arc"}}`)
+	next := json.RawMessage(`{"cores":{"ethornell":{"options":{"textEncoding":"cp932"}}},` +
+		`"content":{"kind":"BGI_PROJECT","entryFile":"system.arc"}}`)
+	result, err := retainReviewerSelections(previous, next, replacementFiles("system.arc", "game/system.arc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, cores := decodeConfig(t, result)
+	if content["entryFile"] != "game/system.arc" || cores["ethornell"]["options"]["textEncoding"] != "gbk" {
+		t.Fatalf("BGI reviewer selection lost: %s", result)
+	}
+}
+
 func TestReplacementMergesOptionsWithoutCopyingFileReferences(t *testing.T) {
 	t.Parallel()
 	previous := json.RawMessage(`{"cores":{"fbneo":{"parentFiles":["old.zip"],"options":{"region":"jp"}}},` +

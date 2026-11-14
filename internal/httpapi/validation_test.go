@@ -225,3 +225,16 @@ func TestContractAcceptsTheRecordedRPGMakerRTPInSavedContent(t *testing.T) {
 		t.Fatal("RuntimeContent accepted an undeclared field")
 	}
 }
+
+func TestContractAcceptsBGIConfigurationForReviewEdits(t *testing.T) {
+	t.Parallel()
+	spec, err := generated.GetSwagger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = spec.Components.Schemas["RuntimeContent"].Value.VisitJSON(map[string]any{
+		"kind": "BGI_PROJECT", "entryFile": "system.arc",
+	}); err != nil {
+		t.Fatalf("BGI content rejected before reaching runtime: %v", err)
+	}
+}

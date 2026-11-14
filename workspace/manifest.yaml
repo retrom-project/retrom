@@ -68,7 +68,8 @@
         "mame2003_plus",
         "fbalpha2012_cps2",
         "parallel-n64",
-        "siglus-rs"
+        "siglus-rs",
+        "ethornell-rs"
       ]
     },
     {
@@ -645,6 +646,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/siglus_rs.git",
       "defaultBranch": "retrom/g5f358ef1360b",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "ethornell-rs",
+      "path": "project/retrom-core/ethornell-rs",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/ethornell-rs.git",
+      "defaultBranch": "retrom/g7cfc2fba8261",
       "submodules": false,
       "dependsOn": []
     }

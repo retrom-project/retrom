@@ -19,7 +19,7 @@ PostgreSQL保存事实，Redis保存TTL临时run与原子作用域限流，本�
 
 普通受管文件及每个逻辑成员上限为 8 GiB；项目最多 50,000 成员，正文总量最多 64 GiB。受管项目 ZIP 支持 ZIP64，物理上限另加每个成员两份最长路径、头部和 ZIP64 元数据的预算，不能套用 8 GiB 或恰好 64 GiB 的限制。目录/归档读取同时限制实际成员数量和字节数；拒绝危险、重复路径、符号链接和加密归档成员。
 
-runtime 声明 ZIP_STORE 布局的项目在导入/替换的内容准备阶段写为一个 STORE ZIP；当前包含 RPG Maker 七种版本、Siglus、TyranoScript、洞窟物语、GameMaker、KRKR、ONS 和 ScummVM。原生 ZIP、单 ROM 及范围外文件集合使用 FILES 布局。输入仍接受目录、ZIP、7z；ASAR/EXE 等项目转换由 runtime 解释，不新增 gzip/RAR 导入能力。浏览器上传只是可选来源，不是打包依赖。
+runtime 声明 ZIP_STORE 布局的项目在导入/替换的内容准备阶段写为一个 STORE ZIP；当前包含 RPG Maker 七种版本、BGI、Siglus、TyranoScript、洞窟物语、GameMaker、KRKR、ONS 和 ScummVM。原生 ZIP、单 ROM 及范围外文件集合使用 FILES 布局。输入仍接受目录、ZIP、7z；ASAR/EXE 等项目转换由 runtime 解释，不新增 gzip/RAR 导入能力。浏览器上传只是可选来源，不是打包依赖。
 
 KRKR 准备过程先在 temporary 下保全原始输入，再解包、归一化并构建运行包：写入的同一遍计算整包大小和摘要，随后逐成员回读校验，再 fsync/rename，然后短事务发布物理包记录、成员索引及原档描述。完成、失败及取消清理本次暂存；事务结果不明先按分配 ID 核实。STORE 不压缩正文，活动受管运行内容保留一份包；只有 KRKR 改写内部文件时另有独占的离线原档；只读来源原包不由系统删除。空间检查包含已留存原档、实际展开量、新包及目录原档归档的新增空间，并保留 1 GiB 余量；不按压缩输入大小乘二估算。
 
