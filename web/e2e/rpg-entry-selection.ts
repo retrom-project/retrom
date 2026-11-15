@@ -65,10 +65,12 @@ async function verifyTouchGamepadToolbar(page: Page, info: TestInfo, gameId: str
   await expect(page.getByRole("button", {name: /虚拟手柄/u})).toHaveCount(desktop ? 0 : 1);
   await page.screenshot({path: info.outputPath("touch-gamepad-toolbar.png")});
   if (desktop) {
+    await verifyDesktopMenu(page, info, "desktop");
     await page.setViewportSize({width: 1000, height: 700});
     await revealPlayerControls(page);
     await expect(page.getByRole("button", {name: /虚拟手柄/u})).toHaveCount(0);
     await page.screenshot({path: info.outputPath("touch-gamepad-toolbar-narrow-desktop.png")});
+    await verifyDesktopMenu(page, info, "narrow-desktop");
   } else {
     await page.getByRole("button", {name: "隐藏虚拟手柄", exact: true}).click();
     await expect(page.getByRole("button", {name: "显示虚拟手柄", exact: true})).toHaveAttribute("aria-pressed", "false");
@@ -77,6 +79,20 @@ async function verifyTouchGamepadToolbar(page: Page, info: TestInfo, gameId: str
     await expect(page.getByRole("button", {name: "隐藏虚拟手柄", exact: true})).toHaveAttribute("aria-pressed", "true");
   }
   await leavePlayer(page);
+}
+
+async function verifyDesktopMenu(page: Page, info: TestInfo, label: string) {
+  await page.getByRole("button", {name: "更多操作", exact: true}).click();
+  await page.mouse.move(200, 350);
+  const menu = page.getByRole("menu", {name: "Player 更多操作"});
+  await expect(page.locator(".player-toolbar")).toHaveClass(/is-visible/u);
+  await expect(page.locator(".player-toolbar")).not.toHaveAttribute("inert", "");
+  await expect(page.getByRole("button", {name: "暂停", exact: true})).toHaveAttribute("aria-pressed", "true");
+  await expect(menu.getByRole("menuitem", {name: "退出游戏", exact: true})).toBeInViewport();
+  await page.screenshot({path: info.outputPath(`player-menu-${label}.png`)});
+  const close = menu.getByRole("button", {name: "关闭更多操作", exact: true});
+  if (await close.isVisible()) {await close.click();}
+  else {await page.getByRole("button", {name: "更多操作", exact: true}).click();}
 }
 
 export async function verifyRPGEntrySelection(page: Page, info: TestInfo) {

@@ -151,3 +151,17 @@ it("preserves a failed automatic commit and shows recovery, then confirms a manu
   expect(p.records.size).toBe(0);
   expect(p.writes[1].metadata).toEqual(p.writes[0].metadata);
 });
+
+it("keeps an open desktop menu reachable after the pointer leaves the toolbar", async () => {
+  const p = await player();
+  fireEvent.pointerEnter(p.toolbar());
+  const more = screen.getByRole("button", {name: "更多操作"});
+  await act(async () => {fireEvent.click(more);});
+  fireEvent.pointerLeave(p.toolbar());
+  expect(p.toolbar()).toHaveClass("is-visible");
+  expect(p.toolbar()).not.toHaveAttribute("inert");
+  expect(screen.getByRole("menuitem", {name: "退出游戏"})).toBeEnabled();
+  await act(async () => {fireEvent.click(more);});
+  expect(screen.queryByRole("menu")).toBeNull();
+  expect(p.toolbar()).not.toHaveClass("is-visible");
+});

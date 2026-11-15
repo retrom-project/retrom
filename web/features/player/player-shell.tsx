@@ -197,7 +197,7 @@ function PlayerContent({
   const overlays = playerOverlayState({ exit, menu, saveChoice, stickNotice: stick.dialog.open, settings, debugOpen, editor, orientationBlocked: orientation.blocked });
   const orientationPause = useOrientationPause(runtime, state, orientation.blocked, overlays.pinned || saves.busy, reportError);
   const surface = usePlayerSurfacePause(runtime, !desktopPointer || orientation.blocked, orientationPause.manualPause, reportError);
-  const hud = usePlayerHud(state, playerHudPinned(desktopPointer, overlays, settings.open), desktopPointer);
+  const hud = usePlayerHud(state, playerHudPinned(desktopPointer, overlays, settings.open, menu), desktopPointer);
   function resumeFromSurface() {
     setMenu(false);
     hud.hide();
@@ -338,8 +338,8 @@ function readyRuntime(instance: PlayerRuntimeV1 | null) {
     : null;
 }
 
-function playerHudPinned(desktopPointer: boolean, overlays: {dialogOpen: boolean; pinned: boolean}, settingsOpen: boolean) {
-  return desktopPointer ? overlays.dialogOpen || settingsOpen : overlays.pinned;
+function playerHudPinned(desktopPointer: boolean, overlays: {dialogOpen: boolean; pinned: boolean}, settingsOpen: boolean, menuOpen: boolean) {
+  return desktopPointer ? overlays.dialogOpen || settingsOpen || menuOpen : overlays.pinned;
 }
 
 /** Non-blocking: input still reaches the game, which continues once the network returns. */
