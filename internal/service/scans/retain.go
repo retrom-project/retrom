@@ -11,7 +11,8 @@ import (
 // entry with ROM-set facts and is configured again from the new files.
 var retainedEntryKinds = map[string]bool{
 	"SINGLE_FILE": true, "ONS_PROJECT": true, "KIRIKIRI_PROJECT": true, "BUTTERSCOTCH_PROJECT": true,
-	"TYRANOSCRIPT_PROJECT": true, "NXENGINE_PROJECT": true, "DAPHNE_PROJECT": true, "SIGLUS_PROJECT": true,
+	"TYRANOSCRIPT_PROJECT": true, "NXENGINE_PROJECT": true, "DAPHNE_PROJECT": true,
+	"BGI_PROJECT": true, "SIGLUS_PROJECT": true,
 }
 
 type rawObject = map[string]json.RawMessage
